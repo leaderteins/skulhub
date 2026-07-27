@@ -1,6 +1,7 @@
 'use client'
 import { useAppStore } from '@/lib/store'
-import { Menu, Search, Bell, Moon, Sun, Calendar, ChevronDown, Command } from 'lucide-react'
+import { useAuthStore, ROLE_INFO } from '@/lib/auth-store'
+import { Menu, Search, Bell, Moon, Sun, Calendar, ChevronDown, Command, Clock, LogOut, User as UserIcon, Settings as SettingsIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
+import { cn } from '@/lib/utils'
 
 const TITLES: Record<string, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'School-wide overview & key metrics' },
@@ -37,20 +39,24 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
 
 export function Header() {
   const { activeModule, toggleSidebar, setCommandPaletteOpen } = useAppStore()
+  const { user, logout } = useAuthStore()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
-  const [today, setToday] = useState('')
+  const [now, setNow] = useState(new Date())
 
+  // Live clock — updates every second
   useEffect(() => {
-    // use rAF to defer state updates out of the synchronous effect body
-    const id = requestAnimationFrame(() => {
-      setMounted(true)
-      setToday(new Date().toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))
-    })
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Mount flag for theme
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true))
     return () => cancelAnimationFrame(id)
   }, [])
 
-  // Global ⌘K / Ctrl+K shortcut to open command palette
+  // Global ⌘K / Ctrl+K shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -63,6 +69,9 @@ export function Header() {
   }, [setCommandPaletteOpen])
 
   const meta = TITLES[activeModule] || TITLES.dashboard
+  const roleInfo = user ? ROLE_INFO[user.role] : null
+  const timeStr = now.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+  const dateStr = now.toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md md:px-6">
@@ -81,7 +90,7 @@ export function Header() {
         <p className="hidden truncate text-xs text-muted-foreground sm:block">{meta.subtitle}</p>
       </div>
 
-      {/* Search — opens command palette */}
+      {/* Search */}
       <button
         onClick={() => setCommandPaletteOpen(true)}
         className="relative hidden items-center gap-2 rounded-lg border border-input bg-muted/30 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted md:flex md:w-56 lg:w-72"
@@ -94,10 +103,16 @@ export function Header() {
         </kbd>
       </button>
 
-      {/* Date */}
-      <div className="hidden items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground xl:flex">
-        <Calendar className="h-3.5 w-3.5" />
-        <span>{today}</span>
+      {/* Live clock + date */}
+      <div className="hidden items-center gap-2.5 rounded-lg border bg-gradient-to-r from-emerald-50/50 to-teal-50/50 px-3 py-1.5 dark:from-emerald-950/20 dark:to-teal-950/20 md:flex">
+        <div className="flex items-center gap-1.5 border-r pr-2.5 text-emerald-600 dark:text-emerald-400">
+          <Clock className="h-3.5 w-3.5" />
+          <span className="font-mono text-sm font-semibold tabular-nums">{timeStr}</span>
+        </div>
+        <div className="hidden items-center gap-1.5 text-xs font-medium text-muted-foreground xl:flex">
+          <Calendar className="h-3.5 w-3.5" />
+          <span>{dateStr}</span>
+        </div>
       </div>
 
       {/* Theme toggle */}
@@ -146,32 +161,47 @@ export function Header() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* User */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 rounded-lg p-1 pr-2 transition-colors hover:bg-muted">
-            <Avatar className="h-8 w-8 border-2 border-emerald-500/20">
-              <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-semibold text-white">
-                JA
-              </AvatarFallback>
-            </Avatar>
-            <div className="hidden text-left sm:block">
-              <div className="text-xs font-semibold leading-tight">James Atito</div>
-              <div className="text-[10px] text-muted-foreground">Principal</div>
-            </div>
-            <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuLabel>My Account</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>Profile</DropdownMenuItem>
-          <DropdownMenuItem>Settings</DropdownMenuItem>
-          <DropdownMenuItem>Help & Support</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-rose-600 focus:text-rose-600">Sign out</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* User — dynamic from auth store */}
+      {user && roleInfo && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 rounded-lg p-1 pr-2 transition-colors hover:bg-muted">
+              <Avatar className="h-8 w-8 border-2 border-emerald-500/20">
+                <AvatarFallback className={cn('bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-semibold text-white')}>
+                  {user.avatar}
+                </AvatarFallback>
+              </Avatar>
+              <div className="hidden text-left sm:block">
+                <div className="text-xs font-semibold leading-tight">{user.name}</div>
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <span>{roleInfo.icon}</span>
+                  <span>{roleInfo.label}</span>
+                </div>
+              </div>
+              <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-semibold">{user.name}</span>
+                <span className="text-xs font-normal text-muted-foreground">{user.email}</span>
+                <Badge variant="outline" className={cn('mt-1 w-fit text-[10px]', roleInfo.bg, roleInfo.color)}>
+                  {roleInfo.icon} {roleInfo.label}
+                </Badge>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem><UserIcon className="mr-2 h-4 w-4" /> My Profile</DropdownMenuItem>
+            <DropdownMenuItem><SettingsIcon className="mr-2 h-4 w-4" /> Settings</DropdownMenuItem>
+            <DropdownMenuItem>Help & Support</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-rose-600 focus:text-rose-600" onClick={logout}>
+              <LogOut className="mr-2 h-4 w-4" /> Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </header>
   )
 }

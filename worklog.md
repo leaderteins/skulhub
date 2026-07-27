@@ -1443,3 +1443,66 @@ Stage Summary:
 - Added 3 new API routes (budgets CRUD, expense DELETE, enhanced expenses GET)
 - Added Budget Prisma model + seeded 6 budget records
 - All 5 Finance tabs verified working, lint clean
+
+---
+Task ID: 26 (user-requested: auth system, auto-fill, clock)
+Agent: Main
+Task: Fix Zap HMR error + build login system with role-based access + auto-fill author + live clock
+
+FIXES:
+1. Fixed "Zap icon module factory not available" HMR error by restarting dev server
+2. Clarified MetaMask error is from browser extension, not the app
+
+NEW FEATURE 1: Login System with Role-Based Access Control
+- Created src/lib/auth-store.ts with Zustand + persist middleware
+- 7 user roles: admin, principal, bursar, teacher, librarian, nurse, admissions
+- Each role has module access permissions (MODULE_ACCESS mapping):
+  * admin/principal: ALL 21 modules
+  * bursar: dashboard, students, finance, reports, settings (5 modules)
+  * teacher: dashboard, students, academics, attendance, exams, reportcards,
+    events, discipline, settings (9 modules)
+  * librarian: dashboard, students, library, settings (4 modules)
+  * nurse: dashboard, students, health, settings (4 modules)
+  * admissions: dashboard, admissions, students, settings (4 modules)
+- 7 demo users with credentials (admin@edumanage.ac.ke / admin123, etc.)
+- Created src/components/auth/login-form.tsx:
+  * Split-screen branding + login card
+  * Email/password form with show/hide password toggle
+  * Quick login buttons for each role (click to instantly sign in)
+  * Role badges with icons (👑 admin, 🎓 principal, 💰 bursar, 📚 teacher, etc.)
+- Updated page.tsx to show LoginForm if not authenticated
+- Updated Sidebar to filter nav items by user role (visibleNav)
+- Updated Command Palette to filter nav items by role
+- Access restricted page shown if user navigates to unauthorized module
+- Logout button in sidebar footer + header user dropdown
+
+NEW FEATURE 2: Auto-fill Current User as Author
+- Communications module: authorName auto-filled from logged-in user, read-only
+  with "Auto-filled from your account" hint
+- Health module: LogVisitDialog attendedBy auto-filled from user name
+- Discipline module: AddIncidentDialog reportedBy auto-filled from user name
+- No more manually entering author/reporter names when logged in
+
+NEW FEATURE 3: Live Clock on Dashboard/Header
+- Added live clock to header (updates every second)
+- Shows time (HH:MM:SS AM/PM) with clock icon in emerald gradient
+- Shows full date (weekday, month, day, year) on xl screens
+- Monospace font with tabular-nums for stable digit width
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested:
+  * Login page renders with 7 quick-login role buttons
+  * Admin login: 21 nav items visible, dashboard loads, clock shows "07:50:37 pm"
+  * Librarian login: only 4 nav items (Dashboard, Students, Library, Settings),
+    Finance hidden — role-based access working
+  * Logout works from both sidebar footer and header dropdown
+  * Communications author field auto-filled with "James Atito", readOnly=true
+  * All core modules (Dashboard, Communications, Finance, Students, Settings) pass QA
+
+Stage Summary:
+- Built complete auth system with 7 roles and role-based module access
+- Auto-fills current user as author/reporter in Communications, Health, Discipline
+- Added live clock with seconds to header
+- Fixed HMR error
+- All features lint-clean and verified working

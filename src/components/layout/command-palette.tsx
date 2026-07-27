@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { avatarColor, initials } from '@/lib/format'
+import { useAuthStore } from '@/lib/auth-store'
 
 interface SearchResult {
   students: Array<{ id: string; admissionNo: string; firstName: string; lastName: string; gender: string; stream?: string; classLevel?: string }>
@@ -47,9 +48,13 @@ const NAV_ITEMS: Array<{ key: ModuleKey; label: string; icon: any; group: string
 
 export function CommandPalette() {
   const { commandPaletteOpen, setCommandPaletteOpen, setActiveModule } = useAppStore()
+  const { hasAccess } = useAuthStore()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult | null>(null)
   const [searching, setSearching] = useState(false)
+
+  // Filter nav items by user role
+  const visibleNavItems = NAV_ITEMS.filter(item => hasAccess(item.key))
 
   const runSearch = useCallback(async (q: string) => {
     if (q.trim().length < 2) { setResults(null); return }
@@ -113,7 +118,7 @@ export function CommandPalette() {
 
         {/* Navigation */}
         <CommandGroup heading="Navigation" className="[&_[cmdk-group-heading]]:text-emerald-700 dark:[&_[cmdk-group-heading]]:text-emerald-400">
-          {NAV_ITEMS.map(item => {
+          {visibleNavItems.map(item => {
             const Icon = item.icon
             return (
               <CommandItem key={item.key} value={`${item.label} nav ${item.group}`} onSelect={() => goTo(item.key)} className="gap-2.5">

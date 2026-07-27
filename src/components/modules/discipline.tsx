@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useFetch, apiPut } from '@/lib/api'
+import { useAuthStore } from '@/lib/auth-store'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -563,11 +564,12 @@ function IncidentDetailDialog({ incidentId, onClose }: { incidentId: string; onC
 // Add Incident Dialog
 // ---------------------------------------------------------------------------
 function AddIncidentDialog({ onClose }: { onClose: () => void }) {
+  const { user } = useAuthStore()
   const [studentSearch, setStudentSearch] = useState('')
   const [studentId, setStudentId] = useState('')
   const [form, setForm] = useState({
     category: 'Misconduct', severity: 'Minor', location: 'Classroom', description: '',
-    reportedBy: '', witnesses: '', date: '',
+    reportedBy: user?.name || '', witnesses: '', date: '',
   })
   const [saving, setSaving] = useState(false)
 

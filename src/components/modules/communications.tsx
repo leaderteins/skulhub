@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useFetch, apiPost, apiPut, apiDelete } from '@/lib/api'
+import { useAuthStore } from '@/lib/auth-store'
 import {
   cn, timeAgo, statusColor, priorityColor,
 } from '@/lib/format'
@@ -94,12 +95,13 @@ export function CommunicationsModule() {
   const [editOpen, setEditOpen] = useState(false)
 
   // Composer state
+  const { user } = useAuthStore()
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [audience, setAudience] = useState<string>('All')
   const [priority, setPriority] = useState<string>('Normal')
   const [pinned, setPinned] = useState(false)
-  const [authorName, setAuthorName] = useState('')
+  const [authorName, setAuthorName] = useState(user?.name || '')
   const [publishing, setPublishing] = useState(false)
 
   const announcements = data?.announcements ?? []
@@ -300,13 +302,16 @@ export function CommunicationsModule() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="ann-author" className="text-xs">Author (optional)</Label>
+                  <Label htmlFor="ann-author" className="text-xs">Author</Label>
                   <Input
                     id="ann-author"
-                    placeholder="e.g. Principal"
+                    placeholder="Author name"
                     value={authorName}
                     onChange={(e) => setAuthorName(e.target.value)}
+                    className="bg-muted/40"
+                    readOnly={!!user}
                   />
+                  {user && <p className="text-[10px] text-muted-foreground">Auto-filled from your account</p>}
                 </div>
               </div>
               <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">

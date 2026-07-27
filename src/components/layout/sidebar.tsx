@@ -1,10 +1,12 @@
 'use client'
 import { useAppStore, type ModuleKey } from '@/lib/store'
+import { useAuthStore, ROLE_INFO } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
   Wallet, Megaphone, Library, Bus, BarChart3, Settings, X,
   School, ChevronRight, FileText, HeartPulse, UsersRound, ClipboardList, CalendarDays, Scale, Home, Package, UtensilsCrossed, ClipboardCheck,
+  LogOut,
 } from 'lucide-react'
 
 interface NavItem {
@@ -40,8 +42,12 @@ const NAV: NavItem[] = [
 
 export function Sidebar() {
   const { activeModule, setActiveModule, sidebarOpen, setSidebarOpen } = useAppStore()
+  const { user, hasAccess, logout } = useAuthStore()
 
-  const groups = Array.from(new Set(NAV.map(n => n.group)))
+  // Filter nav items by user role
+  const visibleNav = user ? NAV.filter(n => hasAccess(n.key)) : NAV
+
+  const groups = Array.from(new Set(visibleNav.map(n => n.group)))
 
   return (
     <>
@@ -85,7 +91,7 @@ export function Sidebar() {
                 {group}
               </div>
               <div className="space-y-0.5">
-                {NAV.filter(n => n.group === group).map((item) => {
+                {visibleNav.filter(n => n.group === group).map((item) => {
                   const Icon = item.icon
                   const active = activeModule === item.key
                   return (
@@ -110,7 +116,7 @@ export function Sidebar() {
           ))}
         </nav>
 
-        {/* Footer card */}
+        {/* Footer card — current user + logout */}
         <div className="border-t border-sidebar-border p-3">
           <div className="rounded-xl bg-sidebar-accent/60 p-3.5">
             <div className="flex items-center gap-2.5">
@@ -123,6 +129,21 @@ export function Sidebar() {
               </div>
             </div>
           </div>
+          {user && (
+            <button
+              onClick={() => { logout(); setSidebarOpen(false) }}
+              className="mt-2 flex w-full items-center gap-2.5 rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-2.5 text-left transition-colors hover:bg-sidebar-accent/60"
+            >
+              <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-semibold text-white')}>
+                {user.avatar}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-white">{user.name}</p>
+                <p className="truncate text-[10px] text-sidebar-foreground/60">{ROLE_INFO[user.role]?.label}</p>
+              </div>
+              <LogOut className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/60" />
+            </button>
+          )}
         </div>
       </aside>
     </>

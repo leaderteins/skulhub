@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useFetch, apiPost } from '@/lib/api'
+import { useAuthStore } from '@/lib/auth-store'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -441,11 +442,12 @@ function StudentMedicalDialog({ studentId, onClose }: { studentId: string; onClo
 // Log Visit Dialog
 // ---------------------------------------------------------------------------
 function LogVisitDialog({ onClose }: { onClose: () => void }) {
+  const { user } = useAuthStore()
   const [studentSearch, setStudentSearch] = useState('')
   const [studentId, setStudentId] = useState('')
   const [form, setForm] = useState({
     complaint: '', diagnosis: '', treatment: '', prescription: '',
-    temperature: '', bloodPressure: '', severity: 'Mild', attendedBy: '',
+    temperature: '', bloodPressure: '', severity: 'Mild', attendedBy: user?.name || 'School Nurse',
     referredTo: '', status: 'Treated', followUpDate: '',
   })
   const [saving, setSaving] = useState(false)
