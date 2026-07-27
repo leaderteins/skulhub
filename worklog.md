@@ -1044,3 +1044,61 @@ Stage Summary:
 - Added 2 API routes (/api/admissions, /api/admissions/[id])
 - Kanban + List dual-view with full CRUD and status workflow management
 - Project now has 15 modules total, all lint-clean and verified working
+
+---
+Task ID: 19 (cron review round 5)
+Agent: Main (web dev review)
+Task: QA testing and Events & Activities module
+
+Work Log:
+- Reviewed worklog.md — confirmed 15 modules from prior rounds, all working
+- Performed QA via agent-browser across all 15 modules — all rendered without errors
+- Project was stable, proceeded to build new feature
+
+NEW FEATURE: Events & Activities module (16th module)
+- Added Prisma models: Event (title, description, category [Academic/Sports/Cultural/
+  Meeting/Trip/Holiday/Exam/General], startDate, endDate, allDay, location, organizer,
+  audience, status [Scheduled/Ongoing/Completed/Cancelled/Postponed], priority, color)
+  and EventParticipant (eventId, name, role [Organizer/Attendee/Volunteer/Facilitator],
+  status [Invited/Confirmed/Declined/Attended/Absent])
+- Seeded 18 events across 8 categories (5 Academic, 3 Cultural, 2 Sports, 2 Meeting,
+  1 Trip, 1 Holiday, 1 Exam, 3 General) + 101 participants via prisma/seed-events.ts.
+  Realistic Kenyan school events: PTC, Inter-House Athletics, KSEF, Drama Club,
+  Geography Field Trip to Menengai Crater, CBC Workshop, End Term Exams, Music Festival,
+  Community Service Day, Prize Giving Day, etc. Events span past (-5 days) to future (+55 days)
+- 2 API routes:
+  * /api/events (GET with category/status/audience/month/search filters + stats, byCategory,
+    byStatus, upcoming list; POST to create)
+  * /api/events/[id] (GET detail with participants, PUT to update, DELETE)
+- UI src/components/modules/events.tsx:
+  * Violet/purple gradient header banner with event count
+  * 4 stat cards (Total Events, Scheduled, This Week, Completed)
+  * Events by Category donut chart (8 category colors with icons)
+  * Upcoming Events list with date badges and category icons
+  * Filter bar (category, status) + Calendar/List view toggle
+  * CALENDAR VIEW: Full month calendar grid with prev/next/today navigation,
+    weekday headers, today highlight, color-coded event chips per day (max 3 + "N more"),
+    click event to open detail. Category-colored event buttons with time labels.
+  * LIST VIEW: Event cards with category icon, title, date/time, location, organizer,
+    participant count, audience badge, status badge
+  * Event Detail dialog: category icon header with status/priority/audience badges,
+    date/time + location + organizer + participant info grid, description banner,
+    participants list with role/status badges, action buttons (Mark Completed, Cancel,
+    Delete)
+  * New Event dialog: title, description, category select (auto-sets color), audience,
+    start/end datetime, all-day toggle, location, organizer, priority
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested all 16 modules: ALL OK (no errors)
+- Events module: 18 events, calendar view with month navigation working,
+  event detail dialog opens with full info (date, location, organizer, participants,
+  description), New Event dialog renders all fields
+- Dev server restarted after Prisma generate (per known issue)
+
+Stage Summary:
+- Added 16th module: Events & Activities (school calendar with month view)
+- Added 2 Prisma models (Event, EventParticipant) + seeded 18 events + 101 participants
+- Added 2 API routes (/api/events, /api/events/[id])
+- Full calendar grid + list dual-view with event CRUD and participant tracking
+- Project now has 16 modules total, all lint-clean and verified working

@@ -575,6 +575,41 @@ model Application {
 }
 
 // ---------------------------------------------------------------------------
+// Events & Activities (calendar, sports, clubs, trips, meetings)
+// ---------------------------------------------------------------------------
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String   @default("General") // "Academic" | "Sports" | "Cultural" | "Meeting" | "Trip" | "Holiday" | "Exam" | "General"
+  startDate   DateTime
+  endDate     DateTime?
+  allDay      Boolean  @default(false)
+  location    String?
+  organizer   String?
+  audience    String   @default("All") // "All" | "Students" | "Staff" | "Parents" | "Specific Class"
+  status      String   @default("Scheduled") // "Scheduled" | "Ongoing" | "Completed" | "Cancelled" | "Postponed"
+  priority    String   @default("Normal") // "Low" | "Normal" | "High"
+  color       String   @default("emerald") // theme color key for calendar display
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  participants EventParticipant[]
+}
+
+model EventParticipant {
+  id        String   @id @default(cuid())
+  eventId   String
+  name      String
+  role      String   @default("Attendee") // "Organizer" | "Attendee" | "Volunteer" | "Facilitator"
+  status    String   @default("Invited") // "Invited" | "Confirmed" | "Declined" | "Attended" | "Absent"
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
 // Activity log (audit trail)
 // ---------------------------------------------------------------------------
 

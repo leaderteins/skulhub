@@ -14,6 +14,7 @@ export type ModuleKey =
   | 'transport'
   | 'health'
   | 'alumni'
+  | 'events'
   | 'reportcards'
   | 'reports'
   | 'settings'
