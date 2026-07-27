@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { useFetch, apiPost } from '@/lib/api'
+import { useFetch, apiPost, apiDelete } from '@/lib/api'
 import {
   cn, formatKES, formatNumber, formatDate, formatDateTime, formatCompact,
   initials, avatarColor,
@@ -35,6 +35,7 @@ import {
   Eye, Calendar, Smartphone, ChevronRight, X, RefreshCw, Loader2,
   CheckCircle2, Clock, ShieldCheck, GraduationCap, Landmark, Banknote,
   CreditCard, BadgeDollarSign, CircleDollarSign, AlertCircle, BanknoteIcon,
+  Users, Zap, Wrench, Package, Bus, MoreHorizontal, Trash2, Target, Wallet2,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -134,7 +135,12 @@ interface ExpenseRow {
 interface ExpensesResponse {
   expenses: ExpenseRow[]
   total: number
+  totalCount: number
   byCategory: { category: string; total: number; count: number }[]
+  budgets: { category: string; budget: number; actual: number; variance: number; utilization: number; count: number }[]
+  monthlyTrend: { month: string; amount: number }[]
+  totalBudget: number
+  totalActual: number
 }
 
 interface ScholarshipRow {
@@ -184,6 +190,16 @@ const STATUS_OPTIONS = ['Unpaid', 'Partially Paid', 'Paid', 'Overdue', 'Cancelle
 const METHOD_OPTIONS = ['M-Pesa', 'Cash', 'Bank Transfer', 'Cheque', 'Card']
 const EXPENSE_CATEGORIES = ['Salaries', 'Utilities', 'Maintenance', 'Supplies', 'Transport', 'Other']
 const COVERAGE_OPTIONS = ['Full', 'Partial', 'Half']
+
+// Expense category metadata with icons, colors, and descriptions
+const EXPENSE_CATEGORY_META: Record<string, { icon: any; color: string; bg: string; text: string; desc: string }> = {
+  Salaries: { icon: Users, color: '#10b981', bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', desc: 'Staff salaries & wages' },
+  Utilities: { icon: Zap, color: '#06b6d4', bg: 'bg-cyan-500/10', text: 'text-cyan-600 dark:text-cyan-400', desc: 'Electricity, water, internet' },
+  Maintenance: { icon: Wrench, color: '#8b5cf6', bg: 'bg-violet-500/10', text: 'text-violet-600 dark:text-violet-400', desc: 'Repairs & servicing' },
+  Supplies: { icon: Package, color: '#f59e0b', bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', desc: 'Stationery & materials' },
+  Transport: { icon: Bus, color: '#ec4899', bg: 'bg-pink-500/10', text: 'text-pink-600 dark:text-pink-400', desc: 'Fuel & vehicle costs' },
+  Other: { icon: MoreHorizontal, color: '#64748b', bg: 'bg-slate-500/10', text: 'text-slate-600 dark:text-slate-400', desc: 'Miscellaneous' },
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1554,12 +1570,14 @@ function AddExpenseDialog({ open, onOpenChange, onCreated }: { open: boolean; on
     }
   }
 
+  const selectedMeta = EXPENSE_CATEGORY_META[category] || EXPENSE_CATEGORY_META.Other
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-400">
+            <span className={cn('flex h-7 w-7 items-center justify-center rounded-lg', selectedMeta.bg, selectedMeta.text)}>
               <Receipt className="h-4 w-4" />
             </span>
             Add Expense
@@ -1568,19 +1586,40 @@ function AddExpenseDialog({ open, onOpenChange, onCreated }: { open: boolean; on
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label>Category <span className="text-rose-500">*</span></Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
+          {/* Category selector with visual cards */}
+          <div>
+            <Label className="mb-2 block">Category <span className="text-rose-500">*</span></Label>
+            <div className="grid grid-cols-3 gap-2">
+              {EXPENSE_CATEGORIES.map(c => {
+                const meta = EXPENSE_CATEGORY_META[c] || EXPENSE_CATEGORY_META.Other
+                const Icon = meta.icon
+                const selected = category === c
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setCategory(c)}
+                    className={cn(
+                      'flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all',
+                      selected ? cn('border-2', meta.bg, meta.text) : 'border-border hover:bg-muted/50'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" style={{ color: meta.color }} />
+                    <span className="text-[10px] font-medium">{c}</span>
+                  </button>
+                )
+              })}
             </div>
+            <p className="mt-1.5 text-[10px] text-muted-foreground">{selectedMeta.desc}</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label htmlFor="exp-amount">Amount (KES) <span className="text-rose-500">*</span></Label>
               <Input id="exp-amount" type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="exp-date">Date</Label>
+              <Input id="exp-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
@@ -1592,10 +1631,6 @@ function AddExpenseDialog({ open, onOpenChange, onCreated }: { open: boolean; on
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="grid gap-2">
-              <Label htmlFor="exp-date">Date</Label>
-              <Input id="exp-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div className="grid gap-2">
               <Label>Payment Method</Label>
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1604,12 +1639,11 @@ function AddExpenseDialog({ open, onOpenChange, onCreated }: { open: boolean; on
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="exp-recipient">Recipient</Label>
-            <Input id="exp-recipient" value={recipient} onChange={(e) => setRecipient(e.target.value)}
-              placeholder="e.g. KPLC, Supplier Co., Staff Payroll" />
+            <div className="grid gap-2">
+              <Label htmlFor="exp-recipient">Recipient</Label>
+              <Input id="exp-recipient" value={recipient} onChange={(e) => setRecipient(e.target.value)}
+                placeholder="e.g. KPLC, Supplier Co., Staff Payroll" />
+            </div>
           </div>
         </div>
 
@@ -1628,11 +1662,15 @@ function AddExpenseDialog({ open, onOpenChange, onCreated }: { open: boolean; on
 
 function ExpensesTab() {
   const [category, setCategory] = useState('')
+  const [month, setMonth] = useState('')
   const [addOpen, setAddOpen] = useState(false)
+  const [budgetOpen, setBudgetOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [search, setSearch] = useState('')
 
   const params = new URLSearchParams()
   if (category) params.set('category', category)
+  if (month) params.set('month', month)
 
   const { data, loading, error, refetch } = useFetch<ExpensesResponse>(`/api/finance/expenses?${params.toString()}`, [refreshKey])
 
@@ -1641,107 +1679,363 @@ function ExpensesTab() {
     setRefreshKey(k => k + 1)
   }
 
-  const chartData = (data?.byCategory || []).map((c, i) => ({
-    name: c.category,
-    total: c.total,
-    fill: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
-  }))
+  const handleDelete = async (id: string) => {
+    try {
+      await apiDelete(`/api/finance/expenses/${id}`)
+      toast.success('Expense deleted')
+      onCreated()
+    } catch (e: any) {
+      toast.error('Failed to delete expense', { description: e?.message })
+    }
+  }
+
+  const filteredExpenses = (data?.expenses || []).filter(e =>
+    !search || e.description.toLowerCase().includes(search.toLowerCase()) || e.recipient.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const totalActual = data?.totalActual || 0
+  const totalBudget = data?.totalBudget || 0
+  const budgetUtilization = totalBudget > 0 ? Math.round((totalActual / totalBudget) * 100) : 0
 
   return (
     <div className="space-y-4">
-      {/* Filter bar + chart */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
+      {/* Budget vs Actual summary banner */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="stat-card">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Budget</p>
+                <p className="text-2xl font-bold text-emerald-600">{formatKES(totalBudget)}</p>
+              </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20">
+                <Target className="h-5 w-5" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="stat-card">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Actual Spent</p>
+                <p className="text-2xl font-bold text-violet-600">{formatKES(totalActual)}</p>
+              </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 ring-1 ring-violet-500/20">
+                <Receipt className="h-5 w-5" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="stat-card">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Remaining</p>
+                <p className={cn('text-2xl font-bold', totalBudget - totalActual < 0 ? 'text-rose-600' : 'text-teal-600')}>
+                  {formatKES(totalBudget - totalActual)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">{budgetUtilization}% utilized</p>
+              </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 ring-1 ring-teal-500/20">
+                <Wallet2 className="h-5 w-5" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Budget utilization progress */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2"><Target className="h-4 w-4 text-emerald-600" /> Budget Utilization</CardTitle>
+              <CardDescription>Term 1, 2025 — {budgetUtilization}% of budget spent</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setBudgetOpen(true)}>
+              <Target className="mr-1.5 h-3.5 w-3.5" /> Set Budgets
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(data?.budgets || []).map(b => {
+            const meta = EXPENSE_CATEGORY_META[b.category] || EXPENSE_CATEGORY_META.Other
+            const Icon = meta.icon
+            const overBudget = b.utilization > 100
+            return (
+              <div key={b.category} className="flex items-center gap-3">
+                <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', meta.bg, meta.text)}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="font-medium">{b.category}</span>
+                    <span className="text-muted-foreground">
+                      {formatKES(b.actual)} / {formatKES(b.budget)}
+                      <span className={cn('ml-1.5 font-semibold', overBudget ? 'text-rose-600' : b.utilization > 80 ? 'text-amber-600' : 'text-emerald-600')}>
+                        ({b.utilization}%)
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={cn('h-full rounded-full transition-all duration-500', overBudget ? 'bg-rose-500' : b.utilization > 80 ? 'bg-amber-500' : 'bg-emerald-500')}
+                      style={{ width: `${Math.min(100, b.utilization)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className={cn('shrink-0 text-right text-xs font-semibold', b.variance >= 0 ? 'text-emerald-600' : 'text-rose-600')}>
+                  {b.variance >= 0 ? '+' : ''}{formatCompact(b.variance)}
+                </div>
+              </div>
+            )
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Monthly trend + Category breakdown */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-              Expenses by Category
-            </CardTitle>
-            <CardDescription>
-              Total: {formatKES(data?.total || 0)}
-            </CardDescription>
+            <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4 text-violet-600" /> Monthly Expense Trend</CardTitle>
+            <CardDescription>Last 6 months</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-56 w-full" /> : chartData.length === 0 ? (
-              <p className="py-12 text-center text-sm text-muted-foreground">No expenses recorded</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0 0)" className="dark:stroke-slate-800" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11 }} stroke="oklch(0.5 0 0)" tickFormatter={(v) => formatCompact(v)} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="oklch(0.5 0 0)" width={80} />
-                  <Tooltip formatter={(v: number) => formatKES(v)} contentStyle={{ borderRadius: 8, border: '1px solid oklch(0.9 0 0)', fontSize: 12 }} />
-                  <Bar dataKey="total" radius={[0, 4, 4, 0]}>
-                    {chartData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                  </Bar>
+            {loading ? <Skeleton className="h-48 w-full" /> : (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={data?.monthlyTrend || []} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.01 150)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" tickFormatter={(v) => formatCompact(v)} />
+                  <Tooltip formatter={(v: number) => formatKES(v)} contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} cursor={{ fill: 'oklch(0.96 0.01 150)' }} />
+                  <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={50} fill="#8b5cf6" />
                 </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader className="pb-2">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle className="text-base">Expense Records</CardTitle>
-                <CardDescription>{(data?.expenses || []).length} records</CardDescription>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Select value={category} onValueChange={(v) => setCategory(v === 'all' ? '' : v)}>
-                  <SelectTrigger className="w-[150px]"><SelectValue placeholder="All categories" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
-                    {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button className="bg-violet-600 hover:bg-violet-700 text-white" onClick={() => setAddOpen(true)}>
-                  <Plus className="h-4 w-4" /> Add Expense
-                </Button>
-              </div>
-            </div>
+            <CardTitle className="text-base flex items-center gap-2"><Receipt className="h-4 w-4 text-violet-600" /> Expenses by Category</CardTitle>
+            <CardDescription>Total: {formatKES(data?.total || 0)}</CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
-            {error ? (
-              <div className="p-6"><EmptyState icon={AlertCircle} title="Failed to load expenses" description={error} action={<Button onClick={refetch} variant="outline">Retry</Button>} /></div>
-            ) : loading ? (
-              <div className="space-y-2 p-4">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
-            ) : (data?.expenses || []).length === 0 ? (
-              <div className="p-6"><EmptyState icon={Receipt} title="No expenses found" description="Adjust filters or add a new expense." /></div>
+          <CardContent>
+            {loading ? <Skeleton className="h-48 w-full" /> : (data?.byCategory || []).length === 0 ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">No expenses recorded</p>
             ) : (
-              <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-card z-10">
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="hidden md:table-cell">Method</TableHead>
-                      <TableHead className="hidden lg:table-cell">Recipient</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(data?.expenses || []).map(e => (
-                      <TableRow key={e.id} className="hover:bg-muted/40">
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(e.date)}</TableCell>
-                        <TableCell><Badge variant="outline" className="font-medium">{e.category}</Badge></TableCell>
-                        <TableCell className="text-sm max-w-[240px] truncate">{e.description}</TableCell>
-                        <TableCell className="text-right font-semibold text-violet-700 dark:text-violet-400 whitespace-nowrap">{formatKES(e.amount)}</TableCell>
-                        <TableCell className="hidden md:table-cell"><MethodBadge method={e.paymentMethod} /></TableCell>
-                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{e.recipient || '—'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={(data?.byCategory || []).map((c, i) => ({ name: c.category, total: c.total, fill: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }))} layout="vertical" margin={{ top: 0, right: 16, left: 8, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.01 150)" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" tickFormatter={(v) => formatCompact(v)} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" width={80} />
+                  <Tooltip formatter={(v: number) => formatKES(v)} contentStyle={{ borderRadius: 8, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} />
+                  <Bar dataKey="total" radius={[0, 4, 4, 0]}>
+                    {(data?.byCategory || []).map((_, i) => <Cell key={i} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
       </div>
 
+      {/* Expense records table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base">Expense Records</CardTitle>
+              <CardDescription>{filteredExpenses.length} of {data?.totalCount || 0} records · Total: {formatKES(data?.total || 0)}</CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search..."
+                  className="w-40 pl-9"
+                />
+              </div>
+              <Select value={category} onValueChange={(v) => setCategory(v === 'all' ? '' : v)}>
+                <SelectTrigger className="w-[150px]"><SelectValue placeholder="All categories" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={month || 'all'} onValueChange={(v) => setMonth(v === 'all' ? '' : v)}>
+                <SelectTrigger className="w-[140px]"><SelectValue placeholder="All months" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All months</SelectItem>
+                  {Array.from({ length: 6 }).map((_, i) => {
+                    const d = new Date()
+                    d.setMonth(d.getMonth() - i)
+                    const val = d.toISOString().slice(0, 7)
+                    return <SelectItem key={val} value={val}>{d.toLocaleDateString('en-KE', { month: 'long', year: 'numeric' })}</SelectItem>
+                  })}
+                </SelectContent>
+              </Select>
+              <Button className="bg-violet-600 hover:bg-violet-700 text-white" onClick={() => setAddOpen(true)}>
+                <Plus className="h-4 w-4" /> Add Expense
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {error ? (
+            <div className="p-6"><EmptyState icon={AlertCircle} title="Failed to load expenses" description={error} action={<Button onClick={refetch} variant="outline">Retry</Button>} /></div>
+          ) : loading ? (
+            <div className="space-y-2 p-4">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+          ) : filteredExpenses.length === 0 ? (
+            <div className="p-6"><EmptyState icon={Receipt} title="No expenses found" description="Adjust filters or add a new expense." /></div>
+          ) : (
+            <div className="overflow-x-auto max-h-[420px] overflow-y-auto scrollbar-thin">
+              <Table>
+                <TableHeader className="sticky top-0 bg-card z-10">
+                  <TableRow>
+                    <TableHead className="text-xs">Date</TableHead>
+                    <TableHead className="text-xs">Category</TableHead>
+                    <TableHead className="text-xs">Description</TableHead>
+                    <TableHead className="text-right text-xs">Amount</TableHead>
+                    <TableHead className="hidden md:table-cell text-xs">Method</TableHead>
+                    <TableHead className="hidden lg:table-cell text-xs">Recipient</TableHead>
+                    <TableHead className="text-right text-xs"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredExpenses.map(e => {
+                    const meta = EXPENSE_CATEGORY_META[e.category] || EXPENSE_CATEGORY_META.Other
+                    const Icon = meta.icon
+                    return (
+                      <TableRow key={e.id} className="group hover:bg-muted/40">
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(e.date)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg', meta.bg, meta.text)}>
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+                            <span className="text-xs font-medium">{e.category}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[240px] truncate">{e.description}</TableCell>
+                        <TableCell className="text-right font-semibold text-violet-700 dark:text-violet-400 whitespace-nowrap">{formatKES(e.amount)}</TableCell>
+                        <TableCell className="hidden md:table-cell"><MethodBadge method={e.paymentMethod} /></TableCell>
+                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{e.recipient || '—'}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950"
+                            onClick={() => handleDelete(e.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <AddExpenseDialog open={addOpen} onOpenChange={setAddOpen} onCreated={onCreated} />
+      {budgetOpen && <SetBudgetDialog open={budgetOpen} onOpenChange={setBudgetOpen} onCreated={onCreated} />}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Set Budget Dialog
+// ---------------------------------------------------------------------------
+function SetBudgetDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated: () => void }) {
+  const [budgets, setBudgets] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      fetch('/api/finance/budgets')
+        .then(r => r.json())
+        .then(d => {
+          const map: Record<string, string> = {}
+          d.budgets.forEach((b: any) => { map[b.category] = String(b.amount) })
+          setBudgets(map)
+        })
+        .catch(() => {})
+    }
+  }, [open])
+
+  const handleSubmit = async () => {
+    setSaving(true)
+    try {
+      for (const [cat, amt] of Object.entries(budgets)) {
+        if (amt && parseFloat(amt) > 0) {
+          await apiPost('/api/finance/budgets', { category: cat, amount: parseFloat(amt) })
+        }
+      }
+      toast.success('Budgets updated successfully')
+      onOpenChange(false)
+      onCreated()
+    } catch (e: any) {
+      toast.error('Failed to update budgets', { description: e?.message })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+              <Target className="h-4 w-4" />
+            </span>
+            Set Category Budgets
+          </DialogTitle>
+          <DialogDescription>Allocate budget limits for each expense category (Term 1, 2025).</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          {EXPENSE_CATEGORIES.map(cat => {
+            const meta = EXPENSE_CATEGORY_META[cat] || EXPENSE_CATEGORY_META.Other
+            const Icon = meta.icon
+            return (
+              <div key={cat} className="flex items-center gap-3">
+                <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', meta.bg, meta.text)}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs font-medium">{cat}</Label>
+                  <p className="text-[10px] text-muted-foreground">{meta.desc}</p>
+                </div>
+                <div className="relative w-32">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Ksh</span>
+                  <Input
+                    type="number"
+                    value={budgets[cat] || ''}
+                    onChange={e => setBudgets({ ...budgets, [cat]: e.target.value })}
+                    className="pl-9"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
+            Save Budgets
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

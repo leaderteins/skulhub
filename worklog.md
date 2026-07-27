@@ -1383,3 +1383,63 @@ Stage Summary:
 - Full examination management with Bloom's taxonomy, difficulty levels, assessment types,
   and grading rubrics
 - Project now has 21 modules total, all lint-clean and verified working
+
+---
+Task ID: 25 (user-requested finance redesign)
+Agent: Main
+Task: Redesign Finance & Fees Expenses section + add new features
+
+USER ISSUE CLARIFICATION:
+- "Failed to connect to MetaMask" error is from the MetaMask browser extension
+  (chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn), NOT from EduManage Pro.
+  This is a crypto wallet extension injecting scripts into the page. Not an app bug.
+
+EXPENSES SECTION REDESIGN:
+1. Added Prisma model: Budget (category, amount, academicYear, term, notes) for
+   budget tracking per category
+2. Seeded 6 budget records (Salaries 3.2M, Utilities 180K, Maintenance 250K,
+   Supplies 320K, Transport 150K, Other 100K — total KES 4.2M) via seed-budgets.ts
+3. New API routes:
+   * /api/finance/budgets (GET list + POST upsert by category)
+   * /api/finance/expenses/[id] (DELETE expense)
+4. Enhanced /api/finance/expenses GET to return: monthlyTrend (6 months),
+   budgets (budget vs actual comparison with utilization %), totalBudget,
+   totalActual, totalCount
+5. Redesigned ExpensesTab UI:
+   * 3 summary cards: Total Budget (emerald), Actual Spent (violet), Remaining
+     (teal if positive, rose if over budget) with utilization %
+   * Budget Utilization card: per-category progress bars with color-coded
+     thresholds (green <80%, amber 80-100%, red >100%), category icons,
+     actual/budget amounts, variance indicators, "Set Budgets" button
+   * Monthly Expense Trend bar chart (6 months, violet bars)
+   * Expenses by Category horizontal bar chart
+   * Expense Records table with: category icon badges, search box, category
+     filter, month filter, hover-reveal delete buttons (trash icon)
+6. New SetBudgetDialog: visual category cards with icons + descriptions + KES
+   input fields, save all budgets at once
+7. Redesigned AddExpenseDialog: visual category selector grid (6 category cards
+   with icons and colors), dynamic description text, all form fields
+
+NEW FEATURES ADDED:
+- Budget tracking with category-level allocation
+- Budget vs actual comparison with variance and utilization %
+- Monthly expense trend visualization (6-month bar chart)
+- Expense delete capability (DELETE endpoint + UI trash button)
+- Search/filter for expenses (text search + category + month filters)
+- Visual category selector with icons (Users, Zap, Wrench, Package, Bus, MoreHorizontal)
+- Per-category icons and color coding throughout
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested all 5 Finance tabs: ALL OK
+- Expenses tab: 31 expenses, KES 4.2M budget, KES 18.8M actual, 448% utilization,
+  budget progress bars with color coding, monthly trend chart, category breakdown
+- Set Budgets dialog: all 6 categories with icons + descriptions + KES inputs
+- Add Expense dialog: visual category selector grid working with dynamic descriptions
+- 31 delete buttons present (hover-reveal)
+
+Stage Summary:
+- Redesigned Expenses section with budget tracking, trends, and visual category icons
+- Added 3 new API routes (budgets CRUD, expense DELETE, enhanced expenses GET)
+- Added Budget Prisma model + seeded 6 budget records
+- All 5 Finance tabs verified working, lint clean

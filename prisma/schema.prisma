@@ -353,6 +353,17 @@ model Expense {
   createdAt   DateTime @default(now())
 }
 
+model Budget {
+  id          String   @id @default(cuid())
+  category    String   @unique
+  amount      Float    // allocated budget for the term
+  academicYear String   @default("2025")
+  term        String   @default("Term 1")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 // ---------------------------------------------------------------------------
 // Communications
 // ---------------------------------------------------------------------------

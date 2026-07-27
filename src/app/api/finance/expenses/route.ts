@@ -3,17 +3,24 @@ import { db } from '@/lib/db'
 
 const CATEGORIES = ['Salaries', 'Utilities', 'Maintenance', 'Supplies', 'Transport', 'Other']
 
-// GET /api/finance/expenses?category=
-// Returns expenses with optional filter by category, plus a category summary.
+// GET /api/finance/expenses?category=&month=&limit=
+// Returns expenses + category summary + monthly trend + budget comparison
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const category = searchParams.get('category') || ''
+  const month = searchParams.get('month') // YYYY-MM
   const limit = Math.min(500, Math.max(1, parseInt(searchParams.get('limit') || '200', 10)))
 
   const where: any = {}
   if (category) where.category = category
+  if (month) {
+    const [y, m] = month.split('-').map(Number)
+    const start = new Date(y, m - 1, 1)
+    const end = new Date(y, m, 0, 23, 59, 59)
+    where.date = { gte: start, lte: end }
+  }
 
-  const [expenses, byCategoryAgg] = await Promise.all([
+  const [expenses, byCategoryAgg, budgets, monthlyTrend, totalCount] = await Promise.all([
     db.expense.findMany({
       where,
       orderBy: { date: 'desc' },
@@ -24,15 +31,50 @@ export async function GET(req: NextRequest) {
       _sum: { amount: true },
       _count: { _all: true },
     }),
+    db.budget.findMany(),
+    db.expense.findMany({
+      select: { date: true, amount: true, category: true },
+    }),
+    db.expense.count({ where }),
   ])
 
-  const byCategory = byCategoryAgg.map(g => ({
-    category: g.category,
-    total: g._sum.amount || 0,
-    count: g._count._all,
-  }))
+  // Build monthly trend (last 6 months)
+  const trendMap: Record<string, number> = {}
+  monthlyTrend.forEach(e => {
+    const key = new Date(e.date).toISOString().slice(0, 7)
+    trendMap[key] = (trendMap[key] || 0) + e.amount
+  })
+  const now = new Date()
+  const monthly = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const key = d.toISOString().slice(0, 7)
+    monthly.push({
+      month: d.toLocaleDateString('en-KE', { month: 'short', year: '2-digit' }),
+      amount: trendMap[key] || 0,
+    })
+  }
+
+  // Budget vs actual comparison
+  const budgetComparison = CATEGORIES.map(cat => {
+    const budget = budgets.find(b => b.category === cat)
+    const actual = byCategoryAgg.find(g => g.category === cat)
+    const budgetAmount = budget?.amount || 0
+    const actualAmount = actual?._sum.amount || 0
+    const variance = budgetAmount - actualAmount
+    const utilization = budgetAmount > 0 ? Math.round((actualAmount / budgetAmount) * 100) : 0
+    return {
+      category: cat,
+      budget: budgetAmount,
+      actual: actualAmount,
+      variance,
+      utilization,
+      count: actual?._count._all || 0,
+    }
+  })
 
   const total = expenses.reduce((s, e) => s + e.amount, 0)
+  const totalBudget = budgets.reduce((s, b) => s + b.amount, 0)
 
   return NextResponse.json({
     expenses: expenses.map(e => ({
@@ -45,7 +87,16 @@ export async function GET(req: NextRequest) {
       recipient: e.recipient || '',
     })),
     total,
-    byCategory,
+    totalCount,
+    byCategory: byCategoryAgg.map(g => ({
+      category: g.category,
+      total: g._sum.amount || 0,
+      count: g._count._all,
+    })),
+    budgets: budgetComparison,
+    monthlyTrend: monthly,
+    totalBudget,
+    totalActual: budgetComparison.reduce((s, b) => s + b.actual, 0),
   })
 }
 
