@@ -25,6 +25,7 @@ model ClassLevel {
   streams     Stream[]
   enrollments Enrollment[]
   subjects    SubjectAssignment[]
+  applications Application[]
 }
 
 model Stream {
@@ -532,6 +533,45 @@ model Donation {
   createdAt   DateTime @default(now())
 
   alumnus Alumnus @relation(fields: [alumnusId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Admissions & Applications (prospective students)
+// ---------------------------------------------------------------------------
+
+model Application {
+  id            String   @id @default(cuid())
+  applicantName String
+  email         String?
+  phone         String
+  gender        String   @default("Male")
+  dateOfBirth   DateTime?
+  previousSchool String?
+  appliedClassLevelId String?
+  appliedYear   String   @default("2025")
+  appliedTerm   String   @default("Term 1")
+  boarding      Boolean  @default(false)
+  guardianName  String
+  guardianPhone String
+  guardianEmail String?
+  guardianOccupation String?
+  county        String?
+  // Application metadata
+  applicationNo String   @unique
+  source        String   @default("Walk-in") // "Walk-in" | "Online" | "Referral" | "Transfer"
+  status        String   @default("Pending") // "Pending" | "Reviewing" | "Interview Scheduled" | "Accepted" | "Rejected" | "Enrolled" | "Waitlisted"
+  priority      String   @default("Normal") // "Low" | "Normal" | "High"
+  interviewDate DateTime?
+  interviewNotes String?
+  decisionDate  DateTime?
+  decisionBy    String?
+  rejectionReason String?
+  notes         String?
+  submittedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  appliedClassLevel ClassLevel? @relation(fields: [appliedClassLevelId], references: [id])
 }
 
 // ---------------------------------------------------------------------------

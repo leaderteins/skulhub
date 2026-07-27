@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react'
 
 const TITLES: Record<string, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'School-wide overview & key metrics' },
+  admissions: { title: 'Admissions', subtitle: 'Manage applications & enrollment pipeline' },
   students: { title: 'Students', subtitle: 'Manage admissions, profiles & enrollment' },
   staff: { title: 'Staff & Teachers', subtitle: 'Teaching and non-teaching personnel' },
   academics: { title: 'Academics', subtitle: 'Classes, subjects, exams & timetables' },

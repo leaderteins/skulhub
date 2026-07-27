@@ -5,6 +5,7 @@ import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { CommandPalette } from '@/components/layout/command-palette'
 import { DashboardModule } from '@/components/modules/dashboard'
+import { AdmissionsModule } from '@/components/modules/admissions'
 import { StudentsModule } from '@/components/modules/students'
 import { StaffModule } from '@/components/modules/staff'
 import { AlumniModule } from '@/components/modules/alumni'
@@ -29,6 +30,7 @@ export default function Home() {
         <Header />
         <main className="flex-1 overflow-x-hidden p-4 md:p-6">
           {activeModule === 'dashboard' && <DashboardModule />}
+          {activeModule === 'admissions' && <AdmissionsModule />}
           {activeModule === 'students' && <StudentsModule />}
           {activeModule === 'staff' && <StaffModule />}
           {activeModule === 'alumni' && <AlumniModule />}

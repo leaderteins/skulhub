@@ -981,3 +981,66 @@ Stage Summary:
 - Added 2 Prisma models (Alumnus, Donation) + seeded 135 alumni + 159 donations
 - Added 3 API routes (/api/alumni, /api/alumni/[id], /api/alumni/donations)
 - Project now has 14 modules total, all lint-clean and verified working
+
+---
+Task ID: 18 (cron review round 4)
+Agent: Main (web dev review)
+Task: QA testing and Admissions & Applications module
+
+Work Log:
+- Reviewed worklog.md — confirmed 14 modules from prior rounds, all working
+- Performed QA via agent-browser across all 14 modules — all rendered without errors
+- Used VLM (z-ai vision) for quick styling assessment — confirmed hover lift already
+  implemented (round 3); noted skeleton loading as future opportunity
+
+NEW FEATURE: Admissions & Applications module (15th module)
+- Added Prisma model: Application (applicantName, email, phone, gender, dateOfBirth,
+  previousSchool, appliedClassLevelId, appliedYear/Term, boarding, guardianName/
+  Phone/Email/Occupation, county, applicationNo, source [Walk-in/Online/Referral/
+  Transfer], status [Pending/Reviewing/Interview Scheduled/Accepted/Rejected/
+  Waitlisted/Enrolled], priority [Low/Normal/High], interviewDate/Notes, decisionDate/
+  By, rejectionReason, notes, submittedAt)
+- Seeded 48 applications with realistic status distribution (9 Pending, 4 Reviewing,
+  7 Interview Scheduled, 9 Accepted, 6 Rejected, 10 Waitlisted, 3 Enrolled) via
+  prisma/seed-applications.ts. Includes Kenyan counties, previous schools, guardian
+  occupations, and 90-day submission date spread
+- 2 API routes:
+  * /api/admissions (GET with search/status/source/priority/classLevel filters +
+    stats, byStatus, bySource, byPriority, upcomingInterviews; POST to create)
+  * /api/admissions/[id] (GET detail, PUT to update status/schedule interview/
+    make decision with auto decision metadata, DELETE)
+- UI src/components/modules/admissions.tsx:
+  * Cyan/teal/emerald gradient header banner with application count
+  * 4 stat cards (Total, Pending Review, Interviews Scheduled, Accepted/Enrolled)
+  * Application Pipeline donut chart (7 status colors)
+  * Applications by Source bar chart (Walk-in/Online/Referral/Transfer)
+  * Upcoming Interviews list with date badges and guardian contacts
+  * Filter bar (search, status, source, priority) + Kanban/List view toggle
+  * KANBAN VIEW: 6 columns (Pending, Reviewing, Interview Scheduled, Accepted,
+    Waitlisted, Rejected) with draggable-style cards showing applicant avatar,
+    application no, previous school, applied class, boarding/day, priority dot,
+    submission time. Column headers sticky with count badges.
+  * LIST VIEW: sortable table with applicant, class, guardian, source, priority,
+    status badges, submission time
+  * Application Detail dialog: applicant header with status/source/priority badges,
+    applicant card (DOB, previous school, applied class, county), guardian card,
+    interview info banner (if scheduled), decision banner (if decided, with
+    rejection reason for rejected), review actions panel with status update,
+    interview scheduling, accept/waitlist/reject buttons
+  * New Application dialog: 15+ fields (applicant, guardian, class selection,
+    source, priority, notes) with auto-generated application number
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested all 15 modules: ALL OK (no errors)
+- Admissions module: 48 applications, Kanban view with 6 columns working,
+  List view with 48 rows, Application detail dialog opens with full info,
+  New Application dialog renders all fields
+- Dev server restarted after Prisma generate (per known issue)
+
+Stage Summary:
+- Added 15th module: Admissions & Applications (prospective student pipeline)
+- Added 1 Prisma model (Application) + seeded 48 applications
+- Added 2 API routes (/api/admissions, /api/admissions/[id])
+- Kanban + List dual-view with full CRUD and status workflow management
+- Project now has 15 modules total, all lint-clean and verified working

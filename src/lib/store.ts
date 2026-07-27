@@ -3,6 +3,7 @@ import { create } from 'zustand'
 
 export type ModuleKey =
   | 'dashboard'
+  | 'admissions'
   | 'students'
   | 'staff'
   | 'academics'
