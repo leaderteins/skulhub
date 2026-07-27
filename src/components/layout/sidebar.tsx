@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
   Wallet, Megaphone, Library, Bus, BarChart3, Settings, X,
-  School, ChevronRight, FileText,
+  School, ChevronRight, FileText, HeartPulse,
 } from 'lucide-react'
 
 interface NavItem {
@@ -21,6 +21,7 @@ const NAV: NavItem[] = [
   { key: 'academics', label: 'Academics', icon: BookOpen, group: 'Academic' },
   { key: 'attendance', label: 'Attendance', icon: CalendarCheck, group: 'Academic' },
   { key: 'reportcards', label: 'Report Cards', icon: FileText, group: 'Academic' },
+  { key: 'health', label: 'Health & Wellness', icon: HeartPulse, group: 'Academic' },
   { key: 'finance', label: 'Finance & Fees', icon: Wallet, group: 'Administration' },
   { key: 'communications', label: 'Communications', icon: Megaphone, group: 'Administration' },
   { key: 'library', label: 'Library', icon: Library, group: 'Administration' },

@@ -186,8 +186,8 @@ export function DashboardModule() {
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" />
                 <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" />
                 <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} cursor={{ fill: 'oklch(0.96 0.01 150)' }} />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={60}>
-                  {studentsByLevel.map((_, i) => <Cell key={i} fill={['#10b981', '#14b8a6', '#0d9488', '#0ea5e9'][i % 4]} />)}
+                <Bar dataKey="count" radius={[8, 8, 0, 0]} maxBarSize={56}>
+                  {studentsByLevel.map((_, i) => <Cell key={i} fill={['#10b981', '#14b8a6', '#0d9488', '#059669'][i % 4]} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -200,29 +200,36 @@ export function DashboardModule() {
             <CardTitle className="text-base">Fee Collection Status</CardTitle>
             <CardDescription className="text-xs">Term 1, 2025</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             {finance.feeStats.map(f => {
               const pct = finance.totalBilled > 0 ? Math.round((f.amount / finance.totalBilled) * 100) : 0
+              const colorClass = f.status === 'Paid' ? 'bg-emerald-500' : f.status === 'Partially Paid' ? 'bg-amber-500' : f.status === 'Unpaid' ? 'bg-rose-500' : 'bg-slate-400'
               return (
-                <div key={f.status}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="font-medium">{f.status}</span>
-                    <span className="text-muted-foreground">{f.count} · {formatKES(f.amount)}</span>
+                <div key={f.status} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <span className={`h-2 w-2 rounded-full ${colorClass}`} />
+                      {f.status}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">{f.count} · {formatKES(f.amount)}</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="h-2.5 overflow-hidden rounded-full bg-muted">
                     <div
-                      className={`h-full rounded-full ${f.status === 'Paid' ? 'bg-emerald-500' : f.status === 'Partially Paid' ? 'bg-amber-500' : f.status === 'Unpaid' ? 'bg-rose-500' : 'bg-slate-400'}`}
+                      className={`h-full rounded-full transition-all duration-500 ${colorClass}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
                 </div>
               )
             })}
-            <div className="mt-3 rounded-lg bg-emerald-50 p-3 dark:bg-emerald-950/40">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-emerald-700 dark:text-emerald-400">Collected Today</span>
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">{formatKES(finance.todayCollection)}</span>
+            <div className="mt-2 flex items-center justify-between rounded-xl border border-emerald-200/50 bg-gradient-to-r from-emerald-50 to-teal-50 p-3.5 dark:border-emerald-900/50 dark:from-emerald-950/40 dark:to-teal-950/40">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600">
+                  <Banknote className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Collected Today</span>
               </div>
+              <span className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{formatKES(finance.todayCollection)}</span>
             </div>
           </CardContent>
         </Card>
@@ -397,13 +404,18 @@ export function DashboardModule() {
             })}
             <button
               onClick={() => setCommandPaletteOpen(true)}
-              className="col-span-2 flex items-center justify-between rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/40 p-3 text-left text-emerald-700 transition-all hover:bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400"
+              className="group col-span-2 flex items-center justify-between overflow-hidden rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 p-3.5 text-left text-white shadow-md shadow-emerald-500/20 transition-all hover:shadow-lg hover:shadow-emerald-500/30"
             >
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4" />
-                <span className="text-xs font-medium">Open Command Palette</span>
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20 backdrop-blur transition-transform group-hover:scale-110">
+                  <Sparkles className="h-3.5 w-3.5" />
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold">Search anything</span>
+                  <span className="block text-[10px] text-white/70">Students, staff, books & more</span>
+                </div>
               </div>
-              <kbd className="rounded border border-emerald-300 bg-background px-1.5 py-0.5 text-[10px] font-semibold dark:border-emerald-800">⌘K</kbd>
+              <kbd className="flex items-center gap-0.5 rounded-md border border-white/30 bg-white/15 px-2 py-1 text-[10px] font-semibold backdrop-blur">⌘K</kbd>
             </button>
           </CardContent>
         </Card>

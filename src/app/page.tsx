@@ -14,6 +14,7 @@ import { FinanceModule } from '@/components/modules/finance'
 import { CommunicationsModule } from '@/components/modules/communications'
 import { LibraryModule } from '@/components/modules/library'
 import { TransportModule } from '@/components/modules/transport'
+import { HealthModule } from '@/components/modules/health'
 import { ReportsModule } from '@/components/modules/reports'
 import { SettingsModule } from '@/components/modules/settings'
 
@@ -36,6 +37,7 @@ export default function Home() {
           {activeModule === 'communications' && <CommunicationsModule />}
           {activeModule === 'library' && <LibraryModule />}
           {activeModule === 'transport' && <TransportModule />}
+          {activeModule === 'health' && <HealthModule />}
           {activeModule === 'reports' && <ReportsModule />}
           {activeModule === 'settings' && <SettingsModule />}
         </main>

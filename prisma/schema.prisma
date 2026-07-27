@@ -156,6 +156,8 @@ model Student {
   grades      Grade[]
   invoices    Invoice[]
   bookLoans   BookLoan[]
+  medicalRecord MedicalRecord[]
+  clinicVisits ClinicVisit[]
   createdAt2  DateTime @default(now()) @map("created_at_2")
 
   @@index([lastName])
@@ -442,6 +444,52 @@ model Vehicle {
   createdAt     DateTime @default(now())
 
   route TransportRoute? @relation(fields: [assignedRouteId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Health & Wellness
+// ---------------------------------------------------------------------------
+
+model MedicalRecord {
+  id          String   @id @default(cuid())
+  studentId   String
+  bloodGroup  String?
+  heightCm    Float?
+  weightKg    Float?
+  allergies   String?  // comma-separated
+  conditions  String?  // chronic conditions: asthma, diabetes, etc.
+  medications String?  // current medications
+  immunization String? // immunization status
+  emergencyContact String?
+  emergencyPhone String?
+  notes       String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  student  Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  visits   ClinicVisit[]
+}
+
+model ClinicVisit {
+  id          String   @id @default(cuid())
+  studentId   String
+  medicalRecordId String?
+  visitDate   DateTime @default(now())
+  complaint   String   // presenting complaint
+  diagnosis   String?
+  treatment   String?
+  prescription String?
+  temperature Float?   // °C
+  bloodPressure String? // "120/80"
+  severity    String   @default("Mild") // "Mild" | "Moderate" | "Severe"
+  attendedBy  String?  // nurse/doctor name
+  referredTo  String?  // hospital if referred
+  followUpDate DateTime?
+  status      String   @default("Treated") // "Treated" | "Referred" | "Follow-up" | "Admitted"
+  createdAt   DateTime @default(now())
+
+  student Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  medicalRecord MedicalRecord? @relation(fields: [medicalRecordId], references: [id])
 }
 
 // ---------------------------------------------------------------------------

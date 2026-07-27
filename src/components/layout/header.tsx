@@ -18,6 +18,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   academics: { title: 'Academics', subtitle: 'Classes, subjects, exams & timetables' },
   attendance: { title: 'Attendance', subtitle: 'Daily attendance tracking & reports' },
   reportcards: { title: 'Report Cards', subtitle: 'Generate & print student term reports' },
+  health: { title: 'Health & Wellness', subtitle: 'Student medical records & clinic visits' },
   finance: { title: 'Finance & Fees', subtitle: 'Invoices, payments & expenses' },
   communications: { title: 'Communications', subtitle: 'Announcements & notifications' },
   library: { title: 'Library', subtitle: 'Books, borrowing & returns' },
