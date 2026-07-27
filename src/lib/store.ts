@@ -19,6 +19,7 @@ export type ModuleKey =
   | 'hostel'
   | 'inventory'
   | 'cafeteria'
+  | 'exams'
   | 'reportcards'
   | 'reports'
   | 'settings'

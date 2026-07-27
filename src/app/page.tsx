@@ -11,6 +11,7 @@ import { StaffModule } from '@/components/modules/staff'
 import { AlumniModule } from '@/components/modules/alumni'
 import { AcademicsModule } from '@/components/modules/academics'
 import { AttendanceModule } from '@/components/modules/attendance'
+import { ExamsModule } from '@/components/modules/exams'
 import { ReportCardsModule } from '@/components/modules/reportcards'
 import { FinanceModule } from '@/components/modules/finance'
 import { CommunicationsModule } from '@/components/modules/communications'
@@ -41,6 +42,7 @@ export default function Home() {
           {activeModule === 'alumni' && <AlumniModule />}
           {activeModule === 'academics' && <AcademicsModule />}
           {activeModule === 'attendance' && <AttendanceModule />}
+          {activeModule === 'exams' && <ExamsModule />}
           {activeModule === 'reportcards' && <ReportCardsModule />}
           {activeModule === 'finance' && <FinanceModule />}
           {activeModule === 'communications' && <CommunicationsModule />}

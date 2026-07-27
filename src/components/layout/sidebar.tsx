@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
   Wallet, Megaphone, Library, Bus, BarChart3, Settings, X,
-  School, ChevronRight, FileText, HeartPulse, UsersRound, ClipboardList, CalendarDays, Scale, Home, Package, UtensilsCrossed,
+  School, ChevronRight, FileText, HeartPulse, UsersRound, ClipboardList, CalendarDays, Scale, Home, Package, UtensilsCrossed, ClipboardCheck,
 } from 'lucide-react'
 
 interface NavItem {
@@ -22,6 +22,7 @@ const NAV: NavItem[] = [
   { key: 'alumni', label: 'Alumni Network', icon: UsersRound, group: 'People' },
   { key: 'academics', label: 'Academics', icon: BookOpen, group: 'Academic' },
   { key: 'attendance', label: 'Attendance', icon: CalendarCheck, group: 'Academic' },
+  { key: 'exams', label: 'Examinations', icon: ClipboardCheck, group: 'Academic' },
   { key: 'reportcards', label: 'Report Cards', icon: FileText, group: 'Academic' },
   { key: 'health', label: 'Health & Wellness', icon: HeartPulse, group: 'Academic' },
   { key: 'events', label: 'Events & Activities', icon: CalendarDays, group: 'Academic' },

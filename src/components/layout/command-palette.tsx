@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
   Wallet, Megaphone, Library, Bus, FileText, BarChart3, Settings,
-  Search, User, BookMarked, Megaphone as MegaphoneIcon, CornerDownLeft, HeartPulse, UsersRound, ClipboardList, CalendarDays, Scale, Home, Package, UtensilsCrossed,
+  Search, User, BookMarked, Megaphone as MegaphoneIcon, CornerDownLeft, HeartPulse, UsersRound, ClipboardList, CalendarDays, Scale, Home, Package, UtensilsCrossed, ClipboardCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { avatarColor, initials } from '@/lib/format'
@@ -29,10 +29,11 @@ const NAV_ITEMS: Array<{ key: ModuleKey; label: string; icon: any; group: string
   { key: 'alumni', label: 'Alumni Network', icon: UsersRound, group: 'Navigation', shortcut: 'G U' },
   { key: 'academics', label: 'Academics', icon: BookOpen, group: 'Navigation', shortcut: 'G A' },
   { key: 'attendance', label: 'Attendance', icon: CalendarCheck, group: 'Navigation', shortcut: 'G V' },
+  { key: 'exams', label: 'Examinations', icon: ClipboardCheck, group: 'Navigation', shortcut: 'G X' },
   { key: 'reportcards', label: 'Report Cards', icon: FileText, group: 'Navigation', shortcut: 'G R' },
   { key: 'health', label: 'Health & Wellness', icon: HeartPulse, group: 'Navigation', shortcut: 'G H' },
   { key: 'events', label: 'Events & Activities', icon: CalendarDays, group: 'Navigation', shortcut: 'G E' },
-  { key: 'discipline', label: 'Discipline & Behavior', icon: Scale, group: 'Navigation', shortcut: 'G X' },
+  { key: 'discipline', label: 'Discipline & Behavior', icon: Scale, group: 'Navigation', shortcut: 'G D' },
   { key: 'hostel', label: 'Hostel & Boarding', icon: Home, group: 'Navigation', shortcut: 'G O' },
   { key: 'finance', label: 'Finance & Fees', icon: Wallet, group: 'Navigation', shortcut: 'G F' },
   { key: 'communications', label: 'Communications', icon: Megaphone, group: 'Navigation', shortcut: 'G C' },

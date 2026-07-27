@@ -26,6 +26,7 @@ model ClassLevel {
   enrollments Enrollment[]
   subjects    SubjectAssignment[]
   applications Application[]
+  assessments Assessment[]
 }
 
 model Stream {
@@ -67,6 +68,8 @@ model Subject {
   assignments SubjectAssignment[]
   timetables  Timetable[]
   grades      Grade[]
+  questions   QuestionBank[]
+  assessments Assessment[]
 }
 
 // Which subject is taught in which class level
@@ -787,6 +790,51 @@ model MealAttendance {
   createdAt   DateTime @default(now())
 
   menu MealMenu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Examinations & Assessments (question banks, CATs, rubrics)
+// ---------------------------------------------------------------------------
+
+model QuestionBank {
+  id          String   @id @default(cuid())
+  subjectId   String?
+  subject     Subject? @relation(fields: [subjectId], references: [id])
+  question    String
+  questionType String  @default("Multiple Choice") // "Multiple Choice" | "True/False" | "Short Answer" | "Essay" | "Fill in the Blank"
+  options     String?  // JSON string for MC options
+  correctAnswer String?
+  marks       Int      @default(1)
+  difficulty  String   @default("Medium") // "Easy" | "Medium" | "Hard"
+  topic       String?  // sub-topic
+  bloomLevel  String?  // "Knowledge" | "Comprehension" | "Application" | "Analysis" | "Synthesis" | "Evaluation"
+  createdBy   String?
+  status      String   @default("Active") // "Active" | "Archived"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Assessment {
+  id          String   @id @default(cuid())
+  title       String
+  subjectId   String?
+  subject     Subject? @relation(fields: [subjectId], references: [id])
+  classLevelId String?
+  classLevel  ClassLevel? @relation(fields: [classLevelId], references: [id])
+  assessmentType String @default("CAT") // "CAT" | "Quiz" | "Assignment" | "Project" | "Mock" | "Practical"
+  term        String   @default("Term 1")
+  academicYear String  @default("2025")
+  totalMarks  Int      @default(100)
+  weight      Float    @default(0) // contribution to term grade (percentage)
+  duration    Int?     // in minutes
+  startDate   DateTime
+  endDate     DateTime?
+  status      String   @default("Draft") // "Draft" | "Published" | "Completed" | "Graded"
+  rubric      String?  // grading rubric notes
+  instructions String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------
