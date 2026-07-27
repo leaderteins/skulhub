@@ -1,8 +1,7 @@
 'use client'
 import { useAppStore } from '@/lib/store'
-import { Menu, Search, Bell, Moon, Sun, Calendar, ChevronDown } from 'lucide-react'
+import { Menu, Search, Bell, Moon, Sun, Calendar, ChevronDown, Command } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -18,6 +17,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   staff: { title: 'Staff & Teachers', subtitle: 'Teaching and non-teaching personnel' },
   academics: { title: 'Academics', subtitle: 'Classes, subjects, exams & timetables' },
   attendance: { title: 'Attendance', subtitle: 'Daily attendance tracking & reports' },
+  reportcards: { title: 'Report Cards', subtitle: 'Generate & print student term reports' },
   finance: { title: 'Finance & Fees', subtitle: 'Invoices, payments & expenses' },
   communications: { title: 'Communications', subtitle: 'Announcements & notifications' },
   library: { title: 'Library', subtitle: 'Books, borrowing & returns' },
@@ -27,7 +27,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
 }
 
 export function Header() {
-  const { activeModule, toggleSidebar } = useAppStore()
+  const { activeModule, toggleSidebar, setCommandPaletteOpen } = useAppStore()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [today, setToday] = useState('')
@@ -40,6 +40,18 @@ export function Header() {
     })
     return () => cancelAnimationFrame(id)
   }, [])
+
+  // Global ⌘K / Ctrl+K shortcut to open command palette
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setCommandPaletteOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [setCommandPaletteOpen])
 
   const meta = TITLES[activeModule] || TITLES.dashboard
 
@@ -60,17 +72,18 @@ export function Header() {
         <p className="hidden truncate text-xs text-muted-foreground sm:block">{meta.subtitle}</p>
       </div>
 
-      {/* Search */}
-      <div className="relative hidden md:block">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search students, staff..."
-          className="w-56 pl-9 lg:w-72"
-        />
-        <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 select-none rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground lg:inline-block">
-          ⌘K
+      {/* Search — opens command palette */}
+      <button
+        onClick={() => setCommandPaletteOpen(true)}
+        className="relative hidden items-center gap-2 rounded-lg border border-input bg-muted/30 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted md:flex md:w-56 lg:w-72"
+        aria-label="Open search"
+      >
+        <Search className="h-4 w-4 shrink-0" />
+        <span className="flex-1 text-left">Search students, staff…</span>
+        <kbd className="pointer-events-none hidden select-none items-center gap-0.5 rounded border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground lg:inline-flex">
+          <Command className="h-2.5 w-2.5" />K
         </kbd>
-      </div>
+      </button>
 
       {/* Date */}
       <div className="hidden items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground xl:flex">

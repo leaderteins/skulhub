@@ -1,0 +1,775 @@
+     1→# EduManage Pro — School/University Management System
+     2→
+     3→## Project Overview
+     4→Building a professional, world-class school/college/university management system
+     5→tailored for Kenyan use cases (CBC curriculum, KES currency, 3-term calendar,
+     6→M-Pesa-style payments, KCSE/KCPE tracking) and scalable worldwide.
+     7→
+     8→## Architecture
+     9→- **Frontend**: Next.js 16 App Router, single `/` route (SPA-style view switching via sidebar)
+    10→- **Styling**: Tailwind CSS 4 + shadcn/ui (New York), emerald/teal academic theme
+    11→- **Database**: Prisma + SQLite
+    12→- **State**: Zustand for active view, TanStack Query for server state
+    13→- **Real-time**: (future) socket.io mini-service for live announcements
+    14→
+    15→## Modules
+    16→1. Dashboard (stats, charts, calendar, recent activity)
+    17→2. Students (admissions, profiles, enrollment, guardians)
+    18→3. Staff (teachers & non-teaching, assignments, departments)
+    19→4. Academics (classes, subjects, timetable, exams, grades — CBC + 8-4-4)
+    20→5. Attendance (daily marking, reports, trends)
+    21→6. Finance (fee structure, invoices, M-Pesa payments, scholarships, expenses)
+    22→7. Communications (announcements, SMS/Email queue)
+    23→8. Library (books, borrowing/returns)
+    24→9. Transport (routes, vehicles, assignments)
+    25→10. Reports & Analytics
+    26→
+    27→---
+    28→Task ID: 1
+    29→Agent: Main (orchestrator)
+    30→Task: Design Prisma schema for the full school management system
+    31→
+    32→Work Log:
+    33→- Reviewed existing schema (User, Post only)
+    34→- Designed comprehensive schema: Student, Guardian, Staff, Department, ClassLevel,
+    35→  Stream, Subject, Enrollment, Timetable, Exam, Grade, Attendance, FeeStructure,
+    36→  Invoice, Payment, Scholarship, Announcement, LibraryBook, BookLoan, TransportRoute,
+    37→  Vehicle, ActivityLog
+    38→
+    39→Stage Summary:
+    40→- Schema ready to be written to prisma/schema.prisma and pushed to SQLite.
+    41→
+    42→---
+    43→Task ID: 7
+    44→Agent: Academics-module
+    45→Task: Build Academics module (API routes + UI with tabs) for EduManage Pro
+    46→
+    47→Work Log:
+    48→- Read worklog.md, schema.prisma, db.ts, format.ts, api.ts, shared.tsx, dashboard.tsx to understand conventions
+    49→- Discovered schema bug: `Stream.classTeacherId` had no relation field — added
+    50→  `classTeacher Staff? @relation("StreamClassTeacher", ...)` to Stream and
+    51→  back-reference `classTeacherOf Stream[]` on Staff. Ran `bun run db:push`
+    52→  (non-destructive, column already existed). Prisma Client regenerated.
+    53→- Built `src/app/api/academics/route.ts` (GET):
+    54→  * Returns class levels w/ streams + student counts + class teacher (via new relation)
+    55→  * Returns subjects w/ department + category counts (groupBy)
+    56→  * Returns exams list w/ grade counts
+    57→  * Summary stats: totalClassLevels, totalStreams, totalSubjects, totalExams,
+    58→    totalStudents, totalGrades, avgPerformance (avg marks across all grades)
+    59→- Built `src/app/api/academics/timetable/route.ts`:
+    60→  * GET ?streamId= → entries with subject + teacher (id, name, employeeNo)
+    61→  * POST creates entry (validates required fields, includes subject+teacher in response)
+    62→- Built `src/app/api/academics/grades/route.ts`:
+    63→  * GET ?examId=&streamId= → grade list with student + subject (capped at 500)
+    64→  * GET ?stats=true&examId=[&streamId=] → grade distribution (KCSE order
+    65→    A,A-,B+,B,B-,C+,C,C-,D+,D,D-,E), average marks, total points,
+    66→    subject performance (avg per subject), top 10 performers (rank, name,
+    67→    stream, mean marks, total points, mean grade computed from points)
+    68→- Built `src/components/modules/academics.tsx` ('use client') with 4 tabs:
+    69→  * Tab 1 Overview: 4 stat cards (Class Levels, Streams, Subjects, Exams),
+    70→    horizontal bar chart of subjects by category, list of class levels with
+    71→    streams + student counts + class teacher + capacity bar
+    72→  * Tab 2 Subjects: filterable/searchable table (code, name, department,
+    73→    category badge, classes assigned, timetable slots, grades recorded)
+    74→  * Tab 3 Timetable: stream selector (grouped by class level) + weekly grid
+    75→    (9 periods × 5 days, Mon–Fri). Color-coded cells (6-color palette:
+    76→    emerald/teal/amber/rose/cyan/violet) using `rounded-lg` + tinted bg +
+    77→    colored left border. Empty cells show "+ Add" button that POSTs to API.
+    78→    Subject legend card. Horizontally scrollable on mobile (min-w-[760px]).
+    79→  * Tab 4 Exams & Grades: exam cards (name, term, type, date range, grade count)
+    80→    → selected exam shows grade distribution bar chart (color per grade),
+    81→    top 10 performers list (rank badge, avatar, mean grade badge w/ gradeColor),
+    82→    subject performance table with progress bars, plus stream filter.
+    83→- Verified all 3 APIs with curl: 4 class levels / 8 streams / 13 subjects /
+    84→  1 exam / 3024 grades returned correctly. POST validation works. Tested
+    85→  with stream filter — grade stats correctly compute per-stream.
+    86→- Used `cn()`, sonner `toast`, existing shadcn components, lucide icons,
+    87→  recharts. Emerald/teal theme throughout, no indigo/blue. Mobile-first
+    88→  responsive (grid breakpoints, horizontal scroll for timetable & tables).
+    89→- Final lint: 0 errors in academics files. (Pre-existing lint errors in
+    90→  header.tsx, api.ts, seed.ts are not part of this task.)
+    91→
+    92→Stage Summary:
+    93→- Academics module fully functional with 4 tabs and 3 API routes.
+    94→- Fixed schema: added Stream.classTeacher relation (non-breaking, column
+    95→  already existed from seed).
+    96→- All APIs verified working with real seeded data.
+    97→- Files added:
+    98→  * src/app/api/academics/route.ts
+    99→  * src/app/api/academics/timetable/route.ts
+   100→  * src/app/api/academics/grades/route.ts
+   101→  * src/components/modules/academics.tsx
+   102→- Files modified:
+   103→  * prisma/schema.prisma (added Stream.classTeacher + Staff.classTeacherOf)
+   104→
+   105→---
+   106→Task ID: 5
+   107→Agent: Students Module Agent
+   108→Task: Build Students module (API routes + UI component) for EduManage Pro
+   109→
+   110→Work Log:
+   111→- Read worklog.md and reviewed project structure (Prisma schema, db.ts, format.ts,
+   112→  api.ts, shared.tsx, dashboard module for design reference).
+   113→- Created `src/app/api/students/route.ts`:
+   114→  - GET: paginated list with filters (search, classLevel, gender, status, boarding).
+   115→    Includes guardian + current enrollment (stream+classLevel). Returns
+   116→    `{ students, total, page, pageSize, stats, classLevels }` where stats has
+   117→    total/boarding/dayScholars/newThisTerm (unfiltered) and classLevels powers the
+   118→    class filter dropdown.
+   119→  - POST: create student. Validates required fields (admissionNo, firstName,
+   120→    lastName). Checks admissionNo uniqueness. Optionally creates a Guardian
+   121→    inline when `guardian` object is provided (no guardianId). Writes an
+   122→    ActivityLog entry. Returns 201 with created student + guardian.
+   123→- Created `src/app/api/students/[id]/route.ts`:
+   124→  - GET: full profile with guardian, enrollments (stream+classLevel), last-10
+   125→    attendance, last-10 grades (with subject+exam), invoices (with payments
+   126→    _count). Computes `feeSummary` (totalBilled, totalPaid, balance,
+   127→    invoiceCount, paymentsCount), `attendanceStats` (present/absent/late/total),
+   128→    and `currentEnrollment` (Active enrollment fallback to most recent).
+   129→  - PUT: partial update with admissionNo uniqueness check; only sets provided
+   130→    fields. Logs UPDATE activity.
+   131→  - DELETE: hard delete (cascade configured in Prisma schema). Logs DELETE
+   132→    activity. Returns 404 if not found.
+   133→- Created `src/components/modules/students.tsx` (StudentsModule client component):
+   134→  - Header with title + emerald "Admit Student" button.
+   135→  - Stat strip: Total Students, Boarding, Day Scholars, New This Term (StatCard).
+   136→  - Filter bar: debounced search input, class level select (from API), gender
+   137→    select, status select, boarding/day filter, Clear button when filters active.
+   138→  - Responsive table (overflow-x-auto on mobile) with: avatar+name+admissionNo,
+   139→    class/stream, gender, guardian phone, status badge (statusColor), boarding/day
+   140→    badge (BedDouble/Sun icon), View action. Click row or View button opens detail.
+   141→  - Pagination controls (Prev/Next + "Page X of Y" + range text).
+   142→  - Loading skeleton table rows; EmptyState for empty/error states.
+   143→  - AdmitDialog: form with auto-suggested admissionNo, all student fields
+   144→    (gender, DOB, phone, email, county select with 47 Kenyan counties, blood
+   145→    group select, status select), boarding Switch, optional guardian section
+   146→    (firstName, lastName, phone, email, relation, occupation). Submits via
+   147→    apiPost → sonner toast → refetch + close.
+   148→  - StudentDetailDialog: gradient emerald/teal/cyan header with avatar + name +
+   149→    admission badge + status badge. Body has: 3 fee mini-stats (billed/paid/
+   150→    balance), personal info card, guardian info card, enrollment history list,
+   151→    recent attendance list (with rate badge + colored status badges), recent
+   152→    grades list (with gradeColor badges), fee invoices list. Delete Student
+   153→    button in footer (with confirm) → apiDelete → toast → close + refetch.
+   154→- Ran `bun run lint` — no errors/warnings in my files. Pre-existing error in
+   155→  header.tsx and pre-existing warnings in api.ts/seed.ts are from other agents'
+   156→  code, not mine.
+   157→- Live-tested all 4 endpoints via curl:
+   158→  - GET /api/students?page=1&pageSize=2 → 200 with 252 students, stats
+   159→    {total:252, boarding:122, dayScholars:130, newThisTerm:0}, 4 class levels.
+   160→  - GET /api/students/{id} → 200 with full profile, feeSummary
+   161→    {totalBilled:51000, totalPaid:51000, balance:0, invoiceCount:1,
+   162→    paymentsCount:1}, attendanceStats {present:9, absent:1, late:0, total:10}.
+   163→  - POST /api/students → 201 with created student + inline guardian.
+   164→  - PUT /api/students/{id} → 200 with updated fields.
+   165→  - DELETE /api/students/{id} → 200 {success:true}; second DELETE → 404
+   166→    {error:"Student not found"}.
+   167→
+   168→Stage Summary:
+   169→- Students module is feature-complete: full CRUD API + polished, responsive UI
+   170→  with stat strip, filters, table, admit dialog, and rich detail dialog.
+   171→- Uses emerald/teal academic theme (no indigo/blue), sonner toasts, shadcn/ui
+   172→  components, lucide-react icons, avatarColor/statusColor/gradeColor helpers
+   173→  from format.ts.
+   174→- All endpoints tested live and working. Lint clean for my files.
+   175→- Ready to be wired into the main app shell (already imported by src/app/page.tsx).
+   176→
+   177→---
+   178→Task ID: 6
+   179→Agent: Staff Module Builder
+   180→Task: Build Staff & Teachers module (API routes + UI module)
+   181→
+   182→Work Log:
+   183→- Read worklog.md and existing infrastructure (db.ts, format.ts, api.ts, shared.tsx, dashboard module).
+   184→- Verified Prisma schema (Staff, Department, SubjectAssignment, Timetable, Attendance models).
+   185→- Confirmed DB has 58 staff + 7 departments seeded.
+   186→- Created `src/app/api/staff/route.ts`:
+   187→  * GET with filters: search, role, departmentId, status, employmentType.
+   188→  * Returns `{ staff, total, byDepartment, departments }` — staff include
+   189→    department + taughtSubjects (subject name/code + classLevel name).
+   190→  * `byDepartment` powers the donut chart; `departments` powers filter/form
+   191→    selects (no separate departments endpoint needed).
+   192→  * POST with uniqueness guards on employeeNo & email; activity-log entry.
+   193→- Created `src/app/api/staff/[id]/route.ts`:
+   194→  * GET returns full detail: department, taughtSubjects (subject+classLevel),
+   195→    last-10 attendance (with marker), full timetable (stream+subject),
+   196→    `timetableByDay` grouped Mon-Sun, `loadSummary`
+   197→    {totalLessons, totalPeriods, uniqueSubjects, uniqueClasses},
+   198→    `attendanceSummary` {recent, rate, totalRecords}.
+   199→  * PUT with uniqueness guards on update; activity-log entry.
+   200→  * DELETE gracefully detaches non-cascade relations (SubjectAssignment.teacherId,
+   201→    Timetable.teacherId, TransportRoute.driverId, Attendance staff/marker,
+   202→    Department.headId) before deleting; activity-log entry.
+   203→- Created `src/components/modules/staff.tsx` exporting `StaffModule` ('use client'):
+   204→  * Header (SectionHeader) + "Add Staff" button (emerald).
+   205→  * Stat strip: Total Staff, Teaching Staff, Support Staff, On Leave
+   206→    (computed client-side from filtered list).
+   207→  * Filter bar: search input (with clear), collapsible role/department/status/
+   208→    employmentType selects + active-filter chips + "Clear all".
+   209→  * Department distribution donut chart (recharts PieChart) with legend list.
+   210→  * Responsive card grid (1/2/3 cols) of staff cards: colored avatar (avatarColor),
+   211→    name, employeeNo, role badge (per-role color), department, specialization,
+   212→    email/phone, status badge, subjects + periods/wk mini-summary. Click → detail.
+   213→  * Detail dialog: large avatar + name + role + status; quick-stat tiles
+   214→    (subjects/classes/periods/lessons); Profile Information grid (10 fields);
+   215→    Subjects Taught chips; Weekly Timetable grouped by day; Recent Attendance
+   216→    with rate + last-10 records; Delete / Edit / Close actions.
+   217→  * Add-staff dialog (Dialog form) with all required fields; shared
+   218→    StaffFormFields component reused by Edit dialog.
+   219→  * Edit dialog — kept separate from Detail dialog (lifted to module level) to
+   220→    avoid Radix focus-trap conflicts; uses useFetch to load + useEffect to sync
+   221→    form state; saves via apiPut.
+   222→  * Loading skeletons for stat cards, donut, grid, detail dialog.
+   223→  * Toasts via sonner on success/error; uses cn, statusColor, fullName,
+   224→    initials, avatarColor, formatKES, formatDate.
+   225→  * Emerald/teal theme throughout, no indigo/blue, mobile-first responsive.
+   226→- Lint: `bunx eslint` on the 3 new files passes with 0 errors/warnings.
+   227→  (Pre-existing lint issues in header.tsx, api.ts, seed.ts are out of scope.)
+   228→- Verified live: `GET /api/staff?search=otieno` and
+   229→  `GET /api/staff?role=Teacher&departmentId=...` return correct filtered JSON;
+   230→  `GET /api/staff/{id}` returns full detail payload (visible in dev.log).
+   231→
+   232→Stage Summary:
+   233→- Staff module complete: 2 API route files + 1 module file (~900 LOC).
+   234→- Endpoints: GET (list+filter), POST (create), GET [id] (detail+summary),
+   235→  PUT [id] (update), DELETE [id] (with relation cleanup).
+   236→- UI: stat strip, filter bar with chips, donut chart, responsive card grid,
+   237→  add/edit dialogs with full form, rich detail dialog with timetable +
+   238→  attendance + load summary, loading skeletons, sonner toasts.
+   239→- Ready to be wired into the main `/` route (page.tsx already imports
+   240→  `StaffModule` from `@/components/modules/staff`).
+   241→
+   242→---
+   243→Task ID: 8
+   244→Agent: Attendance Builder
+   245→Task: Build Attendance API routes + AttendanceModule component
+   246→
+   247→Work Log:
+   248→- Read existing worklog, schema (Attendance/Student/Stream/Enrollment models), dashboard module pattern, format/api/shared helpers.
+   249→- Created `src/app/api/attendance/route.ts`:
+   250→  - GET `?date=&streamId=&personType=` → returns streams list (with filtered active-enrollment count via Prisma `_count.select.enrollments.where`), merged roster (active students enrolled in stream for 2025/Term 1 + their attendance status for the date, empty if unmarked), and a roster summary.
+   251→  - POST `{ date, streamId, records: [{ studentId, status, remarks? }] }` → upserts each record (findFirst by date-range → update or create), writes ActivityLog, returns `{ saved, date }`.
+   252→  - Date handling: range queries (`gte startOfDay / lte endOfDay`) to match seeded records with full timestamps; new records stored as midnight UTC.
+   253→- Created `src/app/api/attendance/stats/route.ts`:
+   254→  - GET `?from=&to=` (default last 30 days) → daily summary (present/absent/late/excused/sick/total/rate), overall range totals, today's totals, and per-stream today summary (enrolled, present, absent, late, excused, sick, unmarked, marked, rate). Rate = (present+late)/total.
+   255→- Created `src/components/modules/attendance.tsx` (`AttendanceModule`, 'use client'):
+   256→  - Emerald/teal/cyan gradient header banner with today's rate.
+   257→  - 4 StatCards: Today's Attendance Rate, Present Today, Absent Today, Late Today (from /api/attendance/stats).
+   258→  - Mark Attendance card: stream Select + native date Input (auto-picks first stream), live summary pills, Mark All Present + Clear Draft + Save Attendance (emerald) buttons, sticky-header table with avatars, color-coded status pill buttons (Present=emerald, Late=amber, Absent=rose, Excused=violet, Sick=cyan) with short codes on mobile, "Saved" badge for marked records, max-h-[34rem] scroll.
+   259→  - Trends row: Area chart (attendance rate, 30d) + stacked Bar chart (present/late/absent/excused/sick per day) with Legend.
+   260→  - Today's Attendance by Stream table: stream, enrolled, present, absent, late, rate (colored progress bar + threshold color).
+   261→  - 30-day overall footer cards.
+   262→- Fixed issues: removed non-existent `classTeacher` relation (schema only has `classTeacherId`) → resolved names via separate staff query; fixed `next.server` typo → `next/server`; removed unused `ScrollArea` import.
+   263→- Verified: `bun run lint` clean on all 3 files; `npx tsc --noEmit` clean for attendance files; live API tests confirmed GET roster (33 students, summary correct), GET stats (30-day days array), and POST upsert (existing record correctly updated Absent→Sick with remarks).
+   264→
+   265→Stage Summary:
+   266→- Attendance API (`/api/attendance`, `/api/attendance/stats`) and `AttendanceModule` component are complete, type-safe, lint-clean, and verified working against the seeded database. Module uses emerald/teal theme, color-coded status pills, recharts trends, and a responsive mobile-first layout. Ready for integration; page-level render pending sibling modules (finance/communications/library/transport/reports/settings) being built by other agents.
+   267→
+   268→---
+   269→Task ID: 10-11
+   270→Agent: Communications & Library Module Builder
+   271→Task: Build Communications module (announcements + SMS/email notifications) and
+   272→Library module (books + loans) — full API + UI components.
+   273→
+   274→Work Log:
+   275→- Read worklog.md to understand conventions (emerald/teal theme, shadcn/ui,
+   276→  cn/toast/format helpers, useFetch/apiPost/apiPut/apiDelete, StatCard/
+   277→  SectionHeader/EmptyState shared components). Verified schema includes
+   278→  Announcement, Notification, LibraryBook, BookLoan, Student models.
+   279→- Created `src/app/api/communications/route.ts`:
+   280→  * GET → announcements (pinned-first then chronological, top 100) +
+   281→    recent notifications (top 15) + stats {totalAnnouncements, pinned,
+   282→    smsThisWeek, emailThisWeek, statusCounts{Queued,Sent,Delivered,Failed},
+   283→    totalNotifications}. statusCounts computed via groupBy on Notification.
+   284→  * POST → two modes:
+   285→    (1) Announcement (default): { title, body, audience, priority,
+   286→        pinned?, authorName? } → creates Announcement + ActivityLog.
+   287→    (2) Bulk SMS: { mode:'bulk-sms', recipients:string[], message,
+   288→        channel?, subject? } → createMany Notification rows (status
+   289→        'Queued'), ActivityLog. Capped at 500 recipients.
+   290→- Created `src/app/api/communications/[id]/route.ts`:
+   291→  * PUT → partial update (title/body/audience/priority/pinned/authorName),
+   292→    ActivityLog UPDATE entry. 404 if not found.
+   293→  * DELETE → hard delete + ActivityLog DELETE. 404 if not found.
+   294→- Created `src/app/api/library/route.ts`:
+   295→  * GET ?search=&category= → books with active+overdue loan counts +
+   296→    distinct categories + summary stats {totalTitles, totalCopies,
+   297→    availableCopies (sum aggregates), borrowedCopies (active loans),
+   298→    overdueCopies}. Filter applied to all stats (filtered view).
+   299→  * POST { isbn?, title, author, category, publisher?, yearPublished?,
+   300→    copiesTotal, shelfLocation? } → creates book with copiesAvailable =
+   301→    copiesTotal, status='Available'. ISBN uniqueness check (409).
+   302→    ActivityLog CREATE.
+   303→- Created `src/app/api/library/[id]/route.ts`:
+   304→  * GET → book detail with last 50 loans (incl. student).
+   305→  * PUT → partial update; copiesTotal change adjusts copiesAvailable
+   306→    proportionally and recomputes status; ISBN uniqueness guard.
+   307→    ActivityLog UPDATE.
+   308→  * DELETE → blocked (409) if active loans exist; else delete +
+   309→    ActivityLog DELETE.
+   310→- Created `src/app/api/library/loans/route.ts`:
+   311→  * GET ?status= → loans (top 500) with book+student; auto-marks
+   312→    overdue loans via updateMany (Borrowed+pastDue → Overdue);
+   313→    attaches computedFine (KES 20/day × overdue days) for unreturned
+   314→    overdue loans. Returns summary {total, borrowed, overdue, returned,
+   315→    lost, totalFines}.
+   316→  * POST { bookId, studentId?, borrowerName } → validates copiesAvailable
+   317→    > 0 (409 if not); creates loan with borrowDate=now, dueDate=now+14d,
+   318→    status='Borrowed', fine=0; decrements book.copiesAvailable; marks
+   319→    book 'Out of Stock' when 0. ActivityLog CREATE.
+   320→  * PUT { loanId, action:'return' } → sets returnDate=now, status=
+   321→    'Returned', computes fine (KES 20/day overdue); increments
+   322→    book.copiesAvailable (capped at copiesTotal); book status back to
+   323→    'Available'. ActivityLog UPDATE. 409 if already returned.
+   324→- Created `src/components/modules/communications.tsx` (CommunicationsModule):
+   325→  * 'use client'. StatCard grid: Total Announcements, Pinned, SMS Sent
+   326→    (7d), Email Sent (7d).
+   327→  * Gateway status banner (gradient emerald/teal/cyan) with Safaricom
+   328→    SMS Gateway Connected ✓ + KES 0.80/msg rate.
+   329→  * 2-col layout (lg:grid-cols-3):
+   330→    - LEFT (col-span-2): Create Announcement composer card (title input,
+   331→      body textarea, audience/priority selects, author input, pin Switch,
+   332→      Publish button). Reused for inline edit (announcement card "Edit"
+   333→      opens edit dialog with same fields). Below: announcement feed —
+   334→      pinned first; each card shows priority dot (priorityColor), title,
+   335→      body (line-clamp-2, expand on click), audience badge, author,
+   336→      timeAgo, pin indicator, Pin/Edit/Delete actions.
+   337→    - RIGHT: Notification Center card with recharts donut (statusCounts,
+   338→      4-color: amber/emerald/teal/rose) + center total + 2×2 status
+   339→      legend grid; Recent Notifications list (max-h-96 scroll) showing
+   340→      channel icon, recipient, message preview, status badge, timeAgo.
+   341→  * BulkSmsDialog: audience select, message textarea (160 char cap with
+   342→    counter), recipient count derived from /api/students + /api/staff
+   343→    phones (deduped), estimated cost = recipients × KES 0.80, send →
+   344→    POST /api/communications mode:'bulk-sms'. Sonner toast on success.
+   345→  * Edit Dialog uses shared composer state (lifted to module level).
+   346→- Created `src/components/modules/library.tsx` (LibraryModule):
+   347→  * 'use client'. Tabs (Catalog, Loans).
+   348→  * Catalog Tab:
+   349→    - 4 StatCards: Total Titles, Total Copies, Available, Borrowed.
+   350→    - Filter bar: debounced search input (350ms), category select
+   351→      (from API distinct categories), Add Book button.
+   352→    - Responsive grid (1/2/3 cols) of BookCards: title, author, category
+   353→      badge, ISBN/shelf/year metadata, availability Progress bar (red/
+   354→      amber/emerald by ratio), overdue warning, Borrow button (disabled
+   355→      if out of stock). Opens IssueBookDialog with preselected book.
+   356→    - AddBookDialog: full form (title, author, category w/ datalist,
+   357→      ISBN, year, publisher, shelf, copies count).
+   358→  * Loans Tab:
+   359→    - 4 StatCards: Total Loans, Active, Overdue, Outstanding Fines (KES).
+   360→    - Status filter select (All/Borrowed/Overdue/Returned/Lost).
+   361→    - Issue Book button.
+   362→    - Responsive table (overflow-x-auto, hidden md/lg columns on mobile):
+   363→      borrower (avatar+name+admissionNo), book (title+author), borrow
+   364→      date, due date (red if overdue), return date, status badge
+   365→      (statusColor), fine (red KES), Return button for Borrowed/Overdue.
+   366→      Overdue rows highlighted rose.
+   367→    - IssueBookDialog: book select (only available books), student select
+   368→      (from /api/students) OR manual borrower name, auto-computed due
+   369→      date (now+14d) display. Supports preselectedBookId from BookCard.
+   370→- Verified all endpoints live (started dev server briefly, then stopped):
+   371→  * GET /api/communications → 200 (announcements + stats).
+   372→  * POST /api/communications (announcement) → 201.
+   373→  * POST /api/communications (bulk-sms, 2 recipients) → 201 {queued:2}.
+   374→  * PUT /api/communications/[id] {pinned:true} → 200 (pinned updated).
+   375→  * DELETE /api/communications/[id] → 200 {success:true}.
+   376→  * GET /api/library?search= → 200 (books + activeLoans + stats).
+   377→  * POST /api/library → 201 (copiesAvailable=copiesTotal).
+   378→  * GET /api/library/[id] → 200 (with loans[]).
+   379→  * PUT /api/library/[id] (copiesTotal 3→5) → 200 (copiesAvailable
+   380→    proportionally adjusted 3→5).
+   381→  * DELETE /api/library/[id] with active loan → 409 (blocked).
+   382→  * DELETE /api/library/[id] after return → 200 (success).
+   383→  * GET /api/library/loans → 200 (loans + summary; overdue auto-marked).
+   384→  * POST /api/library/loans → 201 (dueDate = now+14d).
+   385→  * PUT /api/library/loans {action:return} → 200 (returnDate set,
+   386→    status=Returned, copiesAvailable incremented, fine 0 since same-day).
+   387→- Lint: `bunx eslint` on all 7 new files → 0 errors / 0 warnings. (Pre-
+   388→  existing lint errors in header.tsx, reports.tsx, api.ts, seed.ts are
+   389→  from other agents' code, not mine.)
+   390→- TypeScript: `npx tsc --noEmit` → 0 errors in my files. (Pre-existing
+   391→  errors in finance/invoices, finance/scholarships, reports/route,
+   392→  dashboard/route, page.tsx missing-module imports are from other agents.)
+   393→
+   394→Stage Summary:
+   395→- Communications module complete: 2 API route files + 1 module file.
+   396→  - GET/POST /api/communications (POST dual-mode: announcement or bulk-sms)
+   397→  - PUT/DELETE /api/communications/[id]
+   398→  - UI: stat cards, gateway banner, composer + feed (2-col left), donut
+   399→    + recent notifications (right), bulk SMS dialog with cost estimate.
+   400→- Library module complete: 3 API route files + 1 module file.
+   401→  - GET/POST /api/library (list w/ stats, create book)
+   402→  - GET/PUT/DELETE /api/library/[id] (detail, update, delete-blocked-
+   403→    by-active-loans)
+   404→  - GET/POST/PUT /api/library/loans (list w/ auto-overdue, issue w/
+   405→    decrement, return w/ fine calc + increment)
+   406→  - UI: 2 tabs (Catalog grid w/ search/filter/issue; Loans table w/
+   407→    status filter, return actions, overdue highlighting).
+   408→- All endpoints verified working end-to-end with live curl tests.
+   409→- Emerald/teal theme throughout, no indigo/blue. Mobile-first responsive.
+   410→  Uses cn/toast/statusColor/priorityColor/avatarColor/initials/formatDate/
+   411→  formatKES helpers, sonner toast, shadcn/ui (Card, Button, Input, Label,
+   412→  Textarea, Switch, Select, Dialog, Tabs, Table, Progress, Avatar, Badge,
+   413→  Skeleton), lucide icons, recharts donut.
+   414→- Files added:
+   415→  * src/app/api/communications/route.ts
+   416→  * src/app/api/communications/[id]/route.ts
+   417→  * src/app/api/library/route.ts
+   418→  * src/app/api/library/[id]/route.ts
+   419→  * src/app/api/library/loans/route.ts
+   420→  * src/components/modules/communications.tsx
+   421→  * src/components/modules/library.tsx
+   422→- Ready to be wired into main app shell (page.tsx already imports both).
+   423→
+   424→---
+   425→Task ID: 9
+   426→Agent: Finance & Fees Module Builder
+   427→Task: Build Finance & Fees module (API routes + UI component) for EduManage Pro
+   428→
+   429→Work Log:
+   430→- Read worklog.md, prisma/schema.prisma, src/lib/{db,format,api}.ts, src/components/shared.tsx,
+   431→  src/components/modules/academics.tsx (for design conventions), and prisma/seed.ts
+   432→  (finance section: 8 fee structures, 252 invoices, 209 payments, 15 scholarships, 30 expenses).
+   433→- Discovered 2 schema nuances the task brief didn't mention:
+   434→  * `FeeStructure` has only `classLevelId String?` — NO `classLevel` relation. So selecting
+   435→    `classLevel: { select: ... }` is invalid. Resolved class-level name via a separate
+   436→    `classLevel.findMany` lookup + Map in the invoices route.
+   437→  * `Scholarship` has only `studentId String?` — NO `student` relation. So `include: { student }`
+   438→    is invalid. Resolved student names via a separate `student.findMany` lookup + Map in the
+   439→    scholarships route. (Same pattern as the dashboard route's pre-existing `groupBy` issue.)
+   440→  Did NOT modify the schema (Task brief explicitly forbids removing the Stream.classTeacher
+   441→  relation added by Task 7).
+   442→- Built `src/app/api/finance/route.ts` (GET overview):
+   443→  * Aggregates totalBilled, totalCollected, totalOutstanding (excluding Cancelled invoices).
+   444→  * todayCollection: sum of payments where receivedAt is today.
+   445→  * collectionRate = totalCollected / totalBilled (rounded %).
+   446→  * invoicesByStatus: counts per status.
+   447→  * paymentsByMethod: last-30-day payments grouped by method (count + total).
+   448→  * trend: last 6 months revenue (sum of payments.receivedAt in month) vs expenses
+   449→    (sum of expense.date in month).
+   450→  * expensesByCategory: groupBy Expense.category.
+   451→- Built `src/app/api/finance/invoices/route.ts`:
+   452→  * GET ?status=&search=&classLevel=&page=&pageSize= — paginated invoices with
+   453→    student (admissionNo, name, boarding, classLevel+stream via current enrollment)
+   454→    + feeStructure + paymentsCount. Returns { invoices, total, page, pageSize,
+   455→    totalPages, classLevels, feeStructures (for the create dialog), statusCounts
+   456→    (for filter chips) }. Filters: status (exact), search (contains on invoiceNo,
+   457→    admissionNo, firstName, lastName), classLevel (via enrollment.classLevelId).
+   458→  * POST — generates invoiceNo `INV/{max+1}` starting from 10001; resolves
+   459→    feeStructure defaults (amount, year, term, dueDate) when feeStructureId provided;
+   460→    creates invoice with status=Unpaid, amountPaid=0, balance=amount; logs ActivityLog.
+   461→- Built `src/app/api/finance/payments/route.ts`:
+   462→  * GET ?from=&to=&method= — recent payments (max 200) with invoice+student info
+   463→    + methodSummary aggregation for the filter range.
+   464→  * POST { invoiceId, amount, method, reference, payerName, payerPhone } —
+   465→    validates invoice exists, computes newAmountPaid/newBalance/newStatus
+   466→    (Paid if balance≤0, Partially Paid if >0 paid, else Unpaid; preserves
+   467→    Cancelled), runs create-payment + update-invoice in a `$transaction`,
+   468→    logs ActivityLog, returns { payment, invoice }.
+   469→- Built `src/app/api/finance/expenses/route.ts`:
+   470→  * GET ?category=&limit= — expenses + byCategory aggregation + total.
+   471→  * POST { category, description, amount, date, paymentMethod, recipient } —
+   472→    validates category against allowed list + description + amount; logs ActivityLog.
+   473→- Built `src/app/api/finance/scholarships/route.ts`:
+   474→  * GET — scholarships + student info (resolved via separate query since no
+   475→    relation) + byCoverage + byStatus aggregations + totalAmount.
+   476→  * POST { studentId?, name, provider?, amount, coverage, academicYear?,
+   477→    status?, startDate?, endDate? } — validates name + amount, verifies
+   478→    student if provided; logs ActivityLog.
+   479→- Built `src/components/modules/finance.tsx` (`FinanceModule`, 'use client', ~1450 LOC):
+   480→  * Shared helpers: invoiceStatusClass, methodClass, coverageClass (emerald/amber/
+   481→    rose/cyan/violet/slate palettes per design rules); StatusBadge, MethodBadge
+   482→    (with MethodIcon component — switch-based to satisfy react-hooks/static-components
+   483→    lint rule), CoverageBadge.
+   484→  * StudentPicker: debounced search via /api/students?search=&pageSize=12; shows
+   485→    avatar + name + admissionNo + class; click to select; removable chip.
+   486→  * InvoicePicker: debounced search via /api/finance/invoices?search=&pageSize=15;
+   487→    filters out Paid/Cancelled; shows invoiceNo + student + balance + status badge.
+   488→  * RecordPaymentDialog (shared by Invoices + Payments tabs): M-Pesa info banner
+   489→    (Paybill 522522, Account = Admission No.), invoice picker (or pre-filled from
+   490→    row), amount input with "Use full balance" shortcut, method select (M-Pesa
+   491→    default), reference/payerName/payerPhone inputs, validates amount ≤ balance,
+   492→    POSTs to /api/finance/payments, sonner toast on success.
+   493→  * Tab 1 Overview: 6 StatCards (Total Billed, Collected, Outstanding, Collection
+   494→    Rate, Today's Collection, Total Expenses), collection-rate Progress bar,
+   495→    Revenue-vs-Expenses LineChart (6 months, emerald vs rose), Payments-by-Method
+   496→    donut PieChart (M-Pesa/Cash/Bank/Cheque/Card with color legend + counts +
+   497→    totals), Invoices-by-Status progress list, Expenses-by-Category progress list.
+   498→  * Tab 2 Invoices: filter bar (search + status select + classLevel select +
+   499→    "Generate Invoice" button), status-count quick-filter chips, responsive
+   500→    Table (invoiceNo, student avatar+name+admissionNo, class, amount, paid, balance,
+   501→    status badge, due date, View/Pay actions), pagination (Prev/Next + page X of Y),
+   502→    GenerateInvoiceDialog (StudentPicker + FeeStructure select showing
+   503→    total/year/term/dueDate or Custom amount, dueDate input, auto-generates INV no.),
+   504→    ViewInvoiceDialog (student card, amount/paid/balance tiles, progress bar,
+   505→    Record Payment button), row click opens View dialog.
+   506→  * Tab 3 Payments: emerald gradient M-Pesa banner with Paybill info + "Record
+   507→    Payment" button, filter bar (date range + method select + Clear), method-
+   508→    summary chips, responsive Table (reference, student avatar+name+admission,
+   509→    amount, method badge, payer name+phone, invoice no., date-time).
+   510→  * Tab 4 Expenses: side-by-side layout — horizontal BarChart of expenses by
+   511→    category (color per category) + expenses Table (date, category badge,
+   512→    description, amount, method badge, recipient) with sticky header + max-h
+   513→    scroll; AddExpenseDialog (category select, description, amount, date,
+   514→    payment method, recipient).
+   515→  * Tab 5 Scholarships: 4 StatCards (Scholarships, Total Awarded, Full Coverage,
+   516→    Active), responsive card grid of scholarships with emerald→teal gradient
+   517→    header (name, provider, coverage badge, amount, status), student card with
+   518→    avatar, start/end dates; AddScholarshipDialog (optional StudentPicker,
+   519→    name, provider, amount, coverage select, academic year, status select,
+   520→    start/end dates).
+   521→  * Main module: SectionHeader (Wallet icon) + Tabs (Overview/Invoices/Payments/
+   522→    Expenses/Scholarships) with horizontally-scrollable TabsList on mobile.
+   523→  * Uses cn(), sonner toast, useFetch/apiPost, shadcn/ui (Card, Tabs, Badge,
+   524→    Button, Input, Label, Skeleton, Avatar, Progress, Select, Table, Dialog),
+   525→    lucide-react icons, recharts. Emerald/teal theme throughout (no indigo/
+   526→    blue). Mobile-first responsive (grid breakpoints, overflow-x-auto on
+   527→    tables, sticky headers).
+   528→- Lint: `bun run lint` clean for ALL finance files (0 errors, 0 warnings).
+   529→  Fixed 2 lint issues found during development:
+   530→  * react-hooks/static-components: refactored MethodBadge to use a switch-based
+   531→    MethodIcon component (no component-in-variable pattern).
+   532→  * Removed unused eslint-disable directive.
+   533→  Pre-existing error in header.tsx and warnings in api.ts/seed.ts are from
+   534→  other agents' code (out of scope per worklog).
+   535→- TypeScript: `npx tsc --noEmit --skipLibCheck` clean for all finance files
+   536→  (0 errors). Fixed 2 TS errors found during development:
+   537→  * FeeStructure has no classLevel relation → use classLevelId + Map lookup.
+   538→  * Scholarship has no student relation → use studentId + separate query + Map.
+   539→- Live-tested ALL 5 endpoints via curl (started dev server briefly):
+   540→  * GET /api/finance → 200 with totalBilled=10.5M, totalCollected=6.2M,
+   541→    outstanding=4.3M, collectionRate=59%, todayCollection=6.2M,
+   542→    totalExpenses=18.8M, 252 invoices by status (90 Paid, 119 Partially Paid,
+   543→    43 Unpaid), paymentsByMethod (M-Pesa dominant: 101 payments, 2.9M KES),
+   544→    6-month trend, expensesByCategory (Salaries dominant: 17.6M).
+   545→  * GET /api/finance/invoices?pageSize=2 → 200 paginated, includes
+   546→    classLevels + feeStructures + statusCounts.
+   547→  * GET /api/finance/invoices?status=Unpaid → returns Unpaid invoices correctly.
+   548→  * GET /api/finance/expenses?limit=2 → 200 with byCategory breakdown.
+   549→  * GET /api/finance/payments?method=M-Pesa → 200 with methodSummary.
+   550→  * GET /api/finance/scholarships → 200 with student info resolved correctly.
+   551→  * POST /api/finance/payments → 201, invoice updated: amountPaid 0→10000,
+   552→    balance 33000→23000, status Unpaid→Partially Paid. Second payment of
+   553→    23000 → status Partially Paid→Paid, balance 0.
+   554→  * POST /api/finance/invoices (custom amount) → 201, INV/10252 generated.
+   555→  * POST /api/finance/invoices (with feeStructureId) → 201, INV/10253 with
+   556→    amount=33000 (from fee structure), dueDate=2025-02-28 inherited.
+   557→  * POST /api/finance/expenses → 201 with category=Utilities.
+   558→  * POST /api/finance/scholarships → 201 with coverage=Full.
+   559→
+   560→Stage Summary:
+   561→- Finance & Fees module is feature-complete: 5 API route files + 1 module file
+   562→  (~1450 LOC), all lint-clean and TypeScript-safe.
+   563→- Endpoints verified working live against the seeded database (252 invoices,
+   564→  209 payments, 30 expenses, 15 scholarships).
+   565→- UI: 5 polished tabs (Overview/Invoices/Payments/Expenses/Scholarships) with
+   566→  emerald/teal theme, M-Pesa prominence (green accent + Paybill banner),
+   567→  color-coded status/method/coverage badges, recharts visualizations
+   568→  (line + donut + bar charts), debounced StudentPicker + InvoicePicker,
+   569→  5 create/record dialogs, responsive mobile-first layout, sonner toasts.
+   570→- Ready to be wired into the main `/` route (page.tsx already imports
+   571→  `FinanceModule` from `@/components/modules/finance`).
+   572→- Files added:
+   573→  * src/app/api/finance/route.ts
+   574→  * src/app/api/finance/invoices/route.ts
+   575→  * src/app/api/finance/payments/route.ts
+   576→  * src/app/api/finance/expenses/route.ts
+   577→  * src/app/api/finance/scholarships/route.ts
+   578→  * src/components/modules/finance.tsx
+   579→- No schema modifications (preserved Task 7's Stream.classTeacher relation).
+   580→
+   581→---
+   582→Task ID: 12-13-14
+   583→Agent: Transport/Reports/Settings Builder
+   584→Task: Build Transport module + API, Reports module + API, and Settings module (mock/local) for EduManage Pro
+   585→
+   586→Work Log:
+   587→- Read worklog.md and existing infrastructure (schema.prisma, db.ts, format.ts,
+   588→  api.ts, shared.tsx, dashboard module, attendance/stats API for design reference).
+   589→- Confirmed `classTeacher Staff? @relation("StreamClassTeacher")` on Stream and
+   590→  `classTeacherOf Stream[]` on Staff are present (added by prior agent) — left intact.
+   591→
+   592→PART A — Transport module + API:
+   593→- Built `src/app/api/transport/route.ts`:
+   594→  * GET → returns vehicles (with route brief), routes (with vehicle + driver),
+   595→    drivers (staff with role="Driver"), and summary stats
+   596→    {totalVehicles, active, maintenance, totalCapacity, totalRoutes}.
+   597→  * POST { registration, type, capacity, make?, model?, year?, status } →
+   598→    creates vehicle. Validates registration required + unique (409). Logs activity.
+   599→- Built `src/app/api/transport/[id]/route.ts`:
+   600→  * PUT → partial update with registration/assignedRouteId uniqueness guards;
+   601→    nullifies assignedRouteId properly. Logs UPDATE activity.
+   602→  * DELETE → detaches any TransportRoute.vehicleId pointing at the vehicle,
+   603→    then deletes. Logs DELETE activity. 404 if missing.
+   604→- Built `src/app/api/transport/routes/route.ts`:
+   605→  * POST { name, startPoint, endPoint, stops?, distanceKm, fare, driverId? } →
+   606→    creates route. Validates required fields + driver existence. Returns route
+   607→    with vehicle + driver included. Logs activity.
+   608→- Built `src/components/modules/transport.tsx` (`TransportModule` 'use client'):
+   609→  * 4 StatCards: Total Vehicles (emerald), Active Routes (teal), Total Capacity
+   610→    (cyan, seats), In Maintenance (amber).
+   611→  * Vehicle card grid (1/2/3 cols): monospace registration, type badge
+   612→    (emerald/teal/cyan by type), make/model·year, capacity seats, route
+   613→    (emerald text or "Unassigned" italic), status badge (statusColor). Click
+   614→    → VehicleDialog (add/edit). Hover ring effect.
+   615→  * Routes section: responsive grid (1/2/3 cols) of route cards. Each shows
+   616→    name, start→end (emerald→rose), stops, distance (km), fare (KES mono),
+   617→    vehicle reg or amber "No vehicle", driver avatar (avatarColor) + name +
+   618→    phone or "Driver not assigned".
+   619→  * VehicleDialog (add/edit): registration (mono, uppercase auto), type select,
+   620→    capacity, make, model, year, status, assigned route select (with detach).
+   621→    Edit mode shows Delete button (opens AlertDialog confirm).
+   622→  * RouteDialog: name, start, end, stops, distance, fare, driver select
+   623→    (filtered to role=Driver). Shows tip card if no drivers available.
+   624→  * Loading skeletons, EmptyState for empty vehicles/routes, sonner toasts.
+   625→  * Switched `useMemo` form-sync to `useEffect` for proper React semantics.
+   626→
+   627→PART B — Reports module + API:
+   628→- Built `src/app/api/reports/route.ts` (single comprehensive GET):
+   629→  * Enrollment: totalStudents, gender groupBy, byClassLevel (with capacity),
+   630→    boarding/dayScholar counts.
+   631→  * Attendance: 30-day daily trend (rate), overall rate, by-stream (today's
+   632→    present/absent/late + rate), totalRecords.
+   633→  * Academics: latestExam (most recent by startDate), grade distribution in
+   634→    KCSE 12-point order, top 5 subjects by avg marks, bottom 5, all-subject
+   635→    perf (top 10), total grades for exam.
+   636→  * Finance: totalBilled/Collected/Outstanding, collectionRate, monthly
+   637→    revenue-vs-expense (last 6 months from payments + expenses), outstanding
+   638→    by class level, expense breakdown by category.
+   639→  * Library: books by category (total/available), loans this month count,
+   640→    overdue count, 6-month loans trend, total/available copies.
+   641→  * Staff: by role (groupBy), by department (groupBy + name lookup), total.
+   642→  * Activities: last 20 ActivityLog entries.
+   643→- Built `src/components/modules/reports.tsx` (`ReportsModule` 'use client'):
+   644→  * Header with Export buttons (PDF / Excel / CSV / Export Report) — all show
+   645→    sonner toast "Report exported as X" with summary description.
+   646→  * 4-tile quick stat strip: Total Students, Collection Rate (trend arrow),
+   647→    Attendance Rate (trend), Active Loans (trend).
+   648→  * 6 report cards in 2-col grid:
+   649→    1. Academic Performance — KCSE grade distribution BarChart (color per
+   650→       grade), Top Subjects list (ranked, emerald bg) + Needs Attention list
+   651→       (ranked, rose bg), gradient scale legend.
+   652→    2. Financial Health — collection-rate radial gauge (SVG) + big number
+   653→       + progress bar, revenue-vs-expense LineChart, outstanding-by-class
+   654→       horizontal bars (rose).
+   655→    3. Attendance Overview — 30-day rate AreaChart (teal gradient), by-stream
+   656→       today list with colored progress bars (emerald/amber/rose thresholds).
+   657→    4. Enrollment Demographics — gender PieChart (donut) with legend + class
+   658→       level BarChart (capacity grey + enrolled emerald).
+   659→    5. Library Usage — books-by-category stacked horizontal BarChart
+   660→       (total teal + available mint) + 6-month loans AreaChart (amber gradient).
+   661→    6. Staff Composition — role donut PieChart with center total + dept
+   662→       horizontal BarChart (multi-color palette).
+   663→  * Recent System Activity table at bottom: 20 entries, max-h-96 scroll,
+   664→    color-coded action icons (CREATE/UPDATE/DELETE/PAYMENT/MARK/GRADE/ISSUE),
+   665→    sticky header, responsive hidden columns on mobile, timeAgo timestamps,
+   666→    tooltip on details.
+   667→  * Recharts color palette: emerald/teal/cyan/amber/orange/rose family (no
+   668→    indigo/blue). KCSE grade colors A=emerald → E=rose gradient.
+   669→
+   670→PART C — Settings module (mock/local state, no API):
+   671→- Built `src/components/modules/settings.tsx` (`SettingsModule` 'use client'):
+   672→  * Tabs: General / Academic / Notifications / Users & Roles.
+   673→  * General tab: School Profile card (logo placeholder w/ emerald-teal-cyan
+   674→    gradient + Upload button), name, motto, address (textarea), phone, email;
+   675→    Academic Calendar card (year, current term select, term start/end dates,
+   676→    active-term summary banner); Localization card (currency KES, timezone
+   677→    Africa/Nairobi, language English/Swahili toggle buttons).
+   678→  * Academic tab: KCSE 12-point grading table (grade/points/min/max/
+   679→    interpretation/color swatch, color-coded badges per grade tier), exam
+   680→    types as chips, pass-mark threshold input, promotion criteria textarea
+   681→    + active-rules list.
+   682→  * Notifications tab: SMS Gateway card (Safaricom/Airtel/Africa's Talking
+   683→    select, API key, sender ID, rate info) with enable Switch; Email SMTP
+   684→    card (host, port, user, password) with enable Switch; M-Pesa card
+   685→    (paybill 522522, account-ref select = Admission No., callback URL,
+   686→    parent-payment-instructions banner) with enable Switch; Notification
+   687→    Preferences grid of 6 toggles (feeReminders, attendanceAlerts,
+   688→    examResults, eventReminders, transportUpdates, libraryOverdue).
+   689→  * Users & Roles tab: System Users table (avatar with roleColor, name,
+   690→    email, role badge with roleBadgeColor, status badge, last login, delete
+   691→    button), Add User button → dialog (name, email, role select) adds to
+   692→    local state with toast. Role Permissions Matrix table
+   693→    (11 modules × 4 roles).
+   694→  * All inputs controlled local state. "Save Changes" buttons show
+   695→    sonner toast "{section} settings saved". No API persistence.
+   696→
+   697→VERIFICATION:
+   698→- `bunx eslint` on all 6 new files: 0 errors, 0 warnings.
+   699→- `bunx tsc --noEmit`: 0 errors in any of my files.
+   700→- Live-tested all endpoints via curl (dev server):
+   701→  * GET /api/transport → 200, {vehicles:5, routes:5, drivers:4,
+   702→    summary:{totalVehicles:5, active:5, maintenance:0, totalCapacity:163,
+   703→    totalRoutes:5}}. Each vehicle includes route brief; each route includes
+   704→    vehicle + driver.
+   705→  * POST /api/transport (valid) → 201 with vehicle JSON + activity log.
+   706→  * POST /api/transport (duplicate reg) → 409 with error message.
+   707→  * POST /api/transport/routes (valid) → 201 with route + vehicle + driver.
+   708→  * POST /api/transport/routes (missing fields) → 400 with validation error.
+   709→  * PUT /api/transport/{id} → 200, status updated Maintenance then restored
+   710→    to Active (verified both calls).
+   711→  * DELETE /api/transport/{id} → 200 {success:true}.
+   712→  * GET /api/reports → 200 with full bundle: enrollment 252 students
+   713→    (140F/112M), Form 1-4 with capacities, 122 boarding/130 day, attendance
+   714→    83.3% overall (10-day trend, 8 streams), latest exam "End Term 1
+   715→    Examination", 12-grade KCSE distribution, 5 top subjects, finance
+   716→    10.5M billed/59.4% collection/6-month trend, 4 class-level outstanding
+   717→    buckets, library 7 categories/25 loans/3 overdue, staff 10 roles/58
+   718→    total, 20 recent activities.
+   719→- Cleaned up test records (test vehicle, test route, 3 test activity logs)
+   720→  via direct Prisma script.
+   721→
+   722→Stage Summary:
+   723→- Transport module: 3 API routes (collection GET/POST, [id] PUT/DELETE,
+   724→  routes POST) + TransportModule UI with stat cards, vehicle grid,
+   725→  routes grid, add/edit/delete dialogs. All CRUD verified live.
+   726→- Reports module: 1 comprehensive GET endpoint + ReportsModule UI with 4
+   727→  quick stats, 6 chart cards (BarChart/LineChart/AreaChart/PieChart/donut/
+   728→  gauge), and recent-activity table. All data verified live.
+   729→- Settings module: 4-tab SettingsModule (General/Academic/Notifications/
+   730→  Users & Roles) with full mock local state, KCSE grading table, M-Pesa
+   731→  config, role permission matrix, add-user dialog. No API needed.
+   732→- All files lint-clean and TypeScript-clean. Emerald/teal/cyan theme
+   733→  throughout (no indigo/blue). Mobile-first responsive (grid breakpoints,
+   734→  hidden columns on small screens, horizontal scroll where needed).
+   735→- Files added:
+   736→  * src/app/api/transport/route.ts
+   737→  * src/app/api/transport/[id]/route.ts
+   738→  * src/app/api/transport/routes/route.ts
+   739→  * src/app/api/reports/route.ts
+   740→  * src/components/modules/transport.tsx
+   741→  * src/components/modules/reports.tsx
+   742→  * src/components/modules/settings.tsx
+   743→- Files modified: none (schema already had the needed relations).
+   744→- All 3 modules already wired into src/app/page.tsx by orchestrator.
+   745→- Pre-existing lint issues in header.tsx, api.ts, seed.ts are out of scope.
+   746→
+   747→---
+   748→Task ID: 14
+   749→Agent: Main (orchestrator)
+   750→Task: End-to-end self-verification with agent-browser
+   751→
+   752→Work Log:
+   753→- Fixed lint errors in header.tsx (deferred setState via rAF), api.ts, seed.ts
+   754→- Verified `bun run lint` is fully clean (0 errors, 0 warnings)
+   755→- Restarted dev server (was killed during subagent work)
+   756→- Opened / in agent-browser, confirmed dashboard renders: welcome banner,
+   757→  4 stat cards, attendance trend area chart, gender pie chart, enrollment bar
+   758→  chart, fee collection status bars, announcements feed, activity log
+   759→- Tested navigation to all 11 modules via sidebar — all render without errors
+   760→- Verified Students module: 252 records, stat strip, filters, data table, avatars
+   761→- Verified Academics Timetable tab: weekly grid with 5 days × 9 periods,
+   762→  color-coded subject cells (e.g. "Christian Religious Education — CRE — Esther Achieng")
+   763→- Verified Finance, Staff, Attendance, Communications, Library, Transport,
+   764→  Reports, Settings modules all load (HTTP 200, no console errors)
+   765→- Verified sticky footer: on long pages footer is pushed down naturally (bottom
+   766→  1602px vs viewport 900px); layout uses min-h-screen flex flex-col + mt-auto
+   767→- Verified mobile responsiveness at 375px: sidebar hidden off-screen (left:-288),
+   768→  hamburger menu opens it (left:0), all content responsive
+   769→
+   770→Stage Summary:
+   771→- All 11 modules verified working end-to-end with real seeded data
+   772→- 252 students, 58 staff, 3024 grades, 252 invoices, 209 payments, 15 books, 5 vehicles
+   773→- Lint clean, no runtime/console errors, responsive + sticky footer confirmed
+   774→- Ready for production preview
+   775→

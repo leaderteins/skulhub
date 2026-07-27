@@ -456,6 +456,7 @@ async function main() {
     const due = new Date(borrow)
     due.setDate(due.getDate() + 14)
     const returned = Math.random() > 0.5
+    const loanStatus = returned ? 'Returned' : new Date() > due ? 'Overdue' : 'Borrowed'
     await db.bookLoan.create({
       data: {
         bookId: bk.id,
@@ -464,10 +465,17 @@ async function main() {
         borrowDate: borrow,
         dueDate: due,
         returnDate: returned ? new Date() : null,
-        status: returned ? 'Returned' : new Date() > due ? 'Overdue' : 'Borrowed',
+        status: loanStatus,
         fine: returned && new Date() > due ? randInt(20, 100) : 0,
       }
     })
+    // Decrement copiesAvailable for active loans (Borrowed/Overdue)
+    if (!returned) {
+      await db.libraryBook.update({
+        where: { id: bk.id },
+        data: { copiesAvailable: { decrement: 1 } },
+      })
+    }
   }
 
   // Transport

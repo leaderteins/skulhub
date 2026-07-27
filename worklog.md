@@ -772,3 +772,79 @@ Stage Summary:
 - 252 students, 58 staff, 3024 grades, 252 invoices, 209 payments, 15 books, 5 vehicles
 - Lint clean, no runtime/console errors, responsive + sticky footer confirmed
 - Ready for production preview
+
+---
+Task ID: 15 (cron review round 1)
+Agent: Main (web dev review)
+Task: QA testing, bug fixes, and new feature development
+
+Work Log:
+- Reviewed worklog.md — confirmed 11 modules built and verified in prior round
+- Performed QA via agent-browser across all modules:
+  * Dashboard, Students (admit dialog), Staff, Academics (all 4 tabs incl. timetable),
+    Attendance, Finance (record payment dialog w/ M-Pesa), Communications,
+    Library, Reports, Settings — all render without console errors
+  * Tested Finance "Pay" button → Record Payment dialog opens with M-Pesa Paybill info
+  * Tested Students "Admit Student" dialog → all form fields present (47 counties, guardian)
+- BUG FOUND: Library stats inconsistent — seed created BookLoan records without
+  decrementing LibraryBook.copiesAvailable, causing available(159) + borrowed(10) != total(159)
+- FIX: Created prisma/sync-library.ts one-time sync script (fixed 7 of 15 books) +
+  patched prisma/seed.ts to decrement copiesAvailable for active loans on future re-seeds
+- Verified: total(159) = available(149) + borrowed(10) ✓ consistent
+
+NEW FEATURES ADDED:
+1. **Report Cards module** (Task: real-world Kenyan use case — term report cards)
+   - API: /api/report-cards (GET — merit list with KCSE mean grades, points, ranks,
+     grade distribution, subject performance; defaults to latest exam if no examId)
+   - API: /api/report-cards/[id]?examId= (GET — full printable report card: student
+     details, guardian, subject grades table, total/avg/mean grade summary, stream
+     rank, attendance summary, class teacher remarks, promotion status, signatures)
+   - UI: src/components/modules/reportcards.tsx — exam/stream selectors, search,
+     stat strip (students/pass rate/top grade/subjects), top-3 podium with medals,
+     mean grade distribution bar chart, subject performance table, merit list table
+     with rank badges & grade badges, printable report card dialog with school
+     letterhead, subject table, summary grid, remarks, signatures, print button
+   - Added print CSS (@media print) to globals.css for clean report card printing
+
+2. **Global Command Palette (Cmd+K)** — quick search & navigation
+   - API: /api/search?q= (GET — searches students, staff, books, announcements)
+   - UI: src/components/layout/command-palette.tsx — opens with ⌘K/Ctrl+K or click
+     header search; fuzzy search across all entities with colored avatars &
+     category grouping; keyboard nav shortcuts (G+letter to jump to modules)
+   - Added commandPaletteOpen state to Zustand store
+   - Header search bar now opens palette (removed static Input)
+
+3. **Dashboard enhancements**
+   - Term Calendar & Upcoming Events widget (6 key term dates: PTC, mid-term
+     break, CBC workshop, Science Congress, Sports Day, End Term Exams) with
+     colored date badges & category icons
+   - Quick Actions grid (6 shortcuts: Admit, Attendance, Payment, Report,
+     Announcement, Issue Book) + Cmd+K palette button
+   - Added fade-in-up & shimmer animations to globals.css
+
+4. **Styling improvements**
+   - Print styles for report cards (@media print visibility isolation)
+   - Module transition animation (animate-fade-in-up)
+   - Shimmer skeleton loading animation
+   - Cleaned up GRADE_BAR_COLORS palette (removed hacky .replace())
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser end-to-end tests:
+  * Dashboard renders all new widgets (Calendar, Quick Actions, PTC, Sports Day, CmdK)
+  * Cmd+K opens palette; typing "Mwangi" returns 6 students + 3 staff + 1 book
+  * Report Cards module: 252 students, 98% pass rate, merit list, grade distribution
+    chart, subject performance table all render
+  * Report card dialog opens with full printable card (student info, subject grades,
+    total 955 marks, 128 points, 79.6% avg, A- mean grade, #1/28 stream rank,
+    attendance summary, remarks, signatures, print button)
+  * Top-3 podium cards render with medals (1ST/2ND/3RD PLACE)
+  * Mobile (375px): sidebar off-screen (left:-288), content responsive
+
+Stage Summary:
+- Fixed 1 data consistency bug (library copiesAvailable sync)
+- Added 3 major features: Report Cards module (printable KCSE term reports),
+  Command Palette (Cmd+K global search), Dashboard calendar + quick actions
+- Added 12th module (Report Cards) to sidebar under Academic group
+- All features lint-clean and verified working end-to-end
+- Project now has 12 modules total

@@ -11,21 +11,28 @@ export type ModuleKey =
   | 'communications'
   | 'library'
   | 'transport'
+  | 'reportcards'
   | 'reports'
   | 'settings'
 
 interface AppState {
   activeModule: ModuleKey
   sidebarOpen: boolean
+  commandPaletteOpen: boolean
   setActiveModule: (m: ModuleKey) => void
   setSidebarOpen: (open: boolean) => void
   toggleSidebar: () => void
+  setCommandPaletteOpen: (open: boolean) => void
+  toggleCommandPalette: () => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
   activeModule: 'dashboard',
   sidebarOpen: false,
+  commandPaletteOpen: false,
   setActiveModule: (m) => set({ activeModule: m, sidebarOpen: false }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
+  toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
 }))

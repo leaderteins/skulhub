@@ -11,7 +11,8 @@ import { useAppStore } from '@/lib/store'
 import {
   Users, GraduationCap, Wallet, CalendarCheck, BookOpen, TrendingDown,
   BookMarked, Megaphone, Activity, ArrowRight, Banknote, AlertCircle,
-  CheckCircle2, Clock, Layers,
+  CheckCircle2, Clock, Layers, CalendarDays, Trophy, FileText, Bus,
+  Sparkles, ChevronRight,
 } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
@@ -54,7 +55,7 @@ const ACTION_ICON: Record<string, any> = {
 
 export function DashboardModule() {
   const { data, loading } = useFetch<DashboardData>('/api/dashboard')
-  const { setActiveModule } = useAppStore()
+  const { setActiveModule, setCommandPaletteOpen } = useAppStore()
 
   if (loading || !data) {
     return (
@@ -301,6 +302,109 @@ export function DashboardModule() {
                 )
               })}
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Upcoming events + Quick actions */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Term calendar / upcoming events */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+                <CalendarDays className="h-4 w-4" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Term Calendar & Upcoming Events</CardTitle>
+                <CardDescription className="text-xs">Term 1, 2025 — key dates & deadlines</CardDescription>
+              </div>
+            </div>
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+              <Sparkles className="mr-1 h-3 w-3" /> In Session
+            </Badge>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {[
+              { date: 'Feb 15', day: 'Sat', title: 'Parent-Teacher Conference', time: '9:00 AM — 1:00 PM', icon: Users, color: 'emerald' },
+              { date: 'Feb 24', day: 'Mon', title: 'Mid-Term Break Begins', time: 'All day · resumes Feb 28', icon: CalendarCheck, color: 'amber' },
+              { date: 'Mar 01', day: 'Sat', title: 'Staff CBC Workshop', time: '8:00 AM — Teaching staff', icon: GraduationCap, color: 'teal' },
+              { date: 'Mar 08', day: 'Sat', title: 'Kenya Science & Engineering Fair', time: 'Regional competitions', icon: Trophy, color: 'violet' },
+              { date: 'Mar 14', day: 'Fri', title: 'Annual Sports Day', time: 'Inter-stream athletics', icon: Activity, color: 'cyan' },
+              { date: 'Apr 07', day: 'Mon', title: 'End Term 1 Examinations', time: 'Begins — all forms', icon: FileText, color: 'rose' },
+            ].map((e, i) => {
+              const Icon = e.icon
+              const colorMap: Record<string, string> = {
+                emerald: 'bg-emerald-500/10 text-emerald-600 border-emerald-200/50',
+                teal: 'bg-teal-500/10 text-teal-600 border-teal-200/50',
+                amber: 'bg-amber-500/10 text-amber-600 border-amber-200/50',
+                rose: 'bg-rose-500/10 text-rose-600 border-rose-200/50',
+                violet: 'bg-violet-500/10 text-violet-600 border-violet-200/50',
+                cyan: 'bg-cyan-500/10 text-cyan-600 border-cyan-200/50',
+              }
+              return (
+                <div key={i} className="group flex items-center gap-3 rounded-lg border p-3 transition-all hover:border-emerald-200 hover:bg-muted/40">
+                  <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border bg-muted/40">
+                    <span className="text-[9px] font-semibold uppercase text-muted-foreground">{e.day}</span>
+                    <span className="text-sm font-bold leading-none">{e.date.split(' ')[1]}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{e.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{e.time}</p>
+                  </div>
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${colorMap[e.color]}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+
+        {/* Quick actions */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Quick Actions</CardTitle>
+                <CardDescription className="text-xs">Common tasks</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-2">
+            {[
+              { label: 'Admit Student', icon: Users, module: 'students' as const, accent: 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20' },
+              { label: 'Mark Attendance', icon: CalendarCheck, module: 'attendance' as const, accent: 'bg-teal-500/10 text-teal-600 hover:bg-teal-500/20' },
+              { label: 'Record Payment', icon: Wallet, module: 'finance' as const, accent: 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20' },
+              { label: 'Generate Report', icon: FileText, module: 'reportcards' as const, accent: 'bg-rose-500/10 text-rose-600 hover:bg-rose-500/20' },
+              { label: 'New Announcement', icon: Megaphone, module: 'communications' as const, accent: 'bg-violet-500/10 text-violet-600 hover:bg-violet-500/20' },
+              { label: 'Issue Book', icon: BookOpen, module: 'library' as const, accent: 'bg-cyan-500/10 text-cyan-600 hover:bg-cyan-500/20' },
+            ].map(a => {
+              const Icon = a.icon
+              return (
+                <button
+                  key={a.label}
+                  onClick={() => setActiveModule(a.module)}
+                  className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all ${a.accent}`}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="text-xs font-medium leading-tight">{a.label}</span>
+                </button>
+              )
+            })}
+            <button
+              onClick={() => setCommandPaletteOpen(true)}
+              className="col-span-2 flex items-center justify-between rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/40 p-3 text-left text-emerald-700 transition-all hover:bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                <span className="text-xs font-medium">Open Command Palette</span>
+              </div>
+              <kbd className="rounded border border-emerald-300 bg-background px-1.5 py-0.5 text-[10px] font-semibold dark:border-emerald-800">⌘K</kbd>
+            </button>
           </CardContent>
         </Card>
       </div>
