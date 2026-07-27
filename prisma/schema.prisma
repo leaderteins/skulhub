@@ -159,6 +159,7 @@ model Student {
   bookLoans   BookLoan[]
   medicalRecord MedicalRecord[]
   clinicVisits ClinicVisit[]
+  incidents   Incident[]
   createdAt2  DateTime @default(now()) @map("created_at_2")
 
   @@index([lastName])
@@ -607,6 +608,38 @@ model EventParticipant {
   createdAt DateTime @default(now())
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Discipline & Behavior (incidents, conduct, sanctions)
+// ---------------------------------------------------------------------------
+
+model Incident {
+  id          String   @id @default(cuid())
+  incidentNo  String   @unique
+  studentId   String
+  date        DateTime @default(now())
+  location    String?  // "Classroom" | "Playground" | "Dormitory" | "Hall" | "Gate" | "Other"
+  category    String   @default("Misconduct") // "Misconduct" | "Bullying" | "Truancy" | "Theft" | "Vandalism" | "Substance Abuse" | "Insubordination" | "Fighting" | "Dress Code" | "Other"
+  severity    String   @default("Minor") // "Minor" | "Moderate" | "Major" | "Critical"
+  description String
+  reportedBy  String?  // staff name
+  witnesses   String?  // comma-separated names
+  status      String   @default("Open") // "Open" | "Investigating" | "Resolved" | "Appealed" | "Closed"
+  // Sanction fields
+  sanction    String?  // "Verbal Warning" | "Written Warning" | "Detention" | "Suspension" | "Expulsion" | "Community Service" | "Counselling" | "Parent Meeting"
+  sanctionDetails String?
+  sanctionStartDate DateTime?
+  sanctionEndDate DateTime?
+  resolvedDate DateTime?
+  resolvedBy  String?
+  resolutionNotes String?
+  parentNotified Boolean @default(false)
+  parentNotificationDate DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 // ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@ export type ModuleKey =
   | 'health'
   | 'alumni'
   | 'events'
+  | 'discipline'
   | 'reportcards'
   | 'reports'
   | 'settings'

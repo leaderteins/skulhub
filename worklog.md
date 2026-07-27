@@ -1102,3 +1102,64 @@ Stage Summary:
 - Added 2 API routes (/api/events, /api/events/[id])
 - Full calendar grid + list dual-view with event CRUD and participant tracking
 - Project now has 16 modules total, all lint-clean and verified working
+
+---
+Task ID: 20 (cron review round 6)
+Agent: Main (web dev review)
+Task: QA testing and Discipline & Behavior module
+
+Work Log:
+- Reviewed worklog.md — confirmed 16 modules from prior rounds, all working
+- Performed QA via agent-browser across all 16 modules — all rendered without errors
+- Project was stable, proceeded to build new feature
+
+NEW FEATURE: Discipline & Behavior module (17th module)
+- Added Prisma model: Incident (incidentNo, studentId, date, location, category
+  [Misconduct/Bullying/Truancy/Theft/Vandalism/Substance Abuse/Insubordination/
+  Fighting/Dress Code/Other], severity [Minor/Moderate/Major/Critical], description,
+  reportedBy, witnesses, status [Open/Investigating/Resolved/Appealed/Closed],
+  sanction [Verbal Warning/Written Warning/Detention/Suspension/Expulsion/Community
+  Service/Counselling/Parent Meeting], sanctionDetails/Start/EndDate, resolvedDate/By,
+  resolutionNotes, parentNotified/NotificationDate)
+- Seeded 35 incidents across 9 categories (8 Bullying, 5 Fighting, 5 Misconduct, 4 Theft,
+  4 Vandalism, 3 Insubordination, 3 Dress Code, 2 Substance Abuse, 1 Truancy) with
+  realistic severity (7 Critical, 9 Major, 12 Moderate, 7 Minor) and status (27 Resolved,
+  7 Closed, 1 Open) via prisma/seed-incidents.ts. Includes Kenyan school contexts:
+  truancy, dormitory theft, exam cheating, cyberbullying, substance abuse, etc.
+- 2 API routes:
+  * /api/discipline (GET with search/category/severity/status/studentId filters + stats,
+    bySeverity, byCategory, byStatus, repeatOffenders; POST to create)
+  * /api/discipline/[id] (GET detail with student+guardian+other incidents, PUT to
+    resolve/add sanction, DELETE)
+- UI src/components/modules/discipline.tsx:
+  * Slate/gray gradient header banner with incident count
+  * Critical alert banner when criticalOpen > 0 (rose alert with "Review Now" button)
+  * 4 stat cards (Total Incidents, Open/Investigating, Critical Cases, Resolved/Closed)
+  * Incidents by Severity donut chart (4 severity colors with icons)
+  * Incidents by Category horizontal bar chart
+  * Repeat Offenders list (students with 3+ incidents, count badges)
+  * Filter bar (search, category, severity, status)
+  * Incident Register table with category icon, severity badge, sanction badge,
+    status badge, student avatar, timeAgo
+  * Incident Detail dialog: category icon header with severity/status/parent-notified
+    badges, student card with guardian phone, incident details card (location, reporter,
+    witnesses), description banner, sanction info banner (with dates), resolution banner,
+    student's other incidents list, resolve actions panel (sanction select + resolution
+    notes + Mark Investigating/Resolve buttons)
+  * Log Incident dialog: student search picker, category select, severity select,
+    location select, datetime, description textarea, reportedBy, witnesses
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested all 17 modules: ALL OK (no errors)
+- Discipline module: 35 incidents, severity chart, category chart, repeat offenders,
+  incident detail dialog (full info with guardian, witnesses, description), Log Incident
+  dialog renders all fields
+- Dev server restarted after Prisma generate (per known issue)
+
+Stage Summary:
+- Added 17th module: Discipline & Behavior (incidents, conduct, sanctions)
+- Added 1 Prisma model (Incident) + seeded 35 incidents across 9 categories
+- Added 2 API routes (/api/discipline, /api/discipline/[id])
+- Full incident lifecycle: Open → Investigating → Resolved/Closed with sanction tracking
+- Project now has 17 modules total, all lint-clean and verified working

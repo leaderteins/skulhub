@@ -18,6 +18,7 @@ import { LibraryModule } from '@/components/modules/library'
 import { TransportModule } from '@/components/modules/transport'
 import { HealthModule } from '@/components/modules/health'
 import { EventsModule } from '@/components/modules/events'
+import { DisciplineModule } from '@/components/modules/discipline'
 import { ReportsModule } from '@/components/modules/reports'
 import { SettingsModule } from '@/components/modules/settings'
 
@@ -44,6 +45,7 @@ export default function Home() {
           {activeModule === 'transport' && <TransportModule />}
           {activeModule === 'health' && <HealthModule />}
           {activeModule === 'events' && <EventsModule />}
+          {activeModule === 'discipline' && <DisciplineModule />}
           {activeModule === 'reports' && <ReportsModule />}
           {activeModule === 'settings' && <SettingsModule />}
         </main>
