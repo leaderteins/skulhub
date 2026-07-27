@@ -493,6 +493,48 @@ model ClinicVisit {
 }
 
 // ---------------------------------------------------------------------------
+// Alumni & Donations
+// ---------------------------------------------------------------------------
+
+model Alumnus {
+  id           String   @id @default(cuid())
+  studentId    String?  // link to original Student record if available
+  firstName    String
+  lastName     String
+  email        String?  @unique
+  phone        String?
+  gender       String   @default("Male")
+  admissionNo  String?
+  graduationYear Int
+  classLevel   String?  // e.g. "Form 4"
+  career       String?  // current profession
+  employer     String?
+  industry     String?  // e.g. "Finance", "Healthcare", "Technology"
+  location     String?  // city/country
+  linkedin     String?
+  achievement  String?  // notable achievement
+  status       String   @default("Active") // "Active" | "Lost Contact" | "Deceased"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  donations Donation[]
+}
+
+model Donation {
+  id          String   @id @default(cuid())
+  alumnusId   String
+  amount      Float
+  method      String   @default("M-Pesa") // "M-Pesa" | "Bank Transfer" | "Cash" | "Cheque"
+  reference   String?
+  purpose     String   @default("General") // "General" | "Scholarship" | "Infrastructure" | "Sports" | "Library"
+  date        DateTime @default(now())
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  alumnus Alumnus @relation(fields: [alumnusId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
 // Activity log (audit trail)
 // ---------------------------------------------------------------------------
 

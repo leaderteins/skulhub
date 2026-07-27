@@ -12,6 +12,7 @@ export type ModuleKey =
   | 'library'
   | 'transport'
   | 'health'
+  | 'alumni'
   | 'reportcards'
   | 'reports'
   | 'settings'

@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
   Wallet, Megaphone, Library, Bus, FileText, BarChart3, Settings,
-  Search, User, BookMarked, Megaphone as MegaphoneIcon, CornerDownLeft, HeartPulse,
+  Search, User, BookMarked, Megaphone as MegaphoneIcon, CornerDownLeft, HeartPulse, UsersRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { avatarColor, initials } from '@/lib/format'
@@ -25,6 +25,7 @@ const NAV_ITEMS: Array<{ key: ModuleKey; label: string; icon: any; group: string
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'Navigation', shortcut: 'G D' },
   { key: 'students', label: 'Students', icon: Users, group: 'Navigation', shortcut: 'G S' },
   { key: 'staff', label: 'Staff & Teachers', icon: GraduationCap, group: 'Navigation', shortcut: 'G T' },
+  { key: 'alumni', label: 'Alumni Network', icon: UsersRound, group: 'Navigation', shortcut: 'G U' },
   { key: 'academics', label: 'Academics', icon: BookOpen, group: 'Navigation', shortcut: 'G A' },
   { key: 'attendance', label: 'Attendance', icon: CalendarCheck, group: 'Navigation', shortcut: 'G V' },
   { key: 'reportcards', label: 'Report Cards', icon: FileText, group: 'Navigation', shortcut: 'G R' },

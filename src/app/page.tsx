@@ -7,6 +7,7 @@ import { CommandPalette } from '@/components/layout/command-palette'
 import { DashboardModule } from '@/components/modules/dashboard'
 import { StudentsModule } from '@/components/modules/students'
 import { StaffModule } from '@/components/modules/staff'
+import { AlumniModule } from '@/components/modules/alumni'
 import { AcademicsModule } from '@/components/modules/academics'
 import { AttendanceModule } from '@/components/modules/attendance'
 import { ReportCardsModule } from '@/components/modules/reportcards'
@@ -30,6 +31,7 @@ export default function Home() {
           {activeModule === 'dashboard' && <DashboardModule />}
           {activeModule === 'students' && <StudentsModule />}
           {activeModule === 'staff' && <StaffModule />}
+          {activeModule === 'alumni' && <AlumniModule />}
           {activeModule === 'academics' && <AcademicsModule />}
           {activeModule === 'attendance' && <AttendanceModule />}
           {activeModule === 'reportcards' && <ReportCardsModule />}
