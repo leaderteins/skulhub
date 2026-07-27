@@ -20,6 +20,7 @@ import { HealthModule } from '@/components/modules/health'
 import { EventsModule } from '@/components/modules/events'
 import { DisciplineModule } from '@/components/modules/discipline'
 import { HostelModule } from '@/components/modules/hostel'
+import { InventoryModule } from '@/components/modules/inventory'
 import { ReportsModule } from '@/components/modules/reports'
 import { SettingsModule } from '@/components/modules/settings'
 
@@ -48,6 +49,7 @@ export default function Home() {
           {activeModule === 'events' && <EventsModule />}
           {activeModule === 'discipline' && <DisciplineModule />}
           {activeModule === 'hostel' && <HostelModule />}
+          {activeModule === 'inventory' && <InventoryModule />}
           {activeModule === 'reports' && <ReportsModule />}
           {activeModule === 'settings' && <SettingsModule />}
         </main>

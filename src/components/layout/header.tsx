@@ -28,6 +28,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   communications: { title: 'Communications', subtitle: 'Announcements & notifications' },
   library: { title: 'Library', subtitle: 'Books, borrowing & returns' },
   transport: { title: 'Transport', subtitle: 'Routes, vehicles & drivers' },
+  inventory: { title: 'Inventory & Assets', subtitle: 'Equipment, furniture & maintenance' },
   reports: { title: 'Reports & Analytics', subtitle: 'Performance insights & exports' },
   settings: { title: 'Settings', subtitle: 'System configuration' },
 }

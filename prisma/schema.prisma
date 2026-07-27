@@ -715,6 +715,48 @@ model DormInspection {
 }
 
 // ---------------------------------------------------------------------------
+// Inventory & Assets (equipment, furniture, maintenance)
+// ---------------------------------------------------------------------------
+
+model Asset {
+  id            String   @id @default(cuid())
+  assetTag      String   @unique // e.g. "AST-001"
+  name          String
+  category      String   @default("Furniture") // "Furniture" | "Electronics" | "Lab Equipment" | "Sports" | "Kitchen" | "Stationery" | "Vehicle" | "Other"
+  description   String?
+  serialNumber  String?
+  purchaseDate  DateTime?
+  purchaseCost  Float    @default(0)
+  currentValue  Float    @default(0)
+  condition     String   @default("Good") // "Excellent" | "Good" | "Fair" | "Poor" | "Damaged"
+  status        String   @default("In Use") // "In Use" | "In Storage" | "Under Repair" | "Disposed" | "Lost"
+  location      String?  // building/room
+  assignedTo    String?  // department or person
+  quantity      Int      @default(1)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  maintenances  AssetMaintenance[]
+}
+
+model AssetMaintenance {
+  id          String   @id @default(cuid())
+  assetId     String
+  date        DateTime @default(now())
+  type        String   @default("Repair") // "Repair" | "Service" | "Inspection" | "Upgrade" | "Replacement"
+  description String
+  cost        Float    @default(0)
+  vendor      String?
+  technician  String?
+  status      String   @default("Completed") // "Scheduled" | "In Progress" | "Completed" | "Cancelled"
+  nextDueDate DateTime?
+  createdAt   DateTime @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
 // Activity log (audit trail)
 // ---------------------------------------------------------------------------
 

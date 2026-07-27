@@ -1216,3 +1216,56 @@ Stage Summary:
 - Added 2 API routes (/api/hostel, /api/hostel/[id])
 - Full dormitory management with room occupancy tracking and inspection scoring
 - Project now has 18 modules total, all lint-clean and verified working
+
+---
+Task ID: 22 (cron review round 8)
+Agent: Main (web dev review)
+Task: QA testing and Inventory & Assets module
+
+Work Log:
+- Reviewed worklog.md — confirmed 18 modules from prior rounds, all working
+- Performed QA via agent-browser across all 18 modules — all rendered without errors
+- Project was stable, proceeded to build new feature
+
+NEW FEATURE: Inventory & Assets module (19th module)
+- Added Prisma models: Asset (assetTag, name, category [Furniture/Electronics/Lab
+  Equipment/Sports/Kitchen/Stationery/Vehicle/Other], description, serialNumber,
+  purchaseDate, purchaseCost, currentValue, condition [Excellent/Good/Fair/Poor/Damaged],
+  status [In Use/In Storage/Under Repair/Disposed/Lost], location, assignedTo, quantity,
+  notes) and AssetMaintenance (assetId, date, type [Repair/Service/Inspection/Upgrade/
+  Replacement], description, cost, vendor, technician, status, nextDueDate)
+- Seeded 29 assets across 6 categories (Furniture, Electronics, Lab Equipment, Sports,
+  Kitchen, Vehicle) with realistic Kenyan school items (student desks, computers, microscopes,
+  school bus KES 8.5M, van KES 4.2M, etc.) + 22 maintenance records via prisma/seed-assets.ts.
+  Total value KES 9.4M with computed depreciation (15%/year). Includes serial numbers,
+  purchase dates, departmental assignments, and varied conditions.
+- 2 API routes:
+  * /api/inventory (GET with category/condition/status/search filters + stats — totalAssets,
+    totalValue, purchaseValue, depreciation, underRepair, maintenanceDue; POST to create)
+  * /api/inventory/[id] (GET detail with maintenance history; PUT to update; DELETE)
+- UI src/components/modules/inventory.tsx:
+  * Amber/orange/red gradient header banner with asset count and total value
+  * 4 stat cards (Total Assets, Current Value, Depreciation, Under Repair)
+  * Asset Value by Category bar chart (8 category colors, KES formatting)
+  * Asset Conditions donut chart (5 condition colors)
+  * Filter bar (search, category, condition, status)
+  * Asset Register table with asset tag (monospace), category icon, qty, value,
+    condition badge, status badge, location, view action
+  * Asset Detail dialog: category icon header with condition/status badges, 3-value
+    grid (purchase cost/current value/depreciation with color coding), asset info card
+    (description, quantity, purchase date), location & assignment card, notes banner,
+    maintenance history timeline with type/cost/vendor/technician/next-due info
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested all 19 modules: ALL OK (no errors)
+- Inventory module: 29 assets, KES 9.4M total value, asset detail dialog opens with
+  full depreciation breakdown (e.g. School Van: KES 4.2M purchase → KES 1.9M current)
+- Dev server restarted after Prisma generate (per known issue)
+
+Stage Summary:
+- Added 19th module: Inventory & Assets (equipment, furniture, vehicles, maintenance)
+- Added 2 Prisma models (Asset, AssetMaintenance) + seeded 29 assets + 22 maintenance records
+- Added 2 API routes (/api/inventory, /api/inventory/[id])
+- Full asset lifecycle tracking with depreciation, condition monitoring, and maintenance scheduling
+- Project now has 19 modules total, all lint-clean and verified working

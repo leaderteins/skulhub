@@ -17,6 +17,7 @@ export type ModuleKey =
   | 'events'
   | 'discipline'
   | 'hostel'
+  | 'inventory'
   | 'reportcards'
   | 'reports'
   | 'settings'
