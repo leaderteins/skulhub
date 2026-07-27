@@ -16,6 +16,7 @@ export type ModuleKey =
   | 'alumni'
   | 'events'
   | 'discipline'
+  | 'hostel'
   | 'reportcards'
   | 'reports'
   | 'settings'

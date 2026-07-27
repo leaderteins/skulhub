@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
   Wallet, Megaphone, Library, Bus, FileText, BarChart3, Settings,
-  Search, User, BookMarked, Megaphone as MegaphoneIcon, CornerDownLeft, HeartPulse, UsersRound, ClipboardList, CalendarDays, Scale,
+  Search, User, BookMarked, Megaphone as MegaphoneIcon, CornerDownLeft, HeartPulse, UsersRound, ClipboardList, CalendarDays, Scale, Home,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { avatarColor, initials } from '@/lib/format'
@@ -33,6 +33,7 @@ const NAV_ITEMS: Array<{ key: ModuleKey; label: string; icon: any; group: string
   { key: 'health', label: 'Health & Wellness', icon: HeartPulse, group: 'Navigation', shortcut: 'G H' },
   { key: 'events', label: 'Events & Activities', icon: CalendarDays, group: 'Navigation', shortcut: 'G E' },
   { key: 'discipline', label: 'Discipline & Behavior', icon: Scale, group: 'Navigation', shortcut: 'G X' },
+  { key: 'hostel', label: 'Hostel & Boarding', icon: Home, group: 'Navigation', shortcut: 'G O' },
   { key: 'finance', label: 'Finance & Fees', icon: Wallet, group: 'Navigation', shortcut: 'G F' },
   { key: 'communications', label: 'Communications', icon: Megaphone, group: 'Navigation', shortcut: 'G C' },
   { key: 'library', label: 'Library', icon: Library, group: 'Navigation', shortcut: 'G L' },

@@ -22,6 +22,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   health: { title: 'Health & Wellness', subtitle: 'Student medical records & clinic visits' },
   events: { title: 'Events & Activities', subtitle: 'Calendar, sports, cultural & trips' },
   discipline: { title: 'Discipline & Behavior', subtitle: 'Incidents, conduct & sanctions' },
+  hostel: { title: 'Hostel & Boarding', subtitle: 'Dormitories, beds & inspections' },
   alumni: { title: 'Alumni Network', subtitle: 'Graduates, careers & donations' },
   finance: { title: 'Finance & Fees', subtitle: 'Invoices, payments & expenses' },
   communications: { title: 'Communications', subtitle: 'Announcements & notifications' },

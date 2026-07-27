@@ -114,6 +114,7 @@ model Staff {
   timetable      Timetable[]
   drivenRoutes   TransportRoute[]
   classTeacherOf Stream[] @relation("StreamClassTeacher")
+  dormWardenOf   Dormitory[] @relation("DormWarden")
 }
 
 model Guardian {
@@ -160,6 +161,7 @@ model Student {
   medicalRecord MedicalRecord[]
   clinicVisits ClinicVisit[]
   incidents   Incident[]
+  bedAllocations BedAllocation[]
   createdAt2  DateTime @default(now()) @map("created_at_2")
 
   @@index([lastName])
@@ -640,6 +642,76 @@ model Incident {
   updatedAt   DateTime @updatedAt
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Hostel & Boarding (dormitories, beds, allocations, inspections)
+// ---------------------------------------------------------------------------
+
+model Dormitory {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g. "Mboya House", "Kenyatta House"
+  gender      String   @default("Boys") // "Boys" | "Girls" | "Mixed"
+  capacity    Int      @default(40)
+  wardenId    String?  // Staff id of dorm warden
+  warden      Staff?   @relation("DormWarden", fields: [wardenId], references: [id])
+  location    String?  // building/block
+  floors      Int      @default(1)
+  status      String   @default("Active") // "Active" | "Maintenance" | "Closed"
+  createdAt   DateTime @default(now())
+
+  rooms       Room[]
+  allocations BedAllocation[]
+  inspections DormInspection[]
+}
+
+model Room {
+  id          String   @id @default(cuid())
+  dormitoryId String
+  roomNumber  String   // e.g. "D1-101"
+  floor       Int      @default(1)
+  capacity    Int      @default(4)
+  occupied    Int      @default(0)
+  status      String   @default("Available") // "Available" | "Full" | "Maintenance"
+  dormitory   Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
+
+  allocations BedAllocation[]
+
+  @@unique([dormitoryId, roomNumber])
+}
+
+model BedAllocation {
+  id          String   @id @default(cuid())
+  studentId   String
+  dormitoryId String
+  roomId      String
+  bedNumber   String   // e.g. "Bed A", "Bed 1"
+  allocatedAt DateTime @default(now())
+  vacatedAt   DateTime?
+  status      String   @default("Active") // "Active" | "Vacated" | "Transferred"
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  dormitory Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+model DormInspection {
+  id          String   @id @default(cuid())
+  dormitoryId String
+  date        DateTime @default(now())
+  inspectedBy String?
+  cleanliness Int      @default(0) // 0-10
+  organization Int     @default(0) // 0-10
+  discipline  Int      @default(0) // 0-10
+  overallScore Int     @default(0) // computed average
+  findings    String?
+  actionTaken String?
+  status      String   @default("Completed") // "Scheduled" | "Completed" | "Follow-up"
+  createdAt   DateTime @default(now())
+
+  dormitory Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
 }
 
 // ---------------------------------------------------------------------------
