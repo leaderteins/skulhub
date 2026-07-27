@@ -757,6 +757,39 @@ model AssetMaintenance {
 }
 
 // ---------------------------------------------------------------------------
+// Cafeteria & Meals (menu, meal plans, dining attendance)
+// ---------------------------------------------------------------------------
+
+model MealMenu {
+  id          String   @id @default(cuid())
+  date        DateTime
+  mealType    String   // "Breakfast" | "Lunch" | "Supper" | "Tea Break"
+  item        String   // main dish name
+  accompaniment String? // side dish
+  beverage    String?
+  notes       String?
+  servingsPlanned Int   @default(0)
+  servingsServed  Int   @default(0)
+  status      String   @default("Planned") // "Planned" | "Served" | "Cancelled"
+  cook        String?
+  createdAt   DateTime @default(now())
+
+  attendances MealAttendance[]
+}
+
+model MealAttendance {
+  id          String   @id @default(cuid())
+  menuId      String
+  personType  String   @default("Student") // "Student" | "Staff" | "Visitor"
+  headcount   Int      @default(0)
+  date        DateTime @default(now())
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  menu MealMenu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
 // Activity log (audit trail)
 // ---------------------------------------------------------------------------
 
