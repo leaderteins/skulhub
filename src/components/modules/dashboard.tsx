@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { formatKES, formatNumber, timeAgo, fullName, initials, avatarColor, statusColor, priorityColor } from '@/lib/format'
 import { useAppStore } from '@/lib/store'
+import { useAuthStore } from '@/lib/auth-store'
 import {
   Users, GraduationCap, Wallet, CalendarCheck, BookOpen, TrendingDown,
   BookMarked, Megaphone, Activity, ArrowRight, Banknote, AlertCircle,
@@ -56,6 +57,8 @@ const ACTION_ICON: Record<string, any> = {
 export function DashboardModule() {
   const { data, loading } = useFetch<DashboardData>('/api/dashboard')
   const { setActiveModule, setCommandPaletteOpen } = useAppStore()
+  const { user, canViewFinance } = useAuthStore()
+  const showFinance = canViewFinance()
 
   if (loading || !data) {
     return (
@@ -86,16 +89,22 @@ export function DashboardModule() {
             <div className="mb-1 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
               <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-300" /> Term 1, 2025 · In Session
             </div>
-            <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Karibu, James 👋</h2>
+            <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Karibu, {user?.name?.split(' ')[0] || 'there'} 👋</h2>
             <p className="mt-1 text-sm text-white/80">
-              You have <span className="font-semibold text-white">{finance.feeStats.find(f => f.status === 'Unpaid')?.count || 0}</span> unpaid invoices and{' '}
-              <span className="font-semibold text-white">{stats.activeLoans}</span> active library loans to track today.
+              {showFinance ? (
+                <>You have <span className="font-semibold text-white">{finance.feeStats.find(f => f.status === 'Unpaid')?.count || 0}</span> unpaid invoices and{' '}
+              <span className="font-semibold text-white">{stats.activeLoans}</span> active library loans to track today.</>
+              ) : (
+                <>You have <span className="font-semibold text-white">{stats.activeLoans}</span> active library loans and {stats.totalClasses} classes to monitor today.</>
+              )}
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" className="bg-white/15 text-white backdrop-blur hover:bg-white/25" onClick={() => setActiveModule('finance')}>
-              <Wallet className="mr-1.5 h-4 w-4" /> View Fees
-            </Button>
+            {showFinance && (
+              <Button variant="secondary" size="sm" className="bg-white/15 text-white backdrop-blur hover:bg-white/25" onClick={() => setActiveModule('finance')}>
+                <Wallet className="mr-1.5 h-4 w-4" /> View Fees
+              </Button>
+            )}
             <Button variant="secondary" size="sm" className="bg-white text-emerald-700 hover:bg-white/90" onClick={() => setActiveModule('students')}>
               <Users className="mr-1.5 h-4 w-4" /> Students
             </Button>
@@ -107,8 +116,16 @@ export function DashboardModule() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Students" value={formatNumber(stats.totalStudents)} icon={Users} accent="emerald" trend={4.2} trendLabel="vs last term" />
         <StatCard label="Teaching & Support Staff" value={formatNumber(stats.totalStaff)} icon={GraduationCap} accent="teal" trend={1.8} trendLabel="this year" />
-        <StatCard label="Fee Collection Rate" value={`${finance.collectionRate}%`} icon={Wallet} accent="amber" trend={finance.collectionRate >= 70 ? 3.1 : -2.4} trendLabel="of billed" />
-        <StatCard label="Outstanding Fees" value={formatKES(finance.totalOutstanding)} icon={TrendingDown} accent="rose" trendLabel={`${finance.feeStats.find(f => f.status === 'Unpaid')?.count || 0} unpaid`} />
+        {showFinance ? (
+          <StatCard label="Fee Collection Rate" value={`${finance.collectionRate}%`} icon={Wallet} accent="amber" trend={finance.collectionRate >= 70 ? 3.1 : -2.4} trendLabel="of billed" />
+        ) : (
+          <StatCard label="Classes & Streams" value={`${stats.totalClasses}/${stats.activeStreams}`} icon={Layers} accent="cyan" trendLabel="active streams" />
+        )}
+        {showFinance ? (
+          <StatCard label="Outstanding Fees" value={formatKES(finance.totalOutstanding)} icon={TrendingDown} accent="rose" trendLabel={`${finance.feeStats.find(f => f.status === 'Unpaid')?.count || 0} unpaid`} />
+        ) : (
+          <StatCard label="Library Books" value={formatNumber(stats.totalBooks)} icon={BookOpen} accent="violet" trendLabel={`${stats.availableBooks} available`} />
+        )}
       </div>
 
       {/* Charts row */}
@@ -194,7 +211,8 @@ export function DashboardModule() {
           </CardContent>
         </Card>
 
-        {/* Fee collection status */}
+        {/* Fee collection status — finance roles only */}
+        {showFinance && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Fee Collection Status</CardTitle>
@@ -233,6 +251,7 @@ export function DashboardModule() {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* Bottom row: announcements + activity */}
@@ -385,7 +404,7 @@ export function DashboardModule() {
             {[
               { label: 'Admit Student', icon: Users, module: 'students' as const, accent: 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20' },
               { label: 'Mark Attendance', icon: CalendarCheck, module: 'attendance' as const, accent: 'bg-teal-500/10 text-teal-600 hover:bg-teal-500/20' },
-              { label: 'Record Payment', icon: Wallet, module: 'finance' as const, accent: 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20' },
+              ...(showFinance ? [{ label: 'Record Payment', icon: Wallet, module: 'finance' as const, accent: 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20' }] : []),
               { label: 'Generate Report', icon: FileText, module: 'reportcards' as const, accent: 'bg-rose-500/10 text-rose-600 hover:bg-rose-500/20' },
               { label: 'New Announcement', icon: Megaphone, module: 'communications' as const, accent: 'bg-violet-500/10 text-violet-600 hover:bg-violet-500/20' },
               { label: 'Issue Book', icon: BookOpen, module: 'library' as const, accent: 'bg-cyan-500/10 text-cyan-600 hover:bg-cyan-500/20' },
@@ -445,6 +464,7 @@ export function DashboardModule() {
             </div>
           </CardContent>
         </Card>
+        {showFinance && (
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
@@ -456,6 +476,7 @@ export function DashboardModule() {
             </div>
           </CardContent>
         </Card>
+        )}
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/10 text-rose-600">

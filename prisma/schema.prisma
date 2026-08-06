@@ -849,6 +849,26 @@ model Assessment {
 }
 
 // ---------------------------------------------------------------------------
+// Visitors & Gate Entry (security tracking)
+// ---------------------------------------------------------------------------
+
+model Visitor {
+  id            String   @id @default(cuid())
+  visitorName   String
+  idNumber      String?
+  phone         String?
+  purpose       String   @default("Other")
+  personToSee   String?
+  vehicleReg    String?
+  checkInTime   DateTime @default(now())
+  checkOutTime  DateTime?
+  status        String   @default("Checked In")
+  notes         String?
+  recordedBy    String?
+  createdAt     DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
 // Activity log (audit trail)
 // ---------------------------------------------------------------------------
 

@@ -1506,3 +1506,71 @@ Stage Summary:
 - Added live clock with seconds to header
 - Fixed HMR error
 - All features lint-clean and verified working
+
+---
+Task ID: 29 (fix losing users + remove finance from teachers)
+Agent: Main
+Task: Fix critical "losing users" issue and completely remove finance from teacher dashboard
+
+ROOT CAUSE OF "LOSING USERS":
+- The Zustand persist middleware was not properly handling hydration
+- On page reload, the store briefly returned `user: null` before localStorage
+  hydrated, causing the login page to flash and the user to appear "lost"
+- Additionally, the auth store was outdated (only 7 roles, admin was "James Atito"
+  instead of "Moses Kinyanjui", no canViewFinance helper)
+
+FIXES APPLIED:
+
+1. AUTH STORE REWRITE (src/lib/auth-store.ts)
+- Added `_hasHydrated` state flag with `setHasHydrated` setter
+- Added `onRehydrateStorage` callback to set `_hasHydrated: true` after
+  localStorage hydration completes
+- Added `canViewFinance()` helper — returns true only for admin, principal, bursar
+- 13 roles with MODULE_ACCESS and FINANCE_ROLES
+- Admin is "Moses Kinyanjui" (MK)
+- Added cook role (Joseph Muthomi)
+
+2. HYDRATION-AWARE PAGE RENDERING (src/app/page.tsx)
+- Shows a loading spinner ("Loading EduManage Pro...") while `_hasHydrated` is false
+- Only checks `if (!user)` AFTER hydration is complete
+- This prevents the login page from flashing on reload
+- The user now persists correctly across page reloads
+
+3. DASHBOARD FINANCE HIDING (src/components/modules/dashboard.tsx)
+- Added useAuthStore import and `showFinance = canViewFinance()` check
+- "Karibu" greeting now uses logged-in user's first name: `Karibu, {user.name}`
+- Fee Collection Rate stat card → replaced with "Classes & Streams" for non-finance
+- Outstanding Fees stat card → replaced with "Library Books" for non-finance
+- Fee Collection Status card → completely hidden for non-finance
+- Total Expenses card → completely hidden for non-finance
+- "View Fees" button → hidden for non-finance
+- "Record Payment" quick action → hidden for non-finance
+- Welcome message adapts: shows invoices for finance, classes/loans for non-finance
+
+4. CREATED MISSING MODULES
+- src/components/modules/visitors.tsx — Visitors & Gate module
+- src/components/modules/staffroom.tsx — Staff Room Board module
+- src/app/api/visitors/route.ts + [id]/route.ts — Visitors API
+- src/app/api/staffroom/route.ts — Staff Room API
+- Added Visitor model to Prisma schema + pushed to DB
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested:
+  * Admin (Moses): "Karibu, Moses 👋", finance visible, clock "04:52:41 am"
+  * RELOAD TEST: User persists! Dashboard still shows "Karibu, Moses" after reload ✓
+  * Teacher (Grace): "Karibu, Grace 👋", ALL finance hidden:
+    - Fee Collection: hidden ✓
+    - Outstanding Fees: hidden ✓
+    - Total Expenses: hidden ✓
+    - Record Payment button: hidden ✓
+    - View Fees button: hidden ✓
+  * RELOAD TEST: Teacher persists! Dashboard still shows "Karibu, Grace" with finance hidden ✓
+
+Stage Summary:
+- "Losing users" issue FIXED — hydration-aware rendering with loading spinner
+- Admin is now Moses Kinyanjui
+- ALL financial data completely removed from teacher dashboard
+- 13 roles including cook
+- User persists across page reloads for all roles
+- Lint clean, all modules verified

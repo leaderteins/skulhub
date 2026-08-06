@@ -1,6 +1,6 @@
 'use client'
 import { useAppStore } from '@/lib/store'
-import { useAuthStore, MODULE_ACCESS } from '@/lib/auth-store'
+import { useAuthStore } from '@/lib/auth-store'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
@@ -25,16 +25,32 @@ import { DisciplineModule } from '@/components/modules/discipline'
 import { HostelModule } from '@/components/modules/hostel'
 import { InventoryModule } from '@/components/modules/inventory'
 import { CafeteriaModule } from '@/components/modules/cafeteria'
+import { VisitorsModule } from '@/components/modules/visitors'
+import { StaffRoomModule } from '@/components/modules/staffroom'
 import { ReportsModule } from '@/components/modules/reports'
 import { SettingsModule } from '@/components/modules/settings'
 import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Lock } from 'lucide-react'
 
 export default function Home() {
   const { activeModule } = useAppStore()
-  const { user, hasAccess } = useAuthStore()
+  const { user, hasAccess, _hasHydrated } = useAuthStore()
 
-  // Show login if not authenticated
+  // Show loading skeleton while waiting for hydration from localStorage
+  // This prevents the "losing user" flash where the login page appears briefly
+  if (!_hasHydrated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-500/20 border-t-emerald-600" />
+          <p className="text-sm text-muted-foreground">Loading EduManage Pro...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login if not authenticated (after hydration)
   if (!user) {
     return <LoginForm />
   }
@@ -57,7 +73,7 @@ export default function Home() {
                 <div>
                   <p className="text-lg font-semibold">Access Restricted</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Your role ({user.role}) does not have permission to access this module.
+                    Your role does not have permission to access this module.
                     Contact your administrator if you need access.
                   </p>
                 </div>
@@ -84,6 +100,8 @@ export default function Home() {
               {activeModule === 'hostel' && <HostelModule />}
               {activeModule === 'inventory' && <InventoryModule />}
               {activeModule === 'cafeteria' && <CafeteriaModule />}
+              {activeModule === 'visitors' && <VisitorsModule />}
+              {activeModule === 'staffroom' && <StaffRoomModule />}
               {activeModule === 'reports' && <ReportsModule />}
               {activeModule === 'settings' && <SettingsModule />}
             </>
