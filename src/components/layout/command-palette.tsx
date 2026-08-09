@@ -10,6 +10,9 @@ import {
   LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
   Wallet, Megaphone, Library, Bus, FileText, BarChart3, Settings,
   Search, User, BookMarked, Megaphone as MegaphoneIcon, CornerDownLeft, HeartPulse, UsersRound, ClipboardList, CalendarDays, Scale, Home, Package, UtensilsCrossed, ClipboardCheck,
+  ShoppingCart, Building2, Banknote, Award,
+  NotebookPen, PencilRuler,
+  MessageSquare, IdCard,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { avatarColor, initials } from '@/lib/format'
@@ -32,16 +35,24 @@ const NAV_ITEMS: Array<{ key: ModuleKey; label: string; icon: any; group: string
   { key: 'attendance', label: 'Attendance', icon: CalendarCheck, group: 'Navigation', shortcut: 'G V' },
   { key: 'exams', label: 'Examinations', icon: ClipboardCheck, group: 'Navigation', shortcut: 'G X' },
   { key: 'reportcards', label: 'Report Cards', icon: FileText, group: 'Navigation', shortcut: 'G R' },
+  { key: 'lessonplans', label: 'Lesson Plans', icon: NotebookPen, group: 'Navigation', shortcut: 'G N' },
+  { key: 'homework', label: 'Homework & Assignments', icon: PencilRuler, group: 'Navigation', shortcut: 'G W' },
   { key: 'health', label: 'Health & Wellness', icon: HeartPulse, group: 'Navigation', shortcut: 'G H' },
   { key: 'events', label: 'Events & Activities', icon: CalendarDays, group: 'Navigation', shortcut: 'G E' },
   { key: 'discipline', label: 'Discipline & Behavior', icon: Scale, group: 'Navigation', shortcut: 'G D' },
   { key: 'hostel', label: 'Hostel & Boarding', icon: Home, group: 'Navigation', shortcut: 'G O' },
   { key: 'finance', label: 'Finance & Fees', icon: Wallet, group: 'Navigation', shortcut: 'G F' },
+  { key: 'payroll', label: 'Payroll', icon: Banknote, group: 'Navigation', shortcut: 'G Y' },
+  { key: 'appraisals', label: 'Staff Appraisals', icon: Award, group: 'Navigation', shortcut: 'G N' },
   { key: 'communications', label: 'Communications', icon: Megaphone, group: 'Navigation', shortcut: 'G C' },
   { key: 'library', label: 'Library', icon: Library, group: 'Navigation', shortcut: 'G L' },
   { key: 'transport', label: 'Transport', icon: Bus, group: 'Navigation', shortcut: 'G B' },
   { key: 'inventory', label: 'Inventory & Assets', icon: Package, group: 'Navigation', shortcut: 'G I' },
   { key: 'cafeteria', label: 'Cafeteria & Meals', icon: UtensilsCrossed, group: 'Navigation', shortcut: 'G M' },
+  { key: 'procurement', label: 'Procurement', icon: ShoppingCart, group: 'Navigation', shortcut: 'G K' },
+  { key: 'facilities', label: 'Facility Booking', icon: Building2, group: 'Navigation', shortcut: 'G Y' },
+  { key: 'feedback', label: 'Feedback & Surveys', icon: MessageSquare, group: 'Navigation', shortcut: 'G Q' },
+  { key: 'idcards', label: 'ID Cards', icon: IdCard, group: 'Navigation', shortcut: 'G J' },
   { key: 'reports', label: 'Reports & Analytics', icon: BarChart3, group: 'Navigation', shortcut: 'G P' },
   { key: 'settings', label: 'Settings', icon: Settings, group: 'Navigation', shortcut: 'G ,' },
 ]
@@ -89,7 +100,8 @@ export function CommandPalette() {
         const map: Record<string, ModuleKey> = {
           d: 'dashboard', s: 'students', t: 'staff', a: 'academics',
           v: 'attendance', r: 'reportcards', f: 'finance', c: 'communications',
-          l: 'library', b: 'transport', p: 'reports', ',': 'settings',
+          l: 'library', b: 'transport', p: 'reports', n: 'lessonplans',
+          w: 'homework', ',': 'settings',
         }
         const mod = map[e.key.toLowerCase()]
         if (mod) { e.preventDefault(); setActiveModule(mod) }

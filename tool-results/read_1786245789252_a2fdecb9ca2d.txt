@@ -1,0 +1,569 @@
+     1→'use client'
+     2→import { useState } from 'react'
+     3→import { useFetch, apiPost, apiPut, apiDelete } from '@/lib/api'
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     5→import { Button } from '@/components/ui/button'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Skeleton } from '@/components/ui/skeleton'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Label } from '@/components/ui/label'
+    10→import { Textarea } from '@/components/ui/textarea'
+    11→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    12→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+    13→import { Switch } from '@/components/ui/switch'
+    14→import { cn } from '@/lib/utils'
+    15→import { formatDate, formatDateTime, timeAgo, statusColor } from '@/lib/format'
+    16→import { toast } from 'sonner'
+    17→import {
+    18→  CalendarDays, Plus, ChevronLeft, ChevronRight, MapPin, User, Users,
+    19→  Clock, Trophy, BookOpen, Music, Bus, PartyPopper, FileText, Bell,
+    20→  LayoutGrid, List, X, CheckCircle2, Calendar,
+    21→} from 'lucide-react'
+    22→import {
+    23→  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+    24→} from 'recharts'
+    25→
+    26→interface EventsData {
+    27→  stats: { total: number; scheduled: number; ongoing: number; completed: number; cancelled: number; thisWeek: number }
+    28→  events: Array<{
+    29→    id: string; title: string; description: string | null; category: string
+    30→    startDate: string; endDate: string | null; allDay: boolean; location: string | null
+    31→    organizer: string | null; audience: string; status: string; priority: string; color: string
+    32→    participantCount: number; confirmedCount: number
+    33→    participants: Array<{ id: string; name: string; role: string; status: string }>
+    34→  }>
+    35→  byCategory: Array<{ name: string; count: number }>
+    36→  byStatus: Array<{ name: string; count: number }>
+    37→  upcoming: Array<{ id: string; title: string; startDate: string; endDate: string | null; category: string; location: string | null; color: string }>
+    38→}
+    39→
+    40→const CATEGORY_META: Record<string, { color: string; bg: string; text: string; dot: string; icon: any }> = {
+    41→  Academic: { color: 'emerald', bg: 'bg-emerald-500/10', text: 'text-emerald-600', dot: '#10b981', icon: BookOpen },
+    42→  Sports: { color: 'amber', bg: 'bg-amber-500/10', text: 'text-amber-600', dot: '#f59e0b', icon: Trophy },
+    43→  Cultural: { color: 'rose', bg: 'bg-rose-500/10', text: 'text-rose-600', dot: '#f43f5e', icon: Music },
+    44→  Meeting: { color: 'violet', bg: 'bg-violet-500/10', text: 'text-violet-600', dot: '#8b5cf6', icon: Users },
+    45→  Trip: { color: 'teal', bg: 'bg-teal-500/10', text: 'text-teal-600', dot: '#14b8a6', icon: Bus },
+    46→  Holiday: { color: 'cyan', bg: 'bg-cyan-500/10', text: 'text-cyan-600', dot: '#06b6d4', icon: PartyPopper },
+    47→  Exam: { color: 'red', bg: 'bg-rose-500/10', text: 'text-rose-600', dot: '#ef4444', icon: FileText },
+    48→  General: { color: 'slate', bg: 'bg-slate-500/10', text: 'text-slate-600', dot: '#64748b', icon: Bell },
+    49→}
+    50→
+    51→const STATUS_COLORS: Record<string, string> = {
+    52→  Scheduled: '#10b981', Ongoing: '#f59e0b', Completed: '#64748b', Cancelled: '#ef4444', Postponed: '#8b5cf6',
+    53→}
+    54→
+    55→export function EventsModule() {
+    56→  const { data, loading } = useFetch<EventsData>('/api/events')
+    57→  const [view, setView] = useState<'calendar' | 'list'>('calendar')
+    58→  const [categoryFilter, setCategoryFilter] = useState('all')
+    59→  const [statusFilter, setStatusFilter] = useState('all')
+    60→  const [selectedEvent, setSelectedEvent] = useState<string | null>(null)
+    61→  const [showAddDialog, setShowAddDialog] = useState(false)
+    62→  const [currentMonth, setCurrentMonth] = useState(new Date())
+    63→
+    64→  const params = new URLSearchParams()
+    65→  if (categoryFilter !== 'all') params.set('category', categoryFilter)
+    66→  if (statusFilter !== 'all') params.set('status', statusFilter)
+    67→  const { data: filtered } = useFetch<EventsData>(`/api/events?${params.toString()}`, [categoryFilter, statusFilter])
+    68→
+    69→  if (loading && !data) {
+    70→    return (
+    71→      <div className="space-y-6">
+    72→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    73→          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
+    74→        </div>
+    75→        <Skeleton className="h-96 w-full rounded-xl" />
+    76→      </div>
+    77→    )
+    78→  }
+    79→
+    80→  const display = filtered || data!
+    81→  const stats = display.stats
+    82→
+    83→  // Calendar logic
+    84→  const year = currentMonth.getFullYear()
+    85→  const month = currentMonth.getMonth()
+    86→  const firstDay = new Date(year, month, 1)
+    87→  const lastDay = new Date(year, month + 1, 0)
+    88→  const daysInMonth = lastDay.getDate()
+    89→  const startWeekday = firstDay.getDay() // 0 = Sunday
+    90→  const monthName = currentMonth.toLocaleDateString('en-KE', { month: 'long', year: 'numeric' })
+    91→
+    92→  const eventsByDate: Record<string, typeof display.events> = {}
+    93→  display.events.forEach(e => {
+    94→    const dateKey = new Date(e.startDate).toISOString().slice(0, 10)
+    95→    if (!eventsByDate[dateKey]) eventsByDate[dateKey] = []
+    96→    eventsByDate[dateKey].push(e)
+    97→  })
+    98→
+    99→  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+   100→
+   101→  return (
+   102→    <div className="space-y-6">
+   103→      {/* Header banner */}
+   104→      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-600 p-6 text-white shadow-xl">
+   105→        <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+   106→        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+   107→          <div>
+   108→            <div className="mb-1 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+   109→              <CalendarDays className="h-3 w-3" /> {stats.total} events · {stats.thisWeek} this week
+   110→            </div>
+   111→            <h2 className="text-2xl font-bold tracking-tight">Events & Activities</h2>
+   112→            <p className="mt-1 max-w-xl text-sm text-white/80">
+   113→              School calendar — academic, sports, cultural, trips, meetings & community events.
+   114→            </p>
+   115→          </div>
+   116→          <Button variant="secondary" size="sm" className="bg-white text-violet-600 hover:bg-white/90" onClick={() => setShowAddDialog(true)}>
+   117→            <Plus className="mr-1.5 h-4 w-4" /> New Event
+   118→          </Button>
+   119→        </div>
+   120→      </div>
+   121→
+   122→      {/* Stat cards */}
+   123→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   124→        <Card className="stat-card">
+   125→          <CardContent className="flex items-center gap-3 p-5">
+   126→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 ring-1 ring-violet-500/20">
+   127→              <CalendarDays className="h-5 w-5" />
+   128→            </div>
+   129→            <div>
+   130→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Events</p>
+   131→              <p className="text-2xl font-bold">{stats.total}</p>
+   132→            </div>
+   133→          </CardContent>
+   134→        </Card>
+   135→        <Card className="stat-card">
+   136→          <CardContent className="flex items-center gap-3 p-5">
+   137→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20">
+   138→              <Clock className="h-5 w-5" />
+   139→            </div>
+   140→            <div>
+   141→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Scheduled</p>
+   142→              <p className="text-2xl font-bold">{stats.scheduled}</p>
+   143→            </div>
+   144→          </CardContent>
+   145→        </Card>
+   146→        <Card className="stat-card">
+   147→          <CardContent className="flex items-center gap-3 p-5">
+   148→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20">
+   149→              <Bell className="h-5 w-5" />
+   150→            </div>
+   151→            <div>
+   152→              <p className="text-xs uppercase tracking-wide text-muted-foreground">This Week</p>
+   153→              <p className="text-2xl font-bold">{stats.thisWeek}</p>
+   154→            </div>
+   155→          </CardContent>
+   156→        </Card>
+   157→        <Card className="stat-card">
+   158→          <CardContent className="flex items-center gap-3 p-5">
+   159→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-500/10 text-slate-600 ring-1 ring-slate-500/20">
+   160→              <CheckCircle2 className="h-5 w-5" />
+   161→            </div>
+   162→            <div>
+   163→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Completed</p>
+   164→              <p className="text-2xl font-bold">{stats.completed}</p>
+   165→            </div>
+   166→          </CardContent>
+   167→        </Card>
+   168→      </div>
+   169→
+   170→      {/* Charts + upcoming */}
+   171→      <div className="grid gap-4 lg:grid-cols-3">
+   172→        {/* Category distribution */}
+   173→        <Card>
+   174→          <CardHeader className="pb-2">
+   175→            <CardTitle className="text-base">Events by Category</CardTitle>
+   176→            <CardDescription className="text-xs">Distribution across types</CardDescription>
+   177→          </CardHeader>
+   178→          <CardContent>
+   179→            <ResponsiveContainer width="100%" height={180}>
+   180→              <PieChart>
+   181→                <Pie data={display.byCategory} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3}>
+   182→                  {display.byCategory.map(c => <Cell key={c.name} fill={CATEGORY_META[c.name]?.dot || '#94a3b8'} />)}
+   183→                </Pie>
+   184→                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} />
+   185→              </PieChart>
+   186→            </ResponsiveContainer>
+   187→            <div className="mt-2 flex flex-wrap justify-center gap-2 text-[10px]">
+   188→              {display.byCategory.map(c => {
+   189→                const Icon = CATEGORY_META[c.name]?.icon || Bell
+   190→                return (
+   191→                  <div key={c.name} className="flex items-center gap-1">
+   192→                    <Icon className="h-2.5 w-2.5" style={{ color: CATEGORY_META[c.name]?.dot }} />
+   193→                    <span className="font-medium">{c.name}</span><span className="text-muted-foreground">{c.count}</span>
+   194→                  </div>
+   195→                )
+   196→              })}
+   197→            </div>
+   198→          </CardContent>
+   199→        </Card>
+   200→
+   201→        {/* Upcoming events list */}
+   202→        <Card className="lg:col-span-2">
+   203→          <CardHeader className="pb-3">
+   204→            <div className="flex items-center gap-2">
+   205→              <Bell className="h-4 w-4 text-violet-500" />
+   206→              <CardTitle className="text-base">Upcoming Events</CardTitle>
+   207→            </div>
+   208→            <CardDescription className="text-xs">Next scheduled activities</CardDescription>
+   209→          </CardHeader>
+   210→          <CardContent className="space-y-2">
+   211→            {display.upcoming.length > 0 ? display.upcoming.map(e => {
+   212→              const meta = CATEGORY_META[e.category] || CATEGORY_META.General
+   213→              const Icon = meta.icon
+   214→              const evDate = new Date(e.startDate)
+   215→              return (
+   216→                <div key={e.id} className="flex items-center gap-3 rounded-lg border p-2.5 transition-colors hover:bg-muted/40 cursor-pointer" onClick={() => setSelectedEvent(e.id)}>
+   217→                  <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg border" style={{ borderColor: meta.dot, backgroundColor: `${meta.dot}15` }}>
+   218→                    <span className="text-[9px] font-semibold uppercase" style={{ color: meta.dot }}>{evDate.toLocaleDateString('en-KE', { month: 'short' })}</span>
+   219→                    <span className="text-base font-bold leading-none" style={{ color: meta.dot }}>{evDate.getDate()}</span>
+   220→                  </div>
+   221→                  <div className="min-w-0 flex-1">
+   222→                    <p className="truncate text-sm font-medium">{e.title}</p>
+   223→                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+   224→                      <Icon className="h-2.5 w-2.5" /><span>{e.category}</span>
+   225→                      {e.location && <><span>·</span><MapPin className="h-2.5 w-2.5" /><span className="truncate">{e.location}</span></>}
+   226→                    </div>
+   227→                  </div>
+   228→                  <span className="shrink-0 text-[10px] text-muted-foreground">
+   229→                    {e.allDay ? 'All day' : evDate.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}
+   230→                  </span>
+   231→                </div>
+   232→              )
+   233→            }) : <p className="py-4 text-center text-xs text-muted-foreground">No upcoming events.</p>}
+   234→          </CardContent>
+   235→        </Card>
+   236→      </div>
+   237→
+   238→      {/* Filters + view toggle */}
+   239→      <Card>
+   240→        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
+   241→          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+   242→            <SelectTrigger className="w-full md:w-44"><SelectValue placeholder="Category" /></SelectTrigger>
+   243→            <SelectContent>
+   244→              <SelectItem value="all">All Categories</SelectItem>
+   245→              {Object.keys(CATEGORY_META).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+   246→            </SelectContent>
+   247→          </Select>
+   248→          <Select value={statusFilter} onValueChange={setStatusFilter}>
+   249→            <SelectTrigger className="w-full md:w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+   250→            <SelectContent>
+   251→              <SelectItem value="all">All Statuses</SelectItem>
+   252→              <SelectItem value="Scheduled">Scheduled</SelectItem>
+   253→              <SelectItem value="Ongoing">Ongoing</SelectItem>
+   254→              <SelectItem value="Completed">Completed</SelectItem>
+   255→              <SelectItem value="Cancelled">Cancelled</SelectItem>
+   256→              <SelectItem value="Postponed">Postponed</SelectItem>
+   257→            </SelectContent>
+   258→          </Select>
+   259→          <div className="flex-1" />
+   260→          <div className="flex rounded-lg border bg-muted/40 p-0.5">
+   261→            <Button variant={view === 'calendar' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setView('calendar')}>
+   262→              <Calendar className="h-4 w-4" />
+   263→            </Button>
+   264→            <Button variant={view === 'list' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setView('list')}>
+   265→              <List className="h-4 w-4" />
+   266→            </Button>
+   267→          </div>
+   268→        </CardContent>
+   269→      </Card>
+   270→
+   271→      {/* Calendar or List view */}
+   272→      {view === 'calendar' ? (
+   273→        <Card>
+   274→          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+   275→            <div>
+   276→              <CardTitle className="text-lg">{monthName}</CardTitle>
+   277→              <CardDescription className="text-xs">{display.events.length} events this filter</CardDescription>
+   278→            </div>
+   279→            <div className="flex items-center gap-1">
+   280→              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}>
+   281→                <ChevronLeft className="h-4 w-4" />
+   282→              </Button>
+   283→              <Button variant="outline" size="sm" className="h-8" onClick={() => setCurrentMonth(new Date())}>Today</Button>
+   284→              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}>
+   285→                <ChevronRight className="h-4 w-4" />
+   286→              </Button>
+   287→            </div>
+   288→          </CardHeader>
+   289→          <CardContent>
+   290→            {/* Weekday headers */}
+   291→            <div className="grid grid-cols-7 gap-1 mb-1">
+   292→              {weekdays.map(d => (
+   293→                <div key={d} className="py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{d}</div>
+   294→              ))}
+   295→            </div>
+   296→            {/* Calendar grid */}
+   297→            <div className="grid grid-cols-7 gap-1">
+   298→              {/* Empty cells before first day */}
+   299→              {Array.from({ length: startWeekday }).map((_, i) => (
+   300→                <div key={`empty-${i}`} className="min-h-[88px] rounded-lg bg-muted/20" />
+   301→              ))}
+   302→              {/* Days */}
+   303→              {Array.from({ length: daysInMonth }).map((_, i) => {
+   304→                const day = i + 1
+   305→                const dateKey = new Date(year, month, day).toISOString().slice(0, 10)
+   306→                const dayEvents = eventsByDate[dateKey] || []
+   307→                const isToday = new Date().toDateString() === new Date(year, month, day).toDateString()
+   308→                return (
+   309→                  <div key={day} className={cn(
+   310→                    'min-h-[88px] rounded-lg border p-1 transition-colors hover:border-violet-300 dark:hover:border-violet-700',
+   311→                    isToday && 'border-violet-400 bg-violet-50/50 dark:bg-violet-950/20',
+   312→                    dayEvents.length === 0 && 'bg-muted/10'
+   313→                  )}>
+   314→                    <div className={cn('mb-1 text-xs font-semibold', isToday ? 'flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white' : 'text-muted-foreground')}>
+   315→                      {day}
+   316→                    </div>
+   317→                    <div className="space-y-0.5">
+   318→                      {dayEvents.slice(0, 3).map(e => {
+   319→                        const meta = CATEGORY_META[e.category] || CATEGORY_META.General
+   320→                        return (
+   321→                          <button
+   322→                            key={e.id}
+   323→                            onClick={() => setSelectedEvent(e.id)}
+   324→                            className={cn('block w-full truncate rounded px-1 py-0.5 text-left text-[9px] font-medium transition-all hover:scale-105', meta.bg, meta.text)}
+   325→                            title={e.title}
+   326→                          >
+   327→                            <span className="mr-0.5 inline-block h-1.5 w-1.5 rounded-full" style={{ background: meta.dot }} />
+   328→                            {e.allDay ? '' : new Date(e.startDate).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }) + ' '}
+   329→                            {e.title}
+   330→                          </button>
+   331→                        )
+   332→                      })}
+   333→                      {dayEvents.length > 3 && (
+   334→                        <p className="px-1 text-[9px] text-muted-foreground">+{dayEvents.length - 3} more</p>
+   335→                      )}
+   336→                    </div>
+   337→                  </div>
+   338→                )
+   339→              })}
+   340→            </div>
+   341→          </CardContent>
+   342→        </Card>
+   343→      ) : (
+   344→        <div className="space-y-3">
+   345→          {display.events.map(e => {
+   346→            const meta = CATEGORY_META[e.category] || CATEGORY_META.General
+   347→            const Icon = meta.icon
+   348→            return (
+   349→              <Card key={e.id} className="stat-card cursor-pointer transition-all hover:shadow-md" onClick={() => setSelectedEvent(e.id)}>
+   350→                <CardContent className="flex items-start gap-4 p-4">
+   351→                  <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl border" style={{ borderColor: meta.dot, backgroundColor: `${meta.dot}15` }}>
+   352→                    <Icon className="h-5 w-5" style={{ color: meta.dot }} />
+   353→                  </div>
+   354→                  <div className="min-w-0 flex-1">
+   355→                    <div className="flex items-start justify-between gap-2">
+   356→                      <div className="min-w-0">
+   357→                        <p className="truncate text-sm font-semibold">{e.title}</p>
+   358→                        <p className="truncate text-xs text-muted-foreground">{formatDateTime(e.startDate)} {e.endDate && !e.allDay ? `→ ${new Date(e.endDate).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}` : ''}</p>
+   359→                      </div>
+   360→                      <div className="flex shrink-0 flex-col items-end gap-1">
+   361→                        <Badge variant="outline" className={cn('text-[10px]', meta.text)}>{e.category}</Badge>
+   362→                        <Badge variant="secondary" className={cn('text-[10px]', statusColor(e.status))}>{e.status}</Badge>
+   363→                      </div>
+   364→                    </div>
+   365→                    <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+   366→                      {e.location && <span className="flex items-center gap-1"><MapPin className="h-2.5 w-2.5" />{e.location}</span>}
+   367→                      {e.organizer && <span className="flex items-center gap-1"><User className="h-2.5 w-2.5" />{e.organizer}</span>}
+   368→                      <span className="flex items-center gap-1"><Users className="h-2.5 w-2.5" />{e.confirmedCount}/{e.participantCount} confirmed</span>
+   369→                      <Badge variant="outline" className="text-[10px]">{e.audience}</Badge>
+   370→                    </div>
+   371→                  </div>
+   372→                </CardContent>
+   373→              </Card>
+   374→            )
+   375→          })}
+   376→          {display.events.length === 0 && (
+   377→            <Card>
+   378→              <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center text-sm text-muted-foreground">
+   379→                <CalendarDays className="h-8 w-8" />
+   380→                <p>No events match your filters.</p>
+   381→              </CardContent>
+   382→            </Card>
+   383→          )}
+   384→        </div>
+   385→      )}
+   386→
+   387→      {/* Detail dialog */}
+   388→      {selectedEvent && <EventDetailDialog eventId={selectedEvent} onClose={() => setSelectedEvent(null)} />}
+   389→      {/* Add dialog */}
+   390→      {showAddDialog && <AddEventDialog onClose={() => setShowAddDialog(false)} />}
+   391→    </div>
+   392→  )
+   393→}
+   394→
+   395→// ---------------------------------------------------------------------------
+   396→// Event Detail Dialog
+   397→// ---------------------------------------------------------------------------
+   398→function EventDetailDialog({ eventId, onClose }: { eventId: string; onClose: () => void }) {
+   399→  const { data: event, loading } = useFetch<any>(`/api/events/${eventId}`)
+   400→
+   401→  return (
+   402→    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+   403→      <DialogContent className="max-w-xl max-h-[92vh] overflow-y-auto scrollbar-thin">
+   404→        {loading || !event ? (
+   405→          <div className="p-6 space-y-3">
+   406→            <Skeleton className="h-12 w-full" />
+   407→            <Skeleton className="h-32 w-full" />
+   408→            <Skeleton className="h-48 w-full" />
+   409→          </div>
+   410→        ) : (
+   411→          <>
+   412→            <DialogHeader>
+   413→              <DialogTitle className="flex items-center gap-2">
+   414→                <CalendarDays className="h-5 w-5 text-violet-500" /> Event Details
+   415→              </DialogTitle>
+   416→              <DialogDescription>{event.title}</DialogDescription>
+   417→            </DialogHeader>
+   418→
+   419→            {/* Event header */}
+   420→            <div className="rounded-xl bg-gradient-to-r from-violet-50 to-purple-50 p-4 dark:from-violet-950/30 dark:to-purple-950/30">
+   421→              <div className="flex items-start gap-3">
+   422→                {(() => {
+   423→                  const meta = CATEGORY_META[event.category] || CATEGORY_META.General
+   424→                  const Icon = meta.icon
+   425→                  return (
+   426→                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border" style={{ borderColor: meta.dot, backgroundColor: `${meta.dot}15` }}>
+   427→                      <Icon className="h-6 w-6" style={{ color: meta.dot }} />
+   428→                    </div>
+   429→                  )
+   430→                })()}
+   431→                <div className="min-w-0 flex-1">
+   432→                  <p className="text-base font-bold">{event.title}</p>
+   433→                  <div className="mt-1 flex flex-wrap gap-2">
+   434→                    <Badge variant="outline" className="text-[10px]">{event.category}</Badge>
+   435→                    <Badge variant="secondary" className={cn('text-[10px]', statusColor(event.status))}>{event.status}</Badge>
+   436→                    <Badge variant="outline" className="text-[10px]">{event.priority} Priority</Badge>
+   437→                    <Badge variant="outline" className="text-[10px]">{event.audience}</Badge>
+   438→                  </div>
+   439→                </div>
+   440→              </div>
+   441→            </div>
+   442→
+   443→            {/* Info grid */}
+   444→            <div className="grid gap-3 sm:grid-cols-2">
+   445→              <div className="rounded-xl border p-3">
+   446→                <p className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><Calendar className="h-3 w-3" /> Date & Time</p>
+   447→                <p className="text-sm font-medium">{formatDate(event.startDate)}</p>
+   448→                {event.endDate && !event.allDay && <p className="text-xs text-muted-foreground">{new Date(event.startDate).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })} — {new Date(event.endDate).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}</p>}
+   449→                {event.allDay && <p className="text-xs text-muted-foreground">All day event</p>}
+   450→              </div>
+   451→              <div className="rounded-xl border p-3">
+   452→                <p className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><MapPin className="h-3 w-3" /> Location</p>
+   453→                <p className="text-sm font-medium">{event.location || 'TBD'}</p>
+   454→              </div>
+   455→              {event.organizer && (
+   456→                <div className="rounded-xl border p-3">
+   457→                  <p className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><User className="h-3 w-3" /> Organizer</p>
+   458→                  <p className="text-sm font-medium">{event.organizer}</p>
+   459→                </div>
+   460→              )}
+   461→              <div className="rounded-xl border p-3">
+   462→                <p className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><Users className="h-3 w-3" /> Participants</p>
+   463→                <p className="text-sm font-medium">{event.participants.filter((p: any) => p.status === 'Confirmed' || p.status === 'Attended').length} confirmed of {event.participants.length}</p>
+   464→              </div>
+   465→            </div>
+   466→
+   467→            {/* Description */}
+   468→            {event.description && (
+   469→              <div className="rounded-xl border-l-4 border-violet-400 bg-violet-50/50 p-4 dark:bg-violet-950/20">
+   470→                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-400">Description</p>
+   471→                <p className="text-sm">{event.description}</p>
+   472→              </div>
+   473→            )}
+   474→
+   475→            {/* Participants */}
+   476→            {event.participants.length > 0 && (
+   477→              <div>
+   478→                <p className="mb-2 text-sm font-semibold">Participants ({event.participants.length})</p>
+   479→                <div className="max-h-40 space-y-1.5 overflow-y-auto scrollbar-thin pr-1">
+   480→                  {event.participants.map((p: any) => (
+   481→                    <div key={p.id} className="flex items-center justify-between rounded-lg border p-2 text-xs">
+   482→                      <div className="flex items-center gap-2">
+   483→                        <span className="font-medium">{p.name}</span>
+   484→                        <Badge variant="outline" className="text-[10px]">{p.role}</Badge>
+   485→                      </div>
+   486→                      <Badge variant="secondary" className={cn('text-[10px]', statusColor(p.status))}>{p.status}</Badge>
+   487→                    </div>
+   488→                  ))}
+   489→                </div>
+   490→              </div>
+   491→            )}
+   492→
+   493→            {/* Actions */}
+   494→            <div className="flex flex-wrap gap-2 pt-2">
+   495→              <Button size="sm" variant="outline" onClick={() => { apiPut(`/api/events/${eventId}`, { status: 'Completed' }).then(() => { toast.success('Marked as completed'); onClose() }) }}>
+   496→                <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Mark Completed
+   497→              </Button>
+   498→              <Button size="sm" variant="outline" onClick={() => { apiPut(`/api/events/${eventId}`, { status: 'Cancelled' }).then(() => { toast.success('Event cancelled'); onClose() }) }}>
+   499→                Cancel Event
+   500→              </Button>
+   501→              <Button size="sm" variant="destructive" onClick={() => { apiDelete(`/api/events/${eventId}`).then(() => { toast.success('Event deleted'); onClose() }) }}>
+   502→                <X className="mr-1 h-3.5 w-3.5" /> Delete
+   503→              </Button>
+   504→            </div>
+   505→          </>
+   506→        )}
+   507→      </DialogContent>
+   508→    </Dialog>
+   509→  )
+   510→}
+   511→
+   512→// ---------------------------------------------------------------------------
+   513→// Add Event Dialog
+   514→// ---------------------------------------------------------------------------
+   515→function AddEventDialog({ onClose }: { onClose: () => void }) {
+   516→  const [form, setForm] = useState({
+   517→    title: '', description: '', category: 'General', startDate: '', endDate: '',
+   518→    allDay: false, location: '', organizer: '', audience: 'All', priority: 'Normal', color: 'emerald',
+   519→  })
+   520→  const [saving, setSaving] = useState(false)
+   521→
+   522→  const handleSubmit = async () => {
+   523→    if (!form.title || !form.startDate) { toast.error('Title and start date are required'); return }
+   524→    setSaving(true)
+   525→    try {
+   526→      await apiPost('/api/events', { ...form, status: 'Scheduled' })
+   527→      toast.success('Event created successfully')
+   528→      onClose()
+   529→    } catch (e: any) { toast.error(e?.message || 'Failed to create event') }
+   530→    finally { setSaving(false) }
+   531→  }
+   532→
+   533→  return (
+   534→    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+   535→      <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto scrollbar-thin">
+   536→        <DialogHeader>
+   537→          <DialogTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-violet-500" /> New Event</DialogTitle>
+   538→          <DialogDescription>Schedule a new school event or activity</DialogDescription>
+   539→        </DialogHeader>
+   540→        <div className="space-y-3">
+   541→          <div><Label className="text-xs">Title *</Label><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Inter-House Athletics" className="mt-1" /></div>
+   542→          <div><Label className="text-xs">Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="mt-1" rows={2} /></div>
+   543→          <div className="grid grid-cols-2 gap-3">
+   544→            <div><Label className="text-xs">Category</Label><Select value={form.category} onValueChange={v => setForm({ ...form, category: v, color: CATEGORY_META[v]?.color || 'emerald' })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{Object.keys(CATEGORY_META).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+   545→            <div><Label className="text-xs">Audience</Label><Select value={form.audience} onValueChange={v => setForm({ ...form, audience: v })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="All">All</SelectItem><SelectItem value="Students">Students</SelectItem><SelectItem value="Staff">Staff</SelectItem><SelectItem value="Parents">Parents</SelectItem></SelectContent></Select></div>
+   546→          </div>
+   547→          <div className="grid grid-cols-2 gap-3">
+   548→            <div><Label className="text-xs">Start Date & Time *</Label><Input type="datetime-local" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="mt-1" /></div>
+   549→            <div><Label className="text-xs">End Date & Time</Label><Input type="datetime-local" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="mt-1" /></div>
+   550→          </div>
+   551→          <div className="flex items-center gap-2">
+   552→            <Switch checked={form.allDay} onCheckedChange={v => setForm({ ...form, allDay: v })} id="allDay" />
+   553→            <Label htmlFor="allDay" className="text-xs cursor-pointer">All-day event</Label>
+   554→          </div>
+   555→          <div className="grid grid-cols-2 gap-3">
+   556→            <div><Label className="text-xs">Location</Label><Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="e.g. School Hall" className="mt-1" /></div>
+   557→            <div><Label className="text-xs">Organizer</Label><Input value={form.organizer} onChange={e => setForm({ ...form, organizer: e.target.value })} placeholder="e.g. Games Department" className="mt-1" /></div>
+   558→          </div>
+   559→          <div><Label className="text-xs">Priority</Label><Select value={form.priority} onValueChange={v => setForm({ ...form, priority: v })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Normal">Normal</SelectItem><SelectItem value="High">High</SelectItem><SelectItem value="Low">Low</SelectItem></SelectContent></Select></div>
+   560→          <div className="flex justify-end gap-2 pt-2">
+   561→            <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+   562→            <Button size="sm" onClick={handleSubmit} disabled={saving} className="bg-violet-600 hover:bg-violet-700">{saving ? 'Creating...' : 'Create Event'}</Button>
+   563→          </div>
+   564→        </div>
+   565→      </DialogContent>
+   566→    </Dialog>
+   567→  )
+   568→}
+   569→

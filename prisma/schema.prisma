@@ -27,6 +27,8 @@ model ClassLevel {
   subjects    SubjectAssignment[]
   applications Application[]
   assessments Assessment[]
+  lessonPlans LessonPlan[]
+  homework    Homework[]
 }
 
 model Stream {
@@ -70,6 +72,8 @@ model Subject {
   grades      Grade[]
   questions   QuestionBank[]
   assessments Assessment[]
+  lessonPlans LessonPlan[]
+  homework    Homework[]
 }
 
 // Which subject is taught in which class level
@@ -118,6 +122,8 @@ model Staff {
   drivenRoutes   TransportRoute[]
   classTeacherOf Stream[] @relation("StreamClassTeacher")
   dormWardenOf   Dormitory[] @relation("DormWarden")
+  payslips       Payslip[]
+  appraisals     Appraisal[]
 }
 
 model Guardian {
@@ -866,6 +872,172 @@ model Visitor {
   notes         String?
   recordedBy    String?
   createdAt     DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Payroll (salaries, payslips, deductions, allowances)
+// ---------------------------------------------------------------------------
+
+model Payslip {
+  id            String   @id @default(cuid())
+  payslipNo     String   @unique
+  staffId       String
+  staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  month         String   // "January" etc
+  year          Int
+  basicSalary   Float
+  allowances    Float    @default(0)
+  deductions    Float    @default(0)
+  taxPAYE       Float    @default(0)
+  nssf          Float    @default(0)
+  nhif          Float    @default(0)
+  netPay        Float
+  status        String   @default("Pending") // "Pending" | "Approved" | "Paid"
+  payDate       DateTime?
+  createdAt     DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Procurement (purchase orders, suppliers)
+// ---------------------------------------------------------------------------
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  category  String   @default("General") // "Stationery" | "Food" | "Equipment" | "Services" | "Other"
+  contact   String?
+  phone     String?
+  email     String?
+  address   String?
+  status    String   @default("Active")
+  createdAt DateTime @default(now())
+  orders    PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id          String   @id @default(cuid())
+  poNumber    String   @unique
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  item        String
+  description String?
+  quantity    Int      @default(1)
+  unitPrice   Float
+  totalAmount Float
+  status      String   @default("Pending") // "Pending" | "Approved" | "Delivered" | "Cancelled"
+  requestedBy String?
+  approvedBy  String?
+  orderDate   DateTime @default(now())
+  deliveryDate DateTime?
+  createdAt   DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Staff Appraisals (performance reviews)
+// ---------------------------------------------------------------------------
+
+model Appraisal {
+  id            String   @id @default(cuid())
+  staffId       String
+  staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  period        String   // "Term 1 2025" etc
+  reviewDate    DateTime @default(now())
+  punctuality   Int      @default(0) // 0-10
+  teamwork      Int      @default(0)
+  studentResults Int     @default(0)
+  professionalism Int    @default(0)
+  innovation    Int      @default(0)
+  overallScore  Int      @default(0)
+  strengths     String?
+  improvements  String?
+  goals         String?
+  reviewerName  String?
+  status        String   @default("Completed") // "Draft" | "Completed" | "Reviewed"
+  createdAt     DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Facility Booking (halls, grounds, labs)
+// ---------------------------------------------------------------------------
+
+model Facility {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  type      String   @default("Hall") // "Hall" | "Ground" | "Lab" | "Classroom" | "Field"
+  capacity  Int      @default(50)
+  location  String?
+  status    String   @default("Available")
+  bookings  FacilityBooking[]
+}
+
+model FacilityBooking {
+  id          String   @id @default(cuid())
+  facilityId  String
+  facility    Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  bookedBy    String
+  purpose     String
+  startDate   DateTime
+  endDate     DateTime
+  status      String   @default("Pending") // "Pending" | "Approved" | "Rejected" | "Completed"
+  createdAt   DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Lesson Plans (schemes of work)
+// ---------------------------------------------------------------------------
+
+model LessonPlan {
+  id          String   @id @default(cuid())
+  subjectId   String?
+  subject     Subject? @relation(fields: [subjectId], references: [id])
+  classLevelId String?
+  classLevel  ClassLevel? @relation(fields: [classLevelId], references: [id])
+  week        Int
+  term        String   @default("Term 1")
+  topic       String
+  objectives  String?
+  activities  String?
+  resources   String?
+  assessment  String?
+  notes       String?
+  createdBy   String?
+  status      String   @default("Draft") // "Draft" | "Published" | "Completed"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Homework / Assignments
+// ---------------------------------------------------------------------------
+
+model Homework {
+  id          String   @id @default(cuid())
+  title       String
+  subjectId   String?
+  subject     Subject? @relation(fields: [subjectId], references: [id])
+  classLevelId String?
+  classLevel  ClassLevel? @relation(fields: [classLevelId], references: [id])
+  description String
+  dueDate     DateTime
+  maxMarks    Int      @default(100)
+  status      String   @default("Active") // "Active" | "Closed" | "Graded"
+  createdBy   String?
+  createdAt   DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Feedback / Surveys
+// ---------------------------------------------------------------------------
+
+model Feedback {
+  id        String   @id @default(cuid())
+  category  String   @default("General") // "General" | "Teaching" | "Facilities" | "Food" | "Transport"
+  rating    Int      @default(5) // 1-5 stars
+  comment   String
+  submittedBy String? // anonymous or name
+  role      String   @default("Parent") // "Parent" | "Student" | "Staff"
+  status    String   @default("New") // "New" | "Reviewed" | "Addressed"
+  createdAt DateTime @default(now())
 }
 
 // ---------------------------------------------------------------------------

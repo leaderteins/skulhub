@@ -51,26 +51,28 @@ export const ROLE_INFO: Record<UserRole, { label: string; color: string; bg: str
 
 const ALL_MODULES = [
   'dashboard', 'admissions', 'students', 'staff', 'alumni', 'academics',
-  'attendance', 'exams', 'reportcards', 'health', 'events', 'discipline',
+  'attendance', 'exams', 'reportcards', 'lessonplans', 'homework',
+  'health', 'events', 'discipline',
   'hostel', 'finance', 'communications', 'library', 'transport', 'inventory',
-  'cafeteria', 'visitors', 'staffroom', 'reports', 'settings',
+  'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom',
+  'payroll', 'appraisals', 'feedback', 'idcards', 'reports', 'settings',
 ]
 
 // Module VIEW access by role
 export const MODULE_ACCESS: Record<UserRole, string[]> = {
   admin: ALL_MODULES,
   principal: ALL_MODULES,
-  deputy_principal: ['dashboard', 'admissions', 'students', 'staff', 'academics', 'attendance', 'exams', 'reportcards', 'health', 'events', 'discipline', 'hostel', 'communications', 'library', 'transport', 'cafeteria', 'visitors', 'staffroom', 'reports'],
-  bursar: ['dashboard', 'students', 'finance', 'reports', 'settings'],
-  teacher: ['dashboard', 'students', 'academics', 'attendance', 'exams', 'reportcards', 'events', 'discipline', 'staffroom', 'settings'],
-  librarian: ['dashboard', 'students', 'library', 'settings'],
-  nurse: ['dashboard', 'students', 'health', 'settings'],
-  matron: ['dashboard', 'students', 'hostel', 'health', 'discipline', 'settings'],
-  secretary: ['dashboard', 'admissions', 'students', 'staff', 'communications', 'events', 'staffroom', 'settings'],
-  admissions: ['dashboard', 'admissions', 'students', 'settings'],
-  bus_driver: ['dashboard', 'students', 'transport', 'settings'],
-  gate_man: ['dashboard', 'students', 'visitors', 'transport', 'settings'],
-  cook: ['dashboard', 'students', 'cafeteria', 'settings'],
+  deputy_principal: ['dashboard', 'admissions', 'students', 'staff', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'health', 'events', 'discipline', 'hostel', 'communications', 'library', 'transport', 'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom', 'payroll', 'appraisals', 'feedback', 'idcards', 'reports'],
+  bursar: ['dashboard', 'students', 'finance', 'procurement', 'facilities', 'payroll', 'idcards', 'reports', 'settings'],
+  teacher: ['dashboard', 'students', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'events', 'discipline', 'staffroom', 'appraisals', 'feedback', 'idcards', 'settings'],
+  librarian: ['dashboard', 'students', 'library', 'feedback', 'settings'],
+  nurse: ['dashboard', 'students', 'health', 'feedback', 'settings'],
+  matron: ['dashboard', 'students', 'hostel', 'health', 'discipline', 'feedback', 'settings'],
+  secretary: ['dashboard', 'admissions', 'students', 'staff', 'academics', 'lessonplans', 'homework', 'communications', 'events', 'staffroom', 'appraisals', 'feedback', 'idcards', 'settings'],
+  admissions: ['dashboard', 'admissions', 'students', 'idcards', 'settings'],
+  bus_driver: ['dashboard', 'students', 'transport', 'feedback', 'settings'],
+  gate_man: ['dashboard', 'students', 'visitors', 'transport', 'feedback', 'settings'],
+  cook: ['dashboard', 'students', 'cafeteria', 'feedback', 'settings'],
 }
 
 // Roles that can see financial/monetary data

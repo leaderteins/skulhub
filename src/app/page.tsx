@@ -15,6 +15,8 @@ import { AcademicsModule } from '@/components/modules/academics'
 import { AttendanceModule } from '@/components/modules/attendance'
 import { ExamsModule } from '@/components/modules/exams'
 import { ReportCardsModule } from '@/components/modules/reportcards'
+import { LessonPlansModule } from '@/components/modules/lessonplans'
+import { HomeworkModule } from '@/components/modules/homework'
 import { FinanceModule } from '@/components/modules/finance'
 import { CommunicationsModule } from '@/components/modules/communications'
 import { LibraryModule } from '@/components/modules/library'
@@ -25,8 +27,14 @@ import { DisciplineModule } from '@/components/modules/discipline'
 import { HostelModule } from '@/components/modules/hostel'
 import { InventoryModule } from '@/components/modules/inventory'
 import { CafeteriaModule } from '@/components/modules/cafeteria'
+import { ProcurementModule } from '@/components/modules/procurement'
+import { FacilitiesModule } from '@/components/modules/facilities'
 import { VisitorsModule } from '@/components/modules/visitors'
 import { StaffRoomModule } from '@/components/modules/staffroom'
+import { PayrollModule } from '@/components/modules/payroll'
+import { AppraisalsModule } from '@/components/modules/appraisals'
+import { FeedbackModule } from '@/components/modules/feedback'
+import { IdCardsModule } from '@/components/modules/idcards'
 import { ReportsModule } from '@/components/modules/reports'
 import { SettingsModule } from '@/components/modules/settings'
 import { Card, CardContent } from '@/components/ui/card'
@@ -90,6 +98,8 @@ export default function Home() {
               {activeModule === 'attendance' && <AttendanceModule />}
               {activeModule === 'exams' && <ExamsModule />}
               {activeModule === 'reportcards' && <ReportCardsModule />}
+              {activeModule === 'lessonplans' && <LessonPlansModule />}
+              {activeModule === 'homework' && <HomeworkModule />}
               {activeModule === 'finance' && <FinanceModule />}
               {activeModule === 'communications' && <CommunicationsModule />}
               {activeModule === 'library' && <LibraryModule />}
@@ -100,8 +110,14 @@ export default function Home() {
               {activeModule === 'hostel' && <HostelModule />}
               {activeModule === 'inventory' && <InventoryModule />}
               {activeModule === 'cafeteria' && <CafeteriaModule />}
+              {activeModule === 'procurement' && <ProcurementModule />}
+              {activeModule === 'facilities' && <FacilitiesModule />}
               {activeModule === 'visitors' && <VisitorsModule />}
               {activeModule === 'staffroom' && <StaffRoomModule />}
+              {activeModule === 'payroll' && <PayrollModule />}
+              {activeModule === 'appraisals' && <AppraisalsModule />}
+              {activeModule === 'feedback' && <FeedbackModule />}
+              {activeModule === 'idcards' && <IdCardsModule />}
               {activeModule === 'reports' && <ReportsModule />}
               {activeModule === 'settings' && <SettingsModule />}
             </>
