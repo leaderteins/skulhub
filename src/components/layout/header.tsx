@@ -36,6 +36,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   procurement: { title: 'Procurement', subtitle: 'Suppliers, purchase orders & deliveries' },
   facilities: { title: 'Facility Booking', subtitle: 'Halls, labs, grounds & reservations' },
   dataimport: { title: 'Data Import & Migration', subtitle: 'Bulk import existing school data' },
+  invrequests: { title: 'Inventory Requests', subtitle: 'Staff request items from the store' },
   reports: { title: 'Reports & Analytics', subtitle: 'Performance insights & exports' },
   settings: { title: 'Settings', subtitle: 'System configuration' },
 }

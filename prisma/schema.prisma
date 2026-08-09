@@ -1041,6 +1041,34 @@ model Feedback {
 }
 
 // ---------------------------------------------------------------------------
+// Inventory Requests (staff request items from store/kitchen)
+// ---------------------------------------------------------------------------
+
+model InventoryRequest {
+  id            String   @id @default(cuid())
+  requestNo     String   @unique
+  requestType   String   @default("Kitchen") // "Kitchen" | "Stationery" | "Cleaning" | "Maintenance" | "Lab" | "Sports" | "Other"
+  itemName      String
+  description   String?
+  quantity      Int      @default(1)
+  unit          String   @default("pcs") // "kg" | "litres" | "pcs" | "boxes" | "packs"
+  urgency       String   @default("Normal") // "Low" | "Normal" | "High" | "Urgent"
+  requestedBy   String
+  requesterRole String   @default("Staff")
+  department    String?  // "Kitchen" | "Library" | "Science Lab" | "Administration"
+  status        String   @default("Pending") // "Pending" | "Approved" | "Rejected" | "Fulfilled" | "Partially Fulfilled"
+  approvedBy    String?
+  approvedAt    DateTime?
+  fulfilledBy   String?
+  fulfilledAt   DateTime?
+  fulfilledQty  Int      @default(0)
+  rejectionReason String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
 // Activity log (audit trail)
 // ---------------------------------------------------------------------------
 

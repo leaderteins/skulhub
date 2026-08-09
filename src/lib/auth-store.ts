@@ -55,7 +55,7 @@ const ALL_MODULES = [
   'health', 'events', 'discipline',
   'hostel', 'finance', 'communications', 'library', 'transport', 'inventory',
   'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom',
-  'payroll', 'appraisals', 'feedback', 'idcards', 'dataimport', 'reports', 'settings',
+  'payroll', 'appraisals', 'feedback', 'idcards', 'dataimport', 'invrequests', 'reports', 'settings',
 ]
 
 // Module VIEW access by role
@@ -64,15 +64,15 @@ export const MODULE_ACCESS: Record<UserRole, string[]> = {
   principal: ALL_MODULES,
   deputy_principal: ['dashboard', 'admissions', 'students', 'staff', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'health', 'events', 'discipline', 'hostel', 'communications', 'library', 'transport', 'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom', 'payroll', 'appraisals', 'feedback', 'idcards', 'reports'],
   bursar: ['dashboard', 'students', 'finance', 'procurement', 'facilities', 'payroll', 'idcards', 'reports', 'settings'],
-  teacher: ['dashboard', 'students', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'events', 'discipline', 'staffroom', 'appraisals', 'feedback', 'idcards', 'settings'],
-  librarian: ['dashboard', 'students', 'library', 'feedback', 'settings'],
-  nurse: ['dashboard', 'students', 'health', 'feedback', 'settings'],
+  teacher: ['dashboard', 'students', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'events', 'discipline', 'staffroom', 'appraisals', 'feedback', 'idcards', 'invrequests', 'settings'],
+  librarian: ['dashboard', 'students', 'library', 'invrequests', 'feedback', 'settings'],
+  nurse: ['dashboard', 'students', 'health', 'invrequests', 'feedback', 'settings'],
   matron: ['dashboard', 'students', 'hostel', 'health', 'discipline', 'feedback', 'settings'],
   secretary: ['dashboard', 'admissions', 'students', 'staff', 'academics', 'lessonplans', 'homework', 'communications', 'events', 'staffroom', 'appraisals', 'feedback', 'idcards', 'dataimport', 'settings'],
   admissions: ['dashboard', 'admissions', 'students', 'idcards', 'dataimport', 'settings'],
   bus_driver: ['dashboard', 'students', 'transport', 'feedback', 'settings'],
   gate_man: ['dashboard', 'students', 'visitors', 'transport', 'feedback', 'settings'],
-  cook: ['dashboard', 'students', 'cafeteria', 'feedback', 'settings'],
+  cook: ['dashboard', 'students', 'cafeteria', 'invrequests', 'feedback', 'settings'],
 }
 
 // Roles that can see financial/monetary data
@@ -102,6 +102,7 @@ interface AuthState {
   login: (email: string, password: string) => boolean
   logout: () => void
   hasAccess: (module: string) => boolean
+  canEdit: (module: string) => boolean
   canViewFinance: () => boolean
 }
 
@@ -125,6 +126,20 @@ export const useAuthStore = create<AuthState>()(
         const user = get().user
         if (!user) return false
         return MODULE_ACCESS[user.role].includes(module)
+      },
+      canEdit: (module: string) => {
+        const user = get().user
+        if (!user) return false
+        // Admin and principal can edit everything
+        if (user.role === 'admin' || user.role === 'principal') return true
+        // Specific role-based edit permissions
+        const editMap: Record<string, UserRole[]> = {
+          inventory: ['admin', 'principal', 'deputy_principal'],
+          cafeteria: ['admin', 'principal', 'cook'],
+          finance: ['admin', 'principal', 'bursar'],
+          invrequests: ['admin', 'principal', 'deputy_principal', 'cook', 'teacher', 'librarian', 'nurse', 'matron', 'secretary'],
+        }
+        return (editMap[module] || ['admin', 'principal']).includes(user.role)
       },
       canViewFinance: () => {
         const user = get().user

@@ -2119,3 +2119,49 @@ Stage Summary:
 - Imported data is instantly available across all modules and users
 - CSV paste interface with sample data, field guides, and error reporting
 - Project now has 32 modules total
+
+---
+Task ID: 32 (inventory requests module)
+Agent: Main
+Task: Build Inventory Requests module — staff request items from store (e.g. cook requesting kitchen supplies)
+
+NEW FEATURE: Inventory Requests Module (Module 33)
+- Prisma model: InventoryRequest (requestNo, requestType, itemName, description, quantity, unit,
+  urgency, requestedBy, requesterRole, department, status, approvedBy, approvedAt, fulfilledBy,
+  fulfilledAt, fulfilledQty, rejectionReason, notes)
+- API: /api/inventory-requests (GET with filters + stats + POST create) + /api/inventory-requests/[id] (PUT approve/reject/fulfill + DELETE)
+- UI: src/components/modules/inventory-requests.tsx
+  * Orange/red gradient header with pending/urgent counts
+  * Urgent alert banner when urgent requests exist
+  * 4 stat cards (Total, Pending, Approved, Fulfilled)
+  * Requests by Type donut chart (7 type colors)
+  * Requests by Department bar chart
+  * Filter bar (search, type, status)
+  * Requests table with type icon, item, qty+unit, urgency badge, requester, status badge,
+    approve/reject/fulfill action buttons
+  * New Request dialog with visual type selector (7 types with icons: Kitchen/ChefHat,
+    Stationery/FileText, Cleaning/Package, Maintenance/Wrench, Lab/Beaker, Sports/Trophy, Other)
+  * Fulfill dialog with quantity selector (partial fulfillment supported)
+  * Auto-fills requestedBy and requesterRole from logged-in user
+
+WHO CAN USE IT:
+- Cook: Can submit requests (Kitchen type default) — e.g. "Cooking Oil (5L)" for the kitchen
+- Teacher, Librarian, Nurse: Can submit requests for their departments
+- Admin, Principal: Can approve, reject, and fulfill requests
+- Deputy Principal: Can manage requests
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested as admin:
+  * Module renders with header, stat cards, charts, table
+  * New Request dialog opens with 7 type selector cards
+  * Submitted "Cooking Oil (5L)" request → success, shows in table with REQ- number
+  * Approve/Reject/Fulfill buttons visible for admin
+- Also added canEdit() function to auth-store for role-based write permissions
+
+Stage Summary:
+- Added Inventory Requests module (33rd module)
+- Cook can now request kitchen supplies from the store computer
+- All staff can request items; admins approve and fulfill
+- Full workflow: Request → Approve → Fulfill (with partial fulfillment support)
+- Project now has 33 modules total

@@ -30,6 +30,7 @@ export type ModuleKey =
   | 'feedback'
   | 'idcards'
   | 'dataimport'
+  | 'invrequests'
   | 'reports'
   | 'settings'
 
