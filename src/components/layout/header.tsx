@@ -35,6 +35,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   cafeteria: { title: 'Cafeteria & Meals', subtitle: 'Menu, meal plans & dining attendance' },
   procurement: { title: 'Procurement', subtitle: 'Suppliers, purchase orders & deliveries' },
   facilities: { title: 'Facility Booking', subtitle: 'Halls, labs, grounds & reservations' },
+  dataimport: { title: 'Data Import & Migration', subtitle: 'Bulk import existing school data' },
   reports: { title: 'Reports & Analytics', subtitle: 'Performance insights & exports' },
   settings: { title: 'Settings', subtitle: 'System configuration' },
 }

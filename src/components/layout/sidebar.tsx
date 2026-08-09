@@ -9,7 +9,7 @@ import {
   ShoppingCart, Building2, Banknote, Award,
   NotebookPen, PencilRuler,
   MessageSquare, IdCard,
-  LogOut,
+  LogOut, Upload,
 } from 'lucide-react'
 
 interface NavItem {
@@ -47,6 +47,7 @@ const NAV: NavItem[] = [
   { key: 'facilities', label: 'Facility Booking', icon: Building2, group: 'Administration' },
   { key: 'feedback', label: 'Feedback & Surveys', icon: MessageSquare, group: 'Insights' },
   { key: 'idcards', label: 'ID Cards', icon: IdCard, group: 'Insights' },
+  { key: 'dataimport', label: 'Data Import', icon: Upload, group: 'Insights' },
   { key: 'reports', label: 'Reports', icon: BarChart3, group: 'Insights' },
   { key: 'settings', label: 'Settings', icon: Settings, group: 'Insights' },
 ]

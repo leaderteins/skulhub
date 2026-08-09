@@ -35,6 +35,7 @@ import { PayrollModule } from '@/components/modules/payroll'
 import { AppraisalsModule } from '@/components/modules/appraisals'
 import { FeedbackModule } from '@/components/modules/feedback'
 import { IdCardsModule } from '@/components/modules/idcards'
+import { DataImportModule } from '@/components/modules/dataimport'
 import { ReportsModule } from '@/components/modules/reports'
 import { SettingsModule } from '@/components/modules/settings'
 import { Card, CardContent } from '@/components/ui/card'
@@ -118,6 +119,7 @@ export default function Home() {
               {activeModule === 'appraisals' && <AppraisalsModule />}
               {activeModule === 'feedback' && <FeedbackModule />}
               {activeModule === 'idcards' && <IdCardsModule />}
+              {activeModule === 'dataimport' && <DataImportModule />}
               {activeModule === 'reports' && <ReportsModule />}
               {activeModule === 'settings' && <SettingsModule />}
             </>

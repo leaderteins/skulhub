@@ -29,6 +29,7 @@ export type ModuleKey =
   | 'appraisals'
   | 'feedback'
   | 'idcards'
+  | 'dataimport'
   | 'reports'
   | 'settings'
 

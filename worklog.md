@@ -2067,3 +2067,55 @@ Task: Add payroll and 7 more modern school system modules
 TOTAL MODULES: 31 (up from 22)
 All modules lint-clean and verified working via agent-browser.
 Admin sees 29 nav items (some modules like staffroom are in Overview group).
+
+---
+Task ID: 31 (data import & migration module)
+Agent: Main
+Task: Build comprehensive Data Import module for existing school data migration
+
+NEW FEATURE: Data Import & Migration Module (Module 32)
+- API: /api/import (GET field schemas + POST bulk import for 8 entity types)
+- UI: src/components/modules/dataimport.tsx
+- Supports bulk import for:
+  1. Students — firstName, lastName, gender, email, phone, DOB, bloodGroup, county,
+     boarding, admissionNo, guardianName, guardianPhone
+  2. Staff — firstName, lastName, role, gender, email, phone, qualification,
+     specialization, employmentType, salary, employeeNo, address
+  3. Library Books — title, author, isbn, category, publisher, yearPublished,
+     copiesTotal, shelfLocation
+  4. Subjects — name, code, category
+  5. Suppliers — name, category, contact, phone, email, address
+  6. Facilities — name, type, capacity, location
+  7. Alumni — firstName, lastName, gender, email, phone, graduationYear, career,
+     employer, industry, location, admissionNo
+  8. Visitor History — visitorName, idNumber, phone, purpose, personToSee,
+     vehicleReg, status, checkInTime, checkOutTime
+
+Features:
+- CSV paste interface with monospace textarea
+- Type selector cards with icons (8 entity types)
+- "Sample" button loads example CSV for the selected type
+- "Import Data" button parses CSV, creates records, shows result panel
+- Result panel shows: total rows, created count, error count, error messages
+- Field guide showing required vs optional fields
+- Auto-generates admission numbers, employee numbers, etc. if not provided
+- Auto-creates guardian records when guardian name is provided
+- Imported data instantly available across all modules and users
+- Current system data summary (counts for each entity type)
+- Accessible to: admin, principal, secretary, admissions clerk
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested:
+  * Admin login → Data Import module renders with 8 type cards
+  * Selected Students → loaded sample CSV (2 student rows)
+  * Clicked "Import Data" → success, "records are now available"
+  * Navigated to Students module → imported students (John Mwangi, Jane Wanjiru)
+    are visible — data available across all users ✓
+
+Stage Summary:
+- Added Data Import & Migration module (32nd module)
+- Schools can bulk-import existing data for 8 entity types
+- Imported data is instantly available across all modules and users
+- CSV paste interface with sample data, field guides, and error reporting
+- Project now has 32 modules total

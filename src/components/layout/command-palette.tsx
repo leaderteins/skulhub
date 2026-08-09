@@ -13,6 +13,7 @@ import {
   ShoppingCart, Building2, Banknote, Award,
   NotebookPen, PencilRuler,
   MessageSquare, IdCard,
+  Upload,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { avatarColor, initials } from '@/lib/format'
@@ -53,6 +54,7 @@ const NAV_ITEMS: Array<{ key: ModuleKey; label: string; icon: any; group: string
   { key: 'facilities', label: 'Facility Booking', icon: Building2, group: 'Navigation', shortcut: 'G Y' },
   { key: 'feedback', label: 'Feedback & Surveys', icon: MessageSquare, group: 'Navigation', shortcut: 'G Q' },
   { key: 'idcards', label: 'ID Cards', icon: IdCard, group: 'Navigation', shortcut: 'G J' },
+  { key: 'dataimport', label: 'Data Import', icon: Upload, group: 'Navigation', shortcut: 'G Z' },
   { key: 'reports', label: 'Reports & Analytics', icon: BarChart3, group: 'Navigation', shortcut: 'G P' },
   { key: 'settings', label: 'Settings', icon: Settings, group: 'Navigation', shortcut: 'G ,' },
 ]
