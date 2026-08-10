@@ -14,7 +14,7 @@ import {
   NotebookPen, PencilRuler,
   MessageSquare, IdCard,
   Upload, PackagePlus,
-  Shield,
+  Shield, UserCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { avatarColor, initials } from '@/lib/format'
@@ -32,6 +32,7 @@ const NAV_ITEMS: Array<{ key: ModuleKey; label: string; icon: any; group: string
   { key: 'admissions', label: 'Admissions', icon: ClipboardList, group: 'Navigation', shortcut: 'G Q' },
   { key: 'students', label: 'Students', icon: Users, group: 'Navigation', shortcut: 'G S' },
   { key: 'staff', label: 'Staff & Teachers', icon: GraduationCap, group: 'Navigation', shortcut: 'G T' },
+  { key: 'staffapprovals', label: 'Staff Approvals', icon: UserCheck, group: 'Navigation' },
   { key: 'alumni', label: 'Alumni Network', icon: UsersRound, group: 'Navigation', shortcut: 'G U' },
   { key: 'academics', label: 'Academics', icon: BookOpen, group: 'Navigation', shortcut: 'G A' },
   { key: 'attendance', label: 'Attendance', icon: CalendarCheck, group: 'Navigation', shortcut: 'G V' },

@@ -10,7 +10,7 @@ import {
   NotebookPen, PencilRuler,
   MessageSquare, IdCard,
   LogOut, Upload, PackagePlus,
-  Shield,
+  Shield, UserCheck,
 } from 'lucide-react'
 
 interface NavItem {
@@ -25,6 +25,7 @@ const NAV: NavItem[] = [
   { key: 'admissions', label: 'Admissions', icon: ClipboardList, group: 'People' },
   { key: 'students', label: 'Students', icon: Users, group: 'People' },
   { key: 'staff', label: 'Staff & Teachers', icon: GraduationCap, group: 'People' },
+  { key: 'staffapprovals', label: 'Staff Approvals', icon: UserCheck, group: 'People' },
   { key: 'alumni', label: 'Alumni Network', icon: UsersRound, group: 'People' },
   { key: 'academics', label: 'Academics', icon: BookOpen, group: 'Academic' },
   { key: 'attendance', label: 'Attendance', icon: CalendarCheck, group: 'Academic' },

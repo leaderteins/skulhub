@@ -15,28 +15,99 @@ import {
   EyeOff,
   Users,
   ChevronRight,
+  ArrowLeft,
+  ArrowRight,
+  ShieldCheck,
+  Building2,
   UserPlus,
-  Shield,
-  Sparkles,
+  GraduationCap,
+  ClipboardList,
+  Smartphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
+interface SchoolInfo {
+  id: string
+  name: string
+  slug: string
+  level: string
+  logo: string | null
+  schoolCode: string
+}
+
+const FEATURES = [
+  {
+    icon: ShieldCheck,
+    title: 'Role-Based Access',
+    desc: '13 staff roles, each with scoped permissions',
+  },
+  {
+    icon: GraduationCap,
+    title: 'Per Class Data',
+    desc: 'Streams, subjects & enrollments isolated',
+  },
+  {
+    icon: ClipboardList,
+    title: 'Audit Trail',
+    desc: 'Every action logged for accountability',
+  },
+  {
+    icon: Smartphone,
+    title: 'M-Pesa Ready',
+    desc: 'Native Paybill & STK push integration',
+  },
+]
+
 export function LoginForm() {
   const { login, serverLogin, setAuthView } = useAuthStore()
+  const [step, setStep] = useState<1 | 2>(1)
+  const [schoolCode, setSchoolCode] = useState('')
+  const [school, setSchool] = useState<SchoolInfo | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [lookingUp, setLookingUp] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // --- Step 1: school code lookup ----------------------------------------
+  const handleSchoolCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!schoolCode.trim()) {
+      toast.error('Enter your school code')
+      return
+    }
+    setLookingUp(true)
+    try {
+      const res = await fetch('/api/auth/school-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schoolCode: schoolCode.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!data.found) {
+        toast.error('School code not found', {
+          description: 'Check the code with your school administrator.',
+        })
+        setLookingUp(false)
+        return
+      }
+      setSchool(data.school as SchoolInfo)
+      setStep(2)
+      toast.success('School found', { description: data.school.name })
+    } catch {
+      toast.error('Lookup failed', { description: 'Please try again.' })
+    }
+    setLookingUp(false)
+  }
+
+  // --- Step 2: email + password (real DB auth, demo fallback) ------------
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !password) {
       toast.error('Please enter email and password')
       return
     }
     setLoading(true)
-    // Try server-side auth first (real DB). On failure, fall back to demo
-    // auth so development keeps working without seeded users.
     const result = await serverLogin(email, password)
     if (result.success) {
       toast.success('Welcome back!', { description: 'Login successful' })
@@ -57,10 +128,7 @@ export function LoginForm() {
   }
 
   const quickLogin = async (userEmail: string, userPass: string) => {
-    setEmail(userEmail)
-    setPassword(userPass)
     setLoading(true)
-    // Try server first, then demo
     const result = await serverLogin(userEmail, userPass)
     if (result.success) {
       toast.success('Logged in', { description: 'Welcome to SkulHub' })
@@ -77,21 +145,11 @@ export function LoginForm() {
     setLoading(false)
   }
 
-  const superAdminLogin = async () => {
-    const saEmail = 'superadmin@skulhub.ac.ke'
-    const saPass = 'superadmin123'
-    setEmail(saEmail)
-    setPassword(saPass)
-    setLoading(true)
-    const result = await serverLogin(saEmail, saPass)
-    if (result.success) {
-      toast.success('Super Admin signed in', {
-        description: 'Platform owner console',
-      })
-    } else {
-      toast.error('Super admin login failed', { description: result.error })
-    }
-    setLoading(false)
+  const back = () => {
+    setStep(1)
+    setSchool(null)
+    setEmail('')
+    setPassword('')
   }
 
   return (
@@ -113,45 +171,25 @@ export function LoginForm() {
               <p className="text-sm text-muted-foreground">School Management System</p>
             </div>
           </div>
-          <h2 className="mb-3 text-2xl font-bold text-foreground">Manage your school with confidence</h2>
+          <h2 className="mb-2 text-2xl font-bold text-foreground">Secure. Role-based. Complete.</h2>
           <p className="mb-6 max-w-md text-sm text-muted-foreground">
-            A comprehensive platform for Kenyan schools and institutions worldwide — students, academics,
-            finance, health, and more, all in one place.
+            One platform for Kenyan schools &amp; institutions worldwide — students, academics,
+            finance, health, transport and more, all in one place.
           </p>
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: 'Students', value: '252', color: 'text-emerald-600' },
-              { label: 'Staff', value: '58', color: 'text-teal-600' },
-              { label: 'Modules', value: '33', color: 'text-violet-600' },
-              { label: 'Courses', value: '13', color: 'text-amber-600' },
-            ].map(s => (
-              <div key={s.label} className="rounded-xl border bg-card/60 p-3 backdrop-blur">
-                <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
+            {FEATURES.map(f => (
+              <div key={f.title} className="rounded-xl border bg-card/60 p-3 backdrop-blur">
+                <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <f.icon className="h-4 w-4" />
+                </div>
+                <p className="text-sm font-semibold text-foreground">{f.title}</p>
+                <p className="text-xs text-muted-foreground">{f.desc}</p>
               </div>
             ))}
           </div>
-
-          <div className="mt-6 rounded-xl border border-emerald-200/60 bg-emerald-50/40 p-4 dark:bg-emerald-950/20">
-            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-              <Sparkles className="h-4 w-4" /> New to SkulHub?
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Register your school in minutes and start a 30-day free trial — no credit card required.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-3 border-emerald-300 bg-transparent text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
-              onClick={() => setAuthView('register')}
-            >
-              <UserPlus className="mr-2 h-4 w-4" /> Register your school
-            </Button>
-          </div>
         </div>
 
-        {/* Right: Login form */}
+        {/* Right: Login card */}
         <Card className="border-0 shadow-2xl">
           <CardHeader className="space-y-1 pb-4">
             <div className="mb-2 flex items-center gap-2 lg:hidden">
@@ -160,77 +198,171 @@ export function LoginForm() {
               </div>
               <span className="text-lg font-bold">SkulHub</span>
             </div>
-            <CardTitle className="text-xl">Sign in to your account</CardTitle>
-            <CardDescription>Enter your credentials to access the dashboard</CardDescription>
+
+            {step === 1 && (
+              <>
+                <CardTitle className="text-xl">Enter your school code</CardTitle>
+                <CardDescription>Look up your school to continue.</CardDescription>
+              </>
+            )}
+
+            {step === 2 && school && (
+              <>
+                <button
+                  type="button"
+                  onClick={back}
+                  className="mb-2 inline-flex w-fit items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Back
+                </button>
+                <div className="mb-3 flex items-center gap-3 rounded-xl border border-emerald-200/60 bg-emerald-50/60 p-3 dark:bg-emerald-950/20">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                    <School className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">{school.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {school.level} · {school.schoolCode}
+                    </p>
+                  </div>
+                </div>
+                <CardTitle className="text-xl">Sign in to {school.name}</CardTitle>
+                <CardDescription>
+                  Enter your staff credentials to access the dashboard.
+                </CardDescription>
+              </>
+            )}
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="you@skulhub.ac.ke"
-                    className="pl-9"
-                    autoComplete="email"
-                  />
+            {step === 1 && (
+              <form onSubmit={handleSchoolCode} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="schoolCode">School code</Label>
+                  <div className="relative">
+                    <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="schoolCode"
+                      value={schoolCode}
+                      onChange={e => setSchoolCode(e.target.value)}
+                      placeholder="e.g. SKH-2024-001"
+                      className="pl-9 uppercase tracking-wider"
+                      autoFocus
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Don&apos;t know your school code? Ask your administrator.
+                  </p>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="px-9"
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(s => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
-                disabled={loading}
-              >
-                {loading ? 'Signing in...' : <><LogIn className="mr-2 h-4 w-4" /> Sign In</>}
-              </Button>
-            </form>
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                  disabled={lookingUp}
+                >
+                  {lookingUp ? (
+                    'Looking up...'
+                  ) : (
+                    <>
+                      Continue <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </form>
+            )}
 
-            {/* Register + super admin row */}
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            {step === 2 && (
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="you@skulhub.ac.ke"
+                      className="pl-9"
+                      autoComplete="email"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="px-9"
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(s => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    'Signing in...'
+                  ) : (
+                    <>
+                      <LogIn className="mr-2 h-4 w-4" /> Sign In
+                    </>
+                  )}
+                </Button>
+              </form>
+            )}
+
+            {/* Links */}
+            <div className="mt-5 flex flex-col gap-1.5 text-sm">
               <button
                 type="button"
                 onClick={() => setAuthView('register')}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-400"
+                className="inline-flex items-center gap-1.5 text-left text-emerald-700 hover:underline dark:text-emerald-400"
               >
-                <UserPlus className="h-4 w-4" /> Register your school
+                <UserPlus className="h-4 w-4 shrink-0" />
+                <span>Don&apos;t have an account? Sign up</span>
               </button>
               <button
                 type="button"
-                onClick={superAdminLogin}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+                onClick={() => setAuthView('register')}
+                className="inline-flex items-center gap-1.5 text-left text-muted-foreground hover:text-foreground"
               >
-                <Shield className="h-4 w-4" /> Super Admin Login
+                <Building2 className="h-4 w-4 shrink-0" />
+                <span>Want to register your school? Register school</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthView('staff-signup')}
+                className="inline-flex items-center gap-1.5 text-left text-amber-700 hover:underline dark:text-amber-400"
+              >
+                <GraduationCap className="h-4 w-4 shrink-0" />
+                <span>Staff? Sign up to join your school</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthView('parent')}
+                className="inline-flex items-center gap-1.5 text-left text-teal-700 hover:underline dark:text-teal-400"
+              >
+                <Users className="h-4 w-4 shrink-0" />
+                <span>Parent? Access parent portal</span>
               </button>
             </div>
 
             {/* Quick login (dev) */}
-            <div className="mt-6">
+            <div className="mt-5">
               <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <Users className="h-3.5 w-3.5" />
                 <span>Quick login — click a role to sign in instantly (demo)</span>
@@ -246,7 +378,9 @@ export function LoginForm() {
                       className="group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all hover:border-emerald-300 hover:bg-emerald-50/50 disabled:opacity-50 dark:hover:bg-emerald-950/20"
                     >
                       <Avatar className="h-8 w-8 border">
-                        <AvatarFallback className={`text-[10px] font-semibold ${info.bg} ${info.color}`}>
+                        <AvatarFallback
+                          className={`text-[10px] font-semibold ${info.bg} ${info.color}`}
+                        >
                           {u.avatar}
                         </AvatarFallback>
                       </Avatar>

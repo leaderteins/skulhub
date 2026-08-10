@@ -18,6 +18,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   admissions: { title: 'Admissions', subtitle: 'Manage applications & enrollment pipeline' },
   students: { title: 'Students', subtitle: 'Manage admissions, profiles & enrollment' },
   staff: { title: 'Staff & Teachers', subtitle: 'Teaching and non-teaching personnel' },
+  staffapprovals: { title: 'Staff Approvals', subtitle: 'Review pending staff self-registration requests' },
   academics: { title: 'Academics', subtitle: 'Classes, subjects, exams & timetables' },
   attendance: { title: 'Attendance', subtitle: 'Daily attendance tracking & reports' },
   exams: { title: 'Examinations', subtitle: 'Question banks, CATs & grading rubrics' },

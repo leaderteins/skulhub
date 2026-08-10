@@ -49,10 +49,14 @@ model UserAccount {
   role          String   @default("admin") // "super_admin" | "admin" | "principal" | "bursar" | "teacher" | etc
   phone         String?
   avatar        String?
-  status        String   @default("Active") // "Active" | "Suspended" | "Inactive"
+  status        String   @default("Active") // "Active" | "Suspended" | "Inactive" | "Pending" | "Rejected"
+  rejectionReason String? // populated when a staff self-signup is rejected by the principal
+  staffId       String?  // optional link to a Staff record (for self-registered staff)
   lastLoginAt   DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  staff         Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +175,7 @@ model Staff {
   dormWardenOf   Dormitory[] @relation("DormWarden")
   payslips       Payslip[]
   appraisals     Appraisal[]
+  userAccounts   UserAccount[]
 }
 
 model Guardian {

@@ -55,7 +55,7 @@ export const ROLE_INFO: Record<UserRole, { label: string; color: string; bg: str
 }
 
 const ALL_MODULES = [
-  'dashboard', 'admissions', 'students', 'staff', 'alumni', 'academics',
+  'dashboard', 'admissions', 'students', 'staff', 'staffapprovals', 'alumni', 'academics',
   'attendance', 'exams', 'reportcards', 'lessonplans', 'homework',
   'health', 'events', 'discipline',
   'hostel', 'finance', 'communications', 'library', 'transport', 'inventory',
@@ -68,7 +68,7 @@ export const MODULE_ACCESS: Record<UserRole, string[]> = {
   super_admin: ['dashboard', 'superadmin', 'settings'],
   admin: ALL_MODULES,
   principal: ALL_MODULES,
-  deputy_principal: ['dashboard', 'admissions', 'students', 'staff', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'health', 'events', 'discipline', 'hostel', 'communications', 'library', 'transport', 'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom', 'payroll', 'appraisals', 'feedback', 'idcards', 'reports'],
+  deputy_principal: ['dashboard', 'admissions', 'students', 'staff', 'staffapprovals', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'health', 'events', 'discipline', 'hostel', 'communications', 'library', 'transport', 'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom', 'payroll', 'appraisals', 'feedback', 'idcards', 'reports'],
   bursar: ['dashboard', 'students', 'finance', 'procurement', 'facilities', 'payroll', 'idcards', 'reports', 'settings'],
   teacher: ['dashboard', 'students', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'events', 'discipline', 'staffroom', 'appraisals', 'feedback', 'idcards', 'invrequests', 'settings'],
   librarian: ['dashboard', 'students', 'library', 'invrequests', 'feedback', 'settings'],
@@ -135,7 +135,7 @@ export interface ServerRegisterResponse {
   token: string
 }
 
-type AuthView = 'login' | 'register'
+type AuthView = 'login' | 'register' | 'staff-signup' | 'parent' | 'superadmin'
 
 interface AuthState {
   user: SystemUser | null
@@ -150,10 +150,24 @@ interface AuthState {
   // Server-side auth (real DB-backed)
   serverLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   serverRegister: (data: ServerRegisterPayload) => Promise<{ success: boolean; error?: string; school?: { id: string; name: string; slug: string } }>
+  // Staff self-signup (pending approval) — does NOT log in
+  staffSignup: (data: StaffSignupPayload) => Promise<{ success: boolean; error?: string; message?: string; schoolName?: string }>
   logout: () => void
   hasAccess: (module: string) => boolean
   canEdit: (module: string) => boolean
   canViewFinance: () => boolean
+}
+
+export interface StaffSignupPayload {
+  schoolCode: string
+  name: string
+  email: string
+  password: string
+  phone?: string
+  role: string
+  gender?: string
+  qualification?: string
+  specialization?: string
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -247,6 +261,28 @@ export const useAuthStore = create<AuthState>()(
           return {
             success: true,
             school: { id: payload.school.id, name: payload.school.name, slug: payload.school.slug },
+          }
+        } catch (e: any) {
+          return { success: false, error: e?.message || 'Network error' }
+        }
+      },
+
+      // --- Staff self-signup (pending principal approval) ------------------
+      staffSignup: async (data: StaffSignupPayload) => {
+        try {
+          const res = await fetch('/api/auth/staff-signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          })
+          const json = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            return { success: false, error: json?.error || 'Sign up failed' }
+          }
+          return {
+            success: true,
+            message: json?.message,
+            schoolName: json?.schoolName,
           }
         } catch (e: any) {
           return { success: false, error: e?.message || 'Network error' }
