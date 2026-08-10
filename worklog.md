@@ -2165,3 +2165,42 @@ Stage Summary:
 - All staff can request items; admins approve and fulfill
 - Full workflow: Request → Approve → Fulfill (with partial fulfillment support)
 - Project now has 33 modules total
+
+---
+Task ID: 33 (simplify data import + multiple entry methods)
+Agent: Main
+Task: Fix import error, simplify UI, add multiple data entry methods
+
+FIXES:
+1. Fixed the Turbopack import error — the API route was fine (server-side), the issue was
+   a client-side HMR error when the module compiled. Rewrote the module completely.
+2. Completely simplified the Data Import module UI — much easier for all users
+
+THREE DATA ENTRY METHODS:
+1. **Single Form** — Simple form with labeled fields and dropdowns. Fill in the fields
+   and click "Add [Type]". Perfect for adding one record at a time. Shows required
+   fields with red asterisks. Includes dropdowns for gender, blood group, role, etc.
+2. **CSV Paste** — Paste CSV data (comma-separated) with a header row. Click "Sample"
+   to load example data. Shows field guide with available columns and row count.
+3. **Quick Add** — A table interface where you can type data directly into cells.
+   Start with 5 empty rows, click "Add Row" for more. Remove individual rows with ✕.
+   Click "Add All N Records" to submit everything at once.
+
+SUPPORTED ENTITY TYPES (8):
+Students, Staff, Books, Subjects, Suppliers, Facilities, Alumni, Visitors
+Each type has its own form fields, CSV sample, and Quick Add columns.
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested as admin:
+  * Single Form: filled "Test Student" → clicked "Add Students" → "added successfully" ✓
+  * CSV Paste: clicked "Sample" → 3 rows loaded ✓
+  * Quick Add: table with 25 inputs (5 rows × 5 fields) ✓
+  * No errors on any tab
+
+Stage Summary:
+- Fixed import error
+- Completely rewrote Data Import module with 3 simple entry methods
+- All users can now easily add data via form, CSV paste, or quick table entry
+- Much simpler and more intuitive UI
+- Project has 33 modules, all lint-clean
