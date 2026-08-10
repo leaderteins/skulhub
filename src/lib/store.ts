@@ -33,6 +33,7 @@ export type ModuleKey =
   | 'invrequests'
   | 'reports'
   | 'settings'
+  | 'superadmin'
 
 interface AppState {
   activeModule: ModuleKey

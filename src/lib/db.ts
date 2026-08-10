@@ -2,6 +2,15 @@ import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
+  prismaVersion?: string
+}
+
+// Re-instantiate the client if the Prisma generated version changed
+// (handles schema updates during development without a full restart).
+const PRISMA_VERSION = 'v2-2025-08-10'
+if (globalForPrisma.prismaVersion !== PRISMA_VERSION) {
+  globalForPrisma.prisma = undefined
+  globalForPrisma.prismaVersion = PRISMA_VERSION
 }
 
 export const db =

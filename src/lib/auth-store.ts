@@ -3,9 +3,10 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 // ---------------------------------------------------------------------------
-// Roles — full school structure (13 roles)
+// Roles — full school structure (13 roles + super_admin for platform owner)
 // ---------------------------------------------------------------------------
 export type UserRole =
+  | 'super_admin'
   | 'admin'
   | 'principal'
   | 'deputy_principal'
@@ -29,11 +30,15 @@ export interface SystemUser {
   role: UserRole
   avatar: string
   department?: string
+  schoolId?: string
   schoolName?: string
+  schoolSlug?: string
+  isSuperAdmin?: boolean
 }
 
 // Role display info
 export const ROLE_INFO: Record<UserRole, { label: string; color: string; bg: string; icon: string }> = {
+  super_admin: { label: 'Platform Super Admin', color: 'text-emerald-700', bg: 'bg-emerald-500/15', icon: '🛡️' },
   admin: { label: 'System Administrator', color: 'text-rose-600', bg: 'bg-rose-500/10', icon: '👑' },
   principal: { label: 'Principal', color: 'text-violet-600', bg: 'bg-violet-500/10', icon: '🎓' },
   deputy_principal: { label: 'Deputy Principal', color: 'text-indigo-600', bg: 'bg-indigo-500/10', icon: '🧑‍💼' },
@@ -58,8 +63,9 @@ const ALL_MODULES = [
   'payroll', 'appraisals', 'feedback', 'idcards', 'dataimport', 'invrequests', 'reports', 'settings',
 ]
 
-// Module VIEW access by role
+// Module VIEW access by role. super_admin sees everything (platform owner).
 export const MODULE_ACCESS: Record<UserRole, string[]> = {
+  super_admin: ['dashboard', 'superadmin', 'settings'],
   admin: ALL_MODULES,
   principal: ALL_MODULES,
   deputy_principal: ['dashboard', 'admissions', 'students', 'staff', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'health', 'events', 'discipline', 'hostel', 'communications', 'library', 'transport', 'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom', 'payroll', 'appraisals', 'feedback', 'idcards', 'reports'],
@@ -76,9 +82,9 @@ export const MODULE_ACCESS: Record<UserRole, string[]> = {
 }
 
 // Roles that can see financial/monetary data
-export const FINANCE_ROLES: UserRole[] = ['admin', 'principal', 'bursar']
+export const FINANCE_ROLES: UserRole[] = ['super_admin', 'admin', 'principal', 'bursar']
 
-// Demo users — admin is Moses Kinyanjui
+// Demo users — admin is Moses Kinyanjui (used as dev fallback when DB auth fails)
 export const DEMO_USERS: Array<SystemUser & { password: string }> = [
   { id: 'u1', name: 'Moses Kinyanjui', email: 'admin@edumanage.ac.ke', role: 'admin', avatar: 'MK', password: 'admin123', schoolName: 'EduManage Academy' },
   { id: 'u2', name: 'Mary Wanjiru', email: 'principal@edumanage.ac.ke', role: 'principal', avatar: 'MW', password: 'principal123', schoolName: 'EduManage Academy' },
@@ -93,13 +99,57 @@ export const DEMO_USERS: Array<SystemUser & { password: string }> = [
   { id: 'u11', name: 'Paul Wafula', email: 'gate@edumanage.ac.ke', role: 'gate_man', avatar: 'PW', password: 'gate123', schoolName: 'EduManage Academy' },
   { id: 'u12', name: 'Esther Njeri', email: 'deputy@edumanage.ac.ke', role: 'deputy_principal', avatar: 'EN', password: 'deputy123', schoolName: 'EduManage Academy' },
   { id: 'u13', name: 'Joseph Muthomi', email: 'cook@edumanage.ac.ke', role: 'cook', avatar: 'JM', password: 'cook123', schoolName: 'EduManage Academy' },
+  { id: 'u14', name: 'Platform Super Admin', email: 'superadmin@edumanage.ac.ke', role: 'super_admin', avatar: 'SA', password: 'superadmin123', schoolName: 'EduManage Platform', isSuperAdmin: true },
 ]
+
+// --- Server-side auth types ------------------------------------------------
+
+export interface ServerLoginResponse {
+  user: {
+    id: string
+    name: string
+    email: string
+    role: UserRole
+    schoolId: string
+    schoolName: string | null
+    schoolSlug: string | null
+    avatar: string
+    isSuperAdmin: boolean
+  }
+  token: string
+}
+
+export interface ServerRegisterPayload {
+  schoolName: string
+  schoolEmail?: string
+  schoolPhone?: string
+  county?: string
+  adminName: string
+  adminEmail: string
+  adminPassword: string
+}
+
+export interface ServerRegisterResponse {
+  school: { id: string; name: string; slug: string; plan: string; status: string }
+  user: { id: string; name: string; email: string; role: UserRole; schoolId: string; avatar: string }
+  token: string
+}
+
+type AuthView = 'login' | 'register'
 
 interface AuthState {
   user: SystemUser | null
+  serverToken: string | null
+  isSuperAdmin: boolean
+  authView: AuthView
   _hasHydrated: boolean
   setHasHydrated: (state: boolean) => void
+  setAuthView: (view: AuthView) => void
+  // Demo login (dev fallback) — returns true on success
   login: (email: string, password: string) => boolean
+  // Server-side auth (real DB-backed)
+  serverLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  serverRegister: (data: ServerRegisterPayload) => Promise<{ success: boolean; error?: string; school?: { id: string; name: string; slug: string } }>
   logout: () => void
   hasAccess: (module: string) => boolean
   canEdit: (module: string) => boolean
@@ -110,18 +160,107 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
+      serverToken: null,
+      isSuperAdmin: false,
+      authView: 'login',
       _hasHydrated: false,
       setHasHydrated: (state: boolean) => set({ _hasHydrated: state }),
+      setAuthView: (view: AuthView) => set({ authView: view }),
+
+      // --- Demo login (Zustand-only, for dev convenience) -------------------
       login: (email: string, password: string) => {
-        const found = DEMO_USERS.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password)
+        const found = DEMO_USERS.find(
+          u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
+        )
         if (found) {
           const { password: _, ...user } = found
-          set({ user })
+          set({ user, serverToken: null, isSuperAdmin: false })
           return true
         }
         return false
       },
-      logout: () => set({ user: null }),
+
+      // --- Server login (real DB via /api/auth/login) -----------------------
+      serverLogin: async (email: string, password: string) => {
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          })
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            return { success: false, error: data?.error || 'Login failed' }
+          }
+          const payload = data as ServerLoginResponse
+          const u = payload.user
+          set({
+            user: {
+              id: u.id,
+              name: u.name,
+              email: u.email,
+              role: u.role,
+              avatar: u.avatar || u.name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase(),
+              schoolId: u.schoolId,
+              schoolName: u.schoolName ?? undefined,
+              schoolSlug: u.schoolSlug ?? undefined,
+              isSuperAdmin: !!u.isSuperAdmin,
+            },
+            serverToken: payload.token,
+            isSuperAdmin: !!u.isSuperAdmin,
+          })
+          return { success: true }
+        } catch (e: any) {
+          return { success: false, error: e?.message || 'Network error' }
+        }
+      },
+
+      // --- Server register (creates school + admin via /api/auth/register) --
+      serverRegister: async (data: ServerRegisterPayload) => {
+        try {
+          const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          })
+          const json = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            return { success: false, error: json?.error || 'Registration failed' }
+          }
+          const payload = json as ServerRegisterResponse
+          // Auto-login the newly registered admin
+          set({
+            user: {
+              id: payload.user.id,
+              name: payload.user.name,
+              email: payload.user.email,
+              role: payload.user.role,
+              avatar: payload.user.avatar || payload.user.name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase(),
+              schoolId: payload.user.schoolId,
+              schoolName: payload.school.name,
+              schoolSlug: payload.school.slug,
+              isSuperAdmin: false,
+            },
+            serverToken: payload.token,
+            isSuperAdmin: false,
+          })
+          return {
+            success: true,
+            school: { id: payload.school.id, name: payload.school.name, slug: payload.school.slug },
+          }
+        } catch (e: any) {
+          return { success: false, error: e?.message || 'Network error' }
+        }
+      },
+
+      logout: () =>
+        set({
+          user: null,
+          serverToken: null,
+          isSuperAdmin: false,
+          authView: 'login',
+        }),
+
       hasAccess: (module: string) => {
         const user = get().user
         if (!user) return false
@@ -130,9 +269,7 @@ export const useAuthStore = create<AuthState>()(
       canEdit: (module: string) => {
         const user = get().user
         if (!user) return false
-        // Admin and principal can edit everything
-        if (user.role === 'admin' || user.role === 'principal') return true
-        // Specific role-based edit permissions
+        if (user.role === 'admin' || user.role === 'principal' || user.role === 'super_admin') return true
         const editMap: Record<string, UserRole[]> = {
           inventory: ['admin', 'principal', 'deputy_principal'],
           cafeteria: ['admin', 'principal', 'cook'],

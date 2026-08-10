@@ -11,6 +11,49 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
+// Multi-tenancy: School + User accounts
+// ---------------------------------------------------------------------------
+
+model School {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique // url-friendly name e.g. "edumanage-academy"
+  email         String?
+  phone         String?
+  address       String?
+  county        String?
+  logo          String?
+  plan          String   @default("Starter") // "Starter" | "Standard" | "Premium" | "Enterprise"
+  status        String   @default("Trial") // "Trial" | "Active" | "Suspended" | "Expired"
+  trialEndsAt   DateTime?
+  maxStudents   Int      @default(200)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  users         UserAccount[]
+  students      Student[]
+  staff         Staff[]
+  invoices      Invoice[]
+  payments      Payment[]
+}
+
+model UserAccount {
+  id            String   @id @default(cuid())
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name          String
+  email         String   @unique
+  passwordHash  String
+  role          String   @default("admin") // "super_admin" | "admin" | "principal" | "bursar" | "teacher" | etc
+  phone         String?
+  avatar        String?
+  status        String   @default("Active") // "Active" | "Suspended" | "Inactive"
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
 // Core academic structure
 // ---------------------------------------------------------------------------
 
@@ -105,6 +148,8 @@ model Staff {
   role          String   @default("Teacher") // "Teacher" | "Principal" | "Deputy Principal" | "HOD" | "Bursar" | "Librarian" | "Clerk" | "Driver" | "Security" | "Cleaner"
   departmentId  String?
   department    Department? @relation(fields: [departmentId], references: [id])
+  schoolId      String?
+  school        School?   @relation(fields: [schoolId], references: [id])
   qualification String?
   specialization String?
   employmentType String  @default("Permanent") // "Permanent" | "Contract" | "Part-time"
@@ -156,6 +201,8 @@ model Student {
   status        String   @default("Active") // "Active" | "Graduated" | "Transferred" | "Suspended" | "Dropped"
   admissionDate DateTime @default(now())
   boarding      Boolean  @default(false) // boarding vs day scholar
+  schoolId      String?
+  school        School?  @relation(fields: [schoolId], references: [id])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -310,6 +357,8 @@ model Invoice {
   status       String   @default("Unpaid") // "Unpaid" | "Partially Paid" | "Paid" | "Overdue" | "Cancelled"
   dueDate      DateTime
   issueDate    DateTime @default(now())
+  schoolId     String?
+  school       School?  @relation(fields: [schoolId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -329,6 +378,8 @@ model Payment {
   payerPhone  String?
   receivedBy  String?
   receivedAt  DateTime @default(now())
+  schoolId    String?
+  school      School?  @relation(fields: [schoolId], references: [id])
   createdAt   DateTime @default(now())
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)

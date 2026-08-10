@@ -14,6 +14,7 @@ import {
   NotebookPen, PencilRuler,
   MessageSquare, IdCard,
   Upload, PackagePlus,
+  Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { avatarColor, initials } from '@/lib/format'
@@ -57,6 +58,7 @@ const NAV_ITEMS: Array<{ key: ModuleKey; label: string; icon: any; group: string
   { key: 'dataimport', label: 'Data Import', icon: Upload, group: 'Navigation', shortcut: 'G Z' },
   { key: 'invrequests', label: 'Inventory Requests', icon: PackagePlus, group: 'Navigation', shortcut: 'G R' },
   { key: 'reports', label: 'Reports & Analytics', icon: BarChart3, group: 'Navigation', shortcut: 'G P' },
+  { key: 'superadmin', label: 'Super Admin', icon: Shield, group: 'Navigation', shortcut: 'G I' },
   { key: 'settings', label: 'Settings', icon: Settings, group: 'Navigation', shortcut: 'G ,' },
 ]
 
@@ -104,7 +106,7 @@ export function CommandPalette() {
           d: 'dashboard', s: 'students', t: 'staff', a: 'academics',
           v: 'attendance', r: 'reportcards', f: 'finance', c: 'communications',
           l: 'library', b: 'transport', p: 'reports', n: 'lessonplans',
-          w: 'homework', ',': 'settings',
+          w: 'homework', i: 'superadmin', ',': 'settings',
         }
         const mod = map[e.key.toLowerCase()]
         if (mod) { e.preventDefault(); setActiveModule(mod) }

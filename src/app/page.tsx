@@ -1,4 +1,5 @@
 'use client'
+import { useEffect } from 'react'
 import { useAppStore } from '@/lib/store'
 import { useAuthStore } from '@/lib/auth-store'
 import { Sidebar } from '@/components/layout/sidebar'
@@ -6,6 +7,7 @@ import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { CommandPalette } from '@/components/layout/command-palette'
 import { LoginForm } from '@/components/auth/login-form'
+import { RegisterForm } from '@/components/auth/register-form'
 import { DashboardModule } from '@/components/modules/dashboard'
 import { AdmissionsModule } from '@/components/modules/admissions'
 import { StudentsModule } from '@/components/modules/students'
@@ -39,13 +41,22 @@ import { DataImportModule } from '@/components/modules/dataimport'
 import { InventoryRequestsModule } from '@/components/modules/inventory-requests'
 import { ReportsModule } from '@/components/modules/reports'
 import { SettingsModule } from '@/components/modules/settings'
+import { SuperAdminModule } from '@/components/modules/superadmin'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Lock } from 'lucide-react'
 
 export default function Home() {
-  const { activeModule } = useAppStore()
-  const { user, hasAccess, _hasHydrated } = useAuthStore()
+  const { activeModule, setActiveModule } = useAppStore()
+  const { user, hasAccess, _hasHydrated, authView, isSuperAdmin } = useAuthStore()
+
+  // Super admins always land on the Super Admin module — they have no school
+  // dashboard of their own. Switch automatically if they're still on 'dashboard'.
+  useEffect(() => {
+    if (isSuperAdmin && activeModule === 'dashboard') {
+      setActiveModule('superadmin')
+    }
+  }, [isSuperAdmin, activeModule, setActiveModule])
 
   // Show loading skeleton while waiting for hydration from localStorage
   // This prevents the "losing user" flash where the login page appears briefly
@@ -60,6 +71,13 @@ export default function Home() {
     )
   }
 
+  // Show registration form (or its success screen) while authView is 'register'
+  // — even after the user has been auto-logged-in, so the success message is
+  // visible before the dashboard takes over.
+  if (authView === 'register') {
+    return <RegisterForm />
+  }
+
   // Show login if not authenticated (after hydration)
   if (!user) {
     return <LoginForm />
@@ -67,6 +85,11 @@ export default function Home() {
 
   // Check if user has access to the active module
   const canAccess = hasAccess(activeModule)
+
+  // effectiveModule is normally just activeModule. The useEffect above will
+  // already switch super_admin to 'superadmin' on first render, so this is
+  // just a fallback during the first paint.
+  const effectiveModule = activeModule
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -91,39 +114,40 @@ export default function Home() {
             </Card>
           ) : (
             <>
-              {activeModule === 'dashboard' && <DashboardModule />}
-              {activeModule === 'admissions' && <AdmissionsModule />}
-              {activeModule === 'students' && <StudentsModule />}
-              {activeModule === 'staff' && <StaffModule />}
-              {activeModule === 'alumni' && <AlumniModule />}
-              {activeModule === 'academics' && <AcademicsModule />}
-              {activeModule === 'attendance' && <AttendanceModule />}
-              {activeModule === 'exams' && <ExamsModule />}
-              {activeModule === 'reportcards' && <ReportCardsModule />}
-              {activeModule === 'lessonplans' && <LessonPlansModule />}
-              {activeModule === 'homework' && <HomeworkModule />}
-              {activeModule === 'finance' && <FinanceModule />}
-              {activeModule === 'communications' && <CommunicationsModule />}
-              {activeModule === 'library' && <LibraryModule />}
-              {activeModule === 'transport' && <TransportModule />}
-              {activeModule === 'health' && <HealthModule />}
-              {activeModule === 'events' && <EventsModule />}
-              {activeModule === 'discipline' && <DisciplineModule />}
-              {activeModule === 'hostel' && <HostelModule />}
-              {activeModule === 'inventory' && <InventoryModule />}
-              {activeModule === 'cafeteria' && <CafeteriaModule />}
-              {activeModule === 'procurement' && <ProcurementModule />}
-              {activeModule === 'facilities' && <FacilitiesModule />}
-              {activeModule === 'visitors' && <VisitorsModule />}
-              {activeModule === 'staffroom' && <StaffRoomModule />}
-              {activeModule === 'payroll' && <PayrollModule />}
-              {activeModule === 'appraisals' && <AppraisalsModule />}
-              {activeModule === 'feedback' && <FeedbackModule />}
-              {activeModule === 'idcards' && <IdCardsModule />}
-              {activeModule === 'dataimport' && <DataImportModule />}
-              {activeModule === 'invrequests' && <InventoryRequestsModule />}
-              {activeModule === 'reports' && <ReportsModule />}
-              {activeModule === 'settings' && <SettingsModule />}
+              {effectiveModule === 'dashboard' && <DashboardModule />}
+              {effectiveModule === 'admissions' && <AdmissionsModule />}
+              {effectiveModule === 'students' && <StudentsModule />}
+              {effectiveModule === 'staff' && <StaffModule />}
+              {effectiveModule === 'alumni' && <AlumniModule />}
+              {effectiveModule === 'academics' && <AcademicsModule />}
+              {effectiveModule === 'attendance' && <AttendanceModule />}
+              {effectiveModule === 'exams' && <ExamsModule />}
+              {effectiveModule === 'reportcards' && <ReportCardsModule />}
+              {effectiveModule === 'lessonplans' && <LessonPlansModule />}
+              {effectiveModule === 'homework' && <HomeworkModule />}
+              {effectiveModule === 'finance' && <FinanceModule />}
+              {effectiveModule === 'communications' && <CommunicationsModule />}
+              {effectiveModule === 'library' && <LibraryModule />}
+              {effectiveModule === 'transport' && <TransportModule />}
+              {effectiveModule === 'health' && <HealthModule />}
+              {effectiveModule === 'events' && <EventsModule />}
+              {effectiveModule === 'discipline' && <DisciplineModule />}
+              {effectiveModule === 'hostel' && <HostelModule />}
+              {effectiveModule === 'inventory' && <InventoryModule />}
+              {effectiveModule === 'cafeteria' && <CafeteriaModule />}
+              {effectiveModule === 'procurement' && <ProcurementModule />}
+              {effectiveModule === 'facilities' && <FacilitiesModule />}
+              {effectiveModule === 'visitors' && <VisitorsModule />}
+              {effectiveModule === 'staffroom' && <StaffRoomModule />}
+              {effectiveModule === 'payroll' && <PayrollModule />}
+              {effectiveModule === 'appraisals' && <AppraisalsModule />}
+              {effectiveModule === 'feedback' && <FeedbackModule />}
+              {effectiveModule === 'idcards' && <IdCardsModule />}
+              {effectiveModule === 'dataimport' && <DataImportModule />}
+              {effectiveModule === 'invrequests' && <InventoryRequestsModule />}
+              {effectiveModule === 'reports' && <ReportsModule />}
+              {effectiveModule === 'superadmin' && <SuperAdminModule />}
+              {effectiveModule === 'settings' && <SettingsModule />}
             </>
           )}
         </main>

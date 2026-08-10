@@ -6,38 +6,92 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { School, Lock, Mail, LogIn, Eye, EyeOff, Users, ChevronRight } from 'lucide-react'
+import {
+  School,
+  Lock,
+  Mail,
+  LogIn,
+  Eye,
+  EyeOff,
+  Users,
+  ChevronRight,
+  UserPlus,
+  Shield,
+  Sparkles,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 export function LoginForm() {
-  const { login } = useAuthStore()
+  const { login, serverLogin, setAuthView } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !password) { toast.error('Please enter email and password'); return }
+    if (!email || !password) {
+      toast.error('Please enter email and password')
+      return
+    }
     setLoading(true)
-    setTimeout(() => {
+    // Try server-side auth first (real DB). On failure, fall back to demo
+    // auth so development keeps working without seeded users.
+    const result = await serverLogin(email, password)
+    if (result.success) {
+      toast.success('Welcome back!', { description: 'Login successful' })
+    } else {
+      // Fallback: try demo login (dev mode)
       const ok = login(email, password)
-      if (!ok) {
-        toast.error('Invalid credentials', { description: 'Check your email and password' })
+      if (ok) {
+        toast.success('Welcome back! (Demo mode)', {
+          description: 'Logged in with a demo account.',
+        })
       } else {
-        toast.success('Welcome back!', { description: 'Login successful' })
+        toast.error('Invalid credentials', {
+          description: result.error || 'Check your email and password',
+        })
       }
-      setLoading(false)
-    }, 500)
+    }
+    setLoading(false)
   }
 
-  const quickLogin = (userEmail: string, userPass: string) => {
+  const quickLogin = async (userEmail: string, userPass: string) => {
     setEmail(userEmail)
     setPassword(userPass)
-    setTimeout(() => {
+    setLoading(true)
+    // Try server first, then demo
+    const result = await serverLogin(userEmail, userPass)
+    if (result.success) {
+      toast.success('Logged in', { description: 'Welcome to EduManage Pro' })
+    } else {
       const ok = login(userEmail, userPass)
-      if (ok) toast.success('Logged in', { description: 'Welcome to EduManage Pro' })
-    }, 200)
+      if (ok) {
+        toast.success('Logged in (Demo mode)', {
+          description: 'Welcome to EduManage Pro',
+        })
+      } else {
+        toast.error('Login failed', { description: result.error })
+      }
+    }
+    setLoading(false)
+  }
+
+  const superAdminLogin = async () => {
+    const saEmail = 'superadmin@edumanage.ac.ke'
+    const saPass = 'superadmin123'
+    setEmail(saEmail)
+    setPassword(saPass)
+    setLoading(true)
+    const result = await serverLogin(saEmail, saPass)
+    if (result.success) {
+      toast.success('Super Admin signed in', {
+        description: 'Platform owner console',
+      })
+    } else {
+      toast.error('Super admin login failed', { description: result.error })
+    }
+    setLoading(false)
   }
 
   return (
@@ -68,7 +122,7 @@ export function LoginForm() {
             {[
               { label: 'Students', value: '252', color: 'text-emerald-600' },
               { label: 'Staff', value: '58', color: 'text-teal-600' },
-              { label: 'Modules', value: '21', color: 'text-violet-600' },
+              { label: 'Modules', value: '33', color: 'text-violet-600' },
               { label: 'Courses', value: '13', color: 'text-amber-600' },
             ].map(s => (
               <div key={s.label} className="rounded-xl border bg-card/60 p-3 backdrop-blur">
@@ -76,6 +130,24 @@ export function LoginForm() {
                 <p className="text-xs text-muted-foreground">{s.label}</p>
               </div>
             ))}
+          </div>
+
+          <div className="mt-6 rounded-xl border border-emerald-200/60 bg-emerald-50/40 p-4 dark:bg-emerald-950/20">
+            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+              <Sparkles className="h-4 w-4" /> New to EduManage Pro?
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Register your school in minutes and start a 30-day free trial — no credit card required.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 border-emerald-300 bg-transparent text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+              onClick={() => setAuthView('register')}
+            >
+              <UserPlus className="mr-2 h-4 w-4" /> Register your school
+            </Button>
           </div>
         </div>
 
@@ -130,25 +202,48 @@ export function LoginForm() {
                   </button>
                 </div>
               </div>
-              <Button type="submit" className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                disabled={loading}
+              >
                 {loading ? 'Signing in...' : <><LogIn className="mr-2 h-4 w-4" /> Sign In</>}
               </Button>
             </form>
 
-            {/* Quick login */}
+            {/* Register + super admin row */}
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={() => setAuthView('register')}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-400"
+              >
+                <UserPlus className="h-4 w-4" /> Register your school
+              </button>
+              <button
+                type="button"
+                onClick={superAdminLogin}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+              >
+                <Shield className="h-4 w-4" /> Super Admin Login
+              </button>
+            </div>
+
+            {/* Quick login (dev) */}
             <div className="mt-6">
               <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <Users className="h-3.5 w-3.5" />
-                <span>Quick login — click a role to sign in instantly</span>
+                <span>Quick login — click a role to sign in instantly (demo)</span>
               </div>
-              <div className="grid grid-cols-1 gap-1.5">
+              <div className="grid max-h-72 grid-cols-1 gap-1.5 overflow-y-auto pr-1">
                 {DEMO_USERS.map(u => {
                   const info = ROLE_INFO[u.role]
                   return (
                     <button
                       key={u.id}
                       onClick={() => quickLogin(u.email, u.password)}
-                      className="group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all hover:border-emerald-300 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20"
+                      disabled={loading}
+                      className="group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all hover:border-emerald-300 hover:bg-emerald-50/50 disabled:opacity-50 dark:hover:bg-emerald-950/20"
                     >
                       <Avatar className="h-8 w-8 border">
                         <AvatarFallback className={`text-[10px] font-semibold ${info.bg} ${info.color}`}>

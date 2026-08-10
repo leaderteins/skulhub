@@ -38,6 +38,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   dataimport: { title: 'Data Import & Migration', subtitle: 'Bulk import existing school data' },
   invrequests: { title: 'Inventory Requests', subtitle: 'Staff request items from the store' },
   reports: { title: 'Reports & Analytics', subtitle: 'Performance insights & exports' },
+  superadmin: { title: 'Super Admin', subtitle: 'Platform-wide school management & analytics' },
   settings: { title: 'Settings', subtitle: 'System configuration' },
 }
 
