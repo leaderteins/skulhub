@@ -17,11 +17,13 @@ datasource db {
 model School {
   id            String   @id @default(cuid())
   name          String
-  slug          String   @unique // url-friendly name e.g. "edumanage-academy"
+  slug          String   @unique // url-friendly name e.g. "skulhub-academy"
+  schoolCode    String   @unique // e.g. "SKH-2024-001" — used for login
   email         String?
   phone         String?
   address       String?
   county        String?
+  level         String   @default("Secondary") // "Primary" | "Junior Secondary" | "Secondary" | "University" | "Mixed"
   logo          String?
   plan          String   @default("Starter") // "Starter" | "Standard" | "Premium" | "Enterprise"
   status        String   @default("Trial") // "Trial" | "Active" | "Suspended" | "Expired"

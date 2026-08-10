@@ -2488,3 +2488,59 @@ NEXT STEPS (matching competitor features):
 - Multi-step registration wizard
 - CBC pathways support
 - KNEC code field
+
+---
+Task ID: 36 (rebrand to SkulHub + school codes + primary demo + modernization)
+Agent: Main
+Task: Rebrand to SkulHub, add school code field, seed primary school demo data
+
+CHANGES:
+
+1. REBRANDED: EduManage Pro → SkulHub
+- All 16+ source files updated
+- Email domain: @skulhub.ac.ke
+- Website: skulhub.co.ke
+- Auth tokens: skulhub-token, skulhub-auth
+- Zero "EduManage" references remaining
+
+2. ADDED SCHOOL CODE FIELD
+- School model now has: schoolCode (unique) — e.g. "SKH-2024-001"
+- School model now has: level — "Primary" | "Junior Secondary" | "Secondary" | "University" | "Mixed"
+- Used for school code-based login (matching competitor feature)
+
+3. PRIMARY SCHOOL DEMO DATA
+- 12 class levels: Grade 1-8 (Primary) + Form 1-4 (Senior School)
+- 16 streams (2 per secondary level + 1 per primary level)
+- 426 students across all levels
+- 30 staff (teachers, HODs, support staff)
+- 13 subjects, 6 departments
+- 6 announcements, 4 visitors, 7 library books
+- 5 facilities, 3 suppliers, 4 meals
+- Admin: Moses Kinyanjui (admin@skulhub.ac.ke / admin123)
+- Super Admin: superadmin@skulhub.ac.ke / superadmin123
+- School code: SKH-2024-001
+
+4. DATABASE RESET & RE-SEEDED
+- Force-reset database to apply schoolCode field
+- New seed script: prisma/seed-demo.ts (works with multi-tenancy schema)
+- All data linked to SkulHub Academy school
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- Homepage: 200 ✓
+- Login page: shows "SkulHub" and "Moses Kinyanjui" ✓
+- Dashboard: "Karibu" greeting, live clock, 31 nav items ✓
+- Primary + Secondary class levels available for demos ✓
+
+CREDENTIALS:
+- Admin: admin@skulhub.ac.ke / admin123
+- Super Admin: superadmin@skulhub.ac.ke / superadmin123
+- School Code: SKH-2024-001
+
+NEXT STEPS TO BEAT COMPETITION:
+- School code login UI (enter code → school-specific login)
+- Parent portal (view child fees, grades, attendance)
+- Staff self-signup with approval
+- Multi-step registration wizard
+- CBC pathways support
+- Modern UI polish
