@@ -8,10 +8,13 @@ import { Footer } from '@/components/layout/footer'
 import { CommandPalette } from '@/components/layout/command-palette'
 import { LoginForm } from '@/components/auth/login-form'
 import { RegisterForm } from '@/components/auth/register-form'
+import { ParentPortal } from '@/components/auth/parent-portal'
+import { StaffSignup } from '@/components/auth/staff-signup'
 import { DashboardModule } from '@/components/modules/dashboard'
 import { AdmissionsModule } from '@/components/modules/admissions'
 import { StudentsModule } from '@/components/modules/students'
 import { StaffModule } from '@/components/modules/staff'
+import { StaffApprovalsModule } from '@/components/modules/staff-approvals'
 import { AlumniModule } from '@/components/modules/alumni'
 import { AcademicsModule } from '@/components/modules/academics'
 import { AttendanceModule } from '@/components/modules/attendance'
@@ -78,6 +81,17 @@ export default function Home() {
     return <RegisterForm />
   }
 
+  // Staff self-signup is shown when authView is 'staff-signup'.
+  if (authView === 'staff-signup') {
+    return <StaffSignup />
+  }
+
+  // Parent portal is shown when authView is 'parent'. It has its own
+  // internal login + dashboard flow and never sets a real user.
+  if (authView === 'parent') {
+    return <ParentPortal />
+  }
+
   // Show login if not authenticated (after hydration)
   if (!user) {
     return <LoginForm />
@@ -118,6 +132,7 @@ export default function Home() {
               {effectiveModule === 'admissions' && <AdmissionsModule />}
               {effectiveModule === 'students' && <StudentsModule />}
               {effectiveModule === 'staff' && <StaffModule />}
+              {effectiveModule === 'staffapprovals' && <StaffApprovalsModule />}
               {effectiveModule === 'alumni' && <AlumniModule />}
               {effectiveModule === 'academics' && <AcademicsModule />}
               {effectiveModule === 'attendance' && <AttendanceModule />}

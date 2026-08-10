@@ -6,6 +6,7 @@ export type ModuleKey =
   | 'admissions'
   | 'students'
   | 'staff'
+  | 'staffapprovals'
   | 'academics'
   | 'attendance'
   | 'finance'

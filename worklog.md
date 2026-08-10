@@ -2544,3 +2544,301 @@ NEXT STEPS TO BEAT COMPETITION:
 - Multi-step registration wizard
 - CBC pathways support
 - Modern UI polish
+
+---
+Task ID: SS1
+Agent: Staff Self-Signup (SS1)
+Task: Build Staff Self-Signup system — staff register themselves, principal approves
+
+Work Log:
+- Read worklog.md, prisma/schema.prisma, src/lib/auth-store.ts, src/lib/auth-utils.ts,
+  src/lib/db.ts, src/lib/store.ts, src/lib/api.ts, src/lib/format.ts, src/components/auth/
+  login-form.tsx, src/components/auth/register-form.tsx, src/components/layout/sidebar.tsx,
+  src/components/layout/header.tsx, src/components/layout/command-palette.tsx,
+  src/app/page.tsx, src/app/api/auth/register/route.ts, src/app/api/auth/login/route.ts
+  to learn existing conventions and the multi-tenancy/auth architecture.
+
+1. SCHEMA CHANGES (prisma/schema.prisma)
+   - UserAccount.status comment expanded to list all possible values:
+     "Active" | "Suspended" | "Inactive" | "Pending" | "Rejected"
+   - Added `rejectionReason String?` to UserAccount (populated when a staff
+     self-signup is rejected by the principal).
+   - Added `staffId String?` to UserAccount with a `staff Staff? @relation(...)`
+     relation so a self-registered user can be linked to their Staff record.
+   - Added a back-reference `userAccounts UserAccount[]` on Staff.
+   - Ran `bun run db:push` — schema applied cleanly, Prisma Client regenerated.
+
+2. STAFF SIGNUP API (src/app/api/auth/staff-signup/route.ts)
+   - POST: Body { schoolCode, name, email, password, phone, role, gender,
+     qualification, specialization }
+   - Validates: schoolCode required, name ≥ 3 chars, valid email, password ≥ 6
+     chars, role must be in approved list (teacher, hod, librarian, nurse,
+     matron, secretary, admissions, bursar, bus_driver, gate_man, cook,
+     deputy_principal).
+   - Looks up School by schoolCode (uppercased) — 404 if not found, 403 if
+     school is Suspended.
+   - Email uniqueness guard on both UserAccount and Staff tables (409).
+   - Generates a unique employeeNo like "EMP-2026-001ABC" (year + sequence +
+     random suffix, retries on collision).
+   - Transaction: creates Staff (status "Inactive") + UserAccount
+     (status "Pending", role from body, avatar = initials) linked via staffId.
+   - Best-effort ActivityLog entry "STAFF_SIGNUP".
+   - Returns { success: true, message: "...", userId, employeeNo, schoolName }.
+
+3. STAFF APPROVALS API (src/app/api/staff-approvals/route.ts)
+   - Auth: uses getUserFromRequest; only admin/principal/super_admin allowed
+     (401 unauth, 403 wrong role).
+   - GET: returns { pending[], recent[], summary } for the requester's school:
+     * pending — UserAccounts with status "Pending" (includes linked Staff)
+     * recent — last 30 days of Approved/Rejected decisions, sorted desc
+     * summary — { pending, approved, rejected } counts
+   - PUT: Body { userId, action: "approve" | "reject", rejectionReason? }
+     * Validates target exists and is in "Pending" status
+     * Validates schoolId matches requester's school (403 cross-tenant)
+     * Approve: sets UserAccount.status to "Active" + Staff.status to "Active"
+     * Reject: sets UserAccount.status to "Rejected" with reason + Staff.status
+       to "Inactive"
+     * Best-effort ActivityLog entries "STAFF_APPROVED" / "STAFF_REJECTED"
+
+4. LOGIN FLOW GUARD (src/app/api/auth/login/route.ts)
+   - Added explicit guards for the new statuses:
+     * Pending → 403 "Your account is awaiting approval from your principal…"
+     * Rejected → 403 with the rejectionReason
+     * Inactive → 403 "Your account is inactive…"
+
+5. STAFF SIGNUP UI (src/components/auth/staff-signup.tsx)
+   - Two-column layout (branding + steps on left, form on right).
+   - Left side: SkulHub branding + 3-step explanation cards:
+     1. Fill in your details (UserPlus icon)
+     2. Principal reviews your request (ShieldCheck icon)
+     3. Get approved & log in (BadgeCheck icon)
+   - Plus a "Need your school code?" helper callout.
+   - Form fields:
+     * School code (auto-uppercased, monospace) with helper "Ask your principal
+       for the school code"
+     * Full name, Email, Phone
+     * Password + Confirm Password (show/hide toggle, mismatch + length
+       validation messages)
+     * Role dropdown (12 staff roles: Teacher, HOD, Librarian, Nurse, Matron,
+       Secretary, Admissions Clerk, Bursar, Bus Driver, Security, Cook, Deputy
+       Principal)
+     * Gender dropdown (Male/Female)
+     * Qualification, Specialization (free text)
+     * "Submit Registration" button with arrow icon, disabled until valid
+   - Success screen: emerald check icon, "Registration submitted!" heading,
+     "The principal will review your account. You'll be able to login once
+     approved." + school name badge + "What happens next?" 3-step explainer
+     + "Back to login" button.
+   - All powered by useAuthStore.staffSignup() helper added to auth-store.
+   - Emerald/teal theme, gradient background blobs, mobile-first responsive
+     (single column on mobile).
+
+6. STAFF APPROVALS MODULE (src/components/modules/staff-approvals.tsx)
+   - Header banner (emerald→teal→cyan gradient) with pending count + reviewer
+     info.
+   - 3 stat cards: Pending Review (amber), Approved Staff (emerald),
+     Rejected (rose).
+   - Search input (filters by name, email, employee no, role, specialization).
+   - Pending Registrations list:
+     * Each row shows avatar + name + role badge + employee no badge
+     * Email/phone/submitted date with icons
+     * Gender/qualification/specialization chips
+     * "Reject" (rose outline) and "Approve" (emerald) buttons
+     * Scrollable container (max-h-600)
+     * Empty state: "No pending requests" / "No matching requests"
+   - Recent Decisions list (last 30 days): avatar + name + status badge
+     (Approved/Rejected) + email/role/employee no/time + rejection reason
+     if rejected.
+   - Approve confirmation: AlertDialog (clean, single action).
+   - Reject dialog: Dialog with Textarea for rejection reason (optional).
+   - Uses useFetch + apiPut, refreshes on each decision.
+
+7. APP SHELL WIRING
+   - src/lib/store.ts: added 'staffapprovals' to ModuleKey type.
+   - src/lib/auth-store.ts:
+     * AuthView expanded to 'login' | 'register' | 'staff-signup'
+     * Added staffSignup() action that POSTs to /api/auth/staff-signup
+     * Added StaffSignupPayload interface (exported)
+     * Added 'staffapprovals' to ALL_MODULES + MODULE_ACCESS for admin,
+       principal, deputy_principal (only these roles can approve staff)
+   - src/app/page.tsx:
+     * Imported StaffSignup + StaffApprovalsModule
+     * Renders <StaffSignup /> when authView === 'staff-signup'
+     * Renders <StaffApprovalsModule /> when effectiveModule === 'staffapprovals'
+   - src/components/layout/sidebar.tsx: added nav item
+     { key: 'staffapprovals', label: 'Staff Approvals', icon: UserCheck,
+       group: 'People' } — sits right below "Staff & Teachers".
+   - src/components/layout/header.tsx: added TITLES entry
+     staffapprovals: { title: 'Staff Approvals', subtitle: 'Review pending
+       staff self-registration requests' }
+   - src/components/layout/command-palette.tsx: added
+     { key: 'staffapprovals', label: 'Staff Approvals', icon: UserCheck,
+       group: 'Navigation' } to NAV_ITEMS (no shortcut to avoid conflicts).
+   - src/components/auth/login-form.tsx: added "Staff sign up" link/button
+     in two places:
+     * Branding left-column card (teal button + helper text)
+     * Below the form next to "Register your school" and "Super Admin Login"
+     Both call setAuthView('staff-signup').
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean) for all new and modified
+  files.
+- `bun run db:push` — schema applied successfully (rejectionReason + staffId
+  columns added; Staff back-reference added).
+- Live-tested all endpoints via curl:
+  * POST /api/auth/staff-signup (valid) → 201 with success message,
+    generated employeeNo "EMP-2026-031DDS"
+  * POST /api/auth/staff-signup (invalid schoolCode "INVALID") → 404
+    "School code not found"
+  * POST /api/auth/staff-signup (short password) → 400 "Password must be
+    at least 6 characters"
+  * POST /api/auth/staff-signup (duplicate email) → 409 "An account with
+    this email already exists"
+  * GET /api/staff-approvals (no auth) → 401 "Authentication required"
+  * GET /api/staff-approvals (admin token) → 200 with pending + recent
+    lists + summary
+  * PUT /api/staff-approvals (approve) → 200 "Test Teacher has been
+    approved. They can now log in." → user can log in immediately
+  * PUT /api/staff-approvals (reject with reason) → 200 "Reject Me's
+    registration has been rejected." → subsequent login attempt returns
+    403 with "Your registration was not approved. Reason: Position
+    already filled. Please contact your administrator."
+
+COORDINATION NOTES for other agents:
+- UserAccount.status can now be one of: "Active", "Suspended", "Inactive",
+  "Pending", "Rejected".
+- A "Pending" user cannot log in (login route returns 403 with a clear
+  message). A "Rejected" user also cannot log in; their rejectionReason is
+  shown in the error message.
+- Staff self-signup creates BOTH a Staff record (status "Inactive") AND a
+  UserAccount (status "Pending"), linked via UserAccount.staffId.
+- Approving a pending staff flips both records to Active; rejecting flips
+  the UserAccount to Rejected (with reason) and keeps the Staff Inactive.
+- The "Staff Approvals" module is only visible to admin, principal, and
+  deputy_principal (controlled via MODULE_ACCESS).
+- A "Staff sign up" link/button appears on the login screen in two places:
+  the branding-side callout card (teal button) and the link row below the
+  form. Both set authView to 'staff-signup', which page.tsx renders as
+  <StaffSignup />.
+- The auth-store now exposes `staffSignup(payload)` and an
+  `AuthView = 'login' | 'register' | 'staff-signup'` type.
+- The store.ts ModuleKey type now includes 'staffapprovals'.
+
+Stage Summary:
+- Staff self-signup is fully functional end-to-end: staff enter their
+  school code → register → admin reviews in the Staff Approvals module →
+  approve/reject → approved staff can log in immediately; rejected staff
+  see the reason on login attempt.
+- All files added:
+  * src/app/api/auth/staff-signup/route.ts
+  * src/app/api/staff-approvals/route.ts
+  * src/components/auth/staff-signup.tsx
+  * src/components/modules/staff-approvals.tsx
+- Files modified:
+  * prisma/schema.prisma (added rejectionReason + staffId + Staff back-ref)
+  * src/app/api/auth/login/route.ts (status guards for Pending/Rejected/Inactive)
+  * src/lib/auth-store.ts (AuthView + staffSignup + 'staffapprovals' module)
+  * src/lib/store.ts (added 'staffapprovals' ModuleKey)
+  * src/app/page.tsx (render StaffSignup + StaffApprovalsModule)
+  * src/components/layout/sidebar.tsx (added Staff Approvals nav item)
+  * src/components/layout/header.tsx (added staffapprovals title)
+  * src/components/layout/command-palette.tsx (added Staff Approvals item)
+  * src/components/auth/login-form.tsx (added "Staff sign up" links)
+- Restarted dev server: `pkill -f "next dev"; sleep 2; bun next dev -p 3000
+  > dev.log 2>&1 &` — confirmed / returns 200 and all endpoints respond
+  correctly.
+
+---
+Task ID: SC1
+Agent: SC1 (School Code Login + Parent Portal)
+Task: Build School Code Login System and Parent Portal for SkulHub
+
+Work Log:
+- Read worklog and existing auth-store, login-form, register-form, prisma schema.
+- Added new files:
+  - `src/lib/phone-utils.ts` (normalizePhone, phonesMatch — handles 07XX/+2547XX/2547XX formats)
+  - `src/app/api/auth/school-code/route.ts` (POST school code lookup, case-insensitive via upper fallback)
+  - `src/app/api/parent/lookup/route.ts` (POST verify school+admission+guardian phone)
+  - `src/app/api/parent/[studentId]/route.ts` (GET full parent dashboard: student, fees, attendance, grades, announcements, events)
+  - `src/app/api/parent/demo/route.ts` (GET demo creds — picks student with most activity)
+  - `src/components/auth/parent-portal.tsx` (login screen + full dashboard UI, emerald/teal theme)
+- Modified:
+  - `src/lib/auth-store.ts` — expanded `AuthView` to include `'parent' | 'superadmin'`
+  - `src/components/auth/login-form.tsx` — rewrote with two-step school code flow, branding pane with "Secure. Role-based. Complete." tagline + 4 feature cards, 3 footer links, preserved demo quick-login buttons
+  - `src/app/page.tsx` — added branch `if (authView === 'parent') return <ParentPortal />`
+
+Verification:
+- `bun run lint` → clean (no errors)
+- Dev server restarted: `pkill -f "next dev"; bun next dev -p 3000`
+- API smoke tests all pass: school-code lookup (found/not-found), parent lookup (with local and international phone format, wrong-phone rejection), parent dashboard payload, demo endpoint
+- Browser walkthrough (agent-browser): Step 1 → Step 2 transition works, parent portal link navigates, demo auto-fill works, dashboard renders, "To login" returns to login
+- QA screenshots saved: `qa-sc1-login-step1.png`, `qa-sc1-login-step2.png`, `qa-sc1-parent-login.png`, `qa-sc1-parent-dashboard.png`
+
+Stage Summary:
+School code login system and parent portal fully functional. Login flow now: enter school code → school verified → email/password → dashboard. Parent portal: school code + admission no + guardian phone → secure dashboard with fees, attendance, grades, announcements, events. All APIs return proper error responses with helpful messages. Design is modern, emerald/teal themed, mobile-first responsive. Work record at `agent-ctx/SC1-school-code-parent-portal.md`.
+
+---
+Task ID: 37 (school code login + parent portal + staff signup)
+Agent: Main + subagents (SC1, SS1)
+Task: Build school code login, parent portal, and staff self-signup to beat competition
+
+3 MAJOR FEATURES BUILT:
+
+1. SCHOOL CODE LOGIN SYSTEM
+- API: /api/auth/school-code (POST — looks up school by code)
+- Two-step login flow:
+  Step 1: "Enter your school code" → input + Continue button
+  Step 2: "Sign in to {School Name}" → email + password + school info banner
+- Left branding panel: "Secure. Role-based. Complete." with 4 feature cards
+- Three footer links: Sign up, Register school, Staff sign up, Parent portal
+- Demo quick-login buttons preserved for development
+- Case-insensitive school code lookup
+
+2. PARENT PORTAL
+- API: /api/parent/lookup (POST — verifies school code + admission no + guardian phone)
+- API: /api/parent/[studentId] (GET — full parent dashboard: fees, grades, attendance, announcements)
+- API: /api/parent/demo (GET — auto-picks student with most activity for demo)
+- UI: src/components/auth/parent-portal.tsx
+  * Login screen: School Code + Admission Number + Guardian Phone
+  * Dashboard: student header, fee summary tiles, invoice history, attendance badges,
+    grades with color-coded badges, announcements, upcoming events
+  * "Back to login" button
+  * Phone normalization (handles 0712..., +254712..., 254712... formats)
+
+3. STAFF SELF-SIGNUP WITH PRINCIPAL APPROVAL
+- Schema: Added rejectionReason and staffId to UserAccount, back-reference on Staff
+- API: /api/auth/staff-signup (POST — creates Staff + Pending UserAccount)
+- API: /api/staff-approvals (GET pending list + PUT approve/reject)
+- Login hardened: Pending → 403 "awaiting approval", Rejected → 403 + reason
+- UI: src/components/auth/staff-signup.tsx
+  * Form: school code, name, email, password, phone, role, gender, qualification, specialization
+  * 3-step explanation: Fill → Principal reviews → Get approved & login
+  * Success screen with "what happens next"
+- UI: src/components/modules/staff-approvals.tsx
+  * Pending staff list with approve/reject buttons
+  * Rejection reason dialog
+  * Recent decisions list
+  * Added to sidebar (People group), visible only to admin/principal
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested:
+  * School code "SKH-2024-001" → Step 2 shows "SkulHub Academy" ✓
+  * Parent portal link → shows admission number field ✓
+  * Staff signup link → shows school code + form fields ✓
+  * All 4 links visible on login page ✓
+
+COMPETITOR COMPARISON:
+- ✅ School code login — MATCHES competitor
+- ✅ Parent portal — MATCHES competitor (with fees, grades, attendance)
+- ✅ Staff self-signup with approval — MATCHES competitor
+- ✅ School registration — MATCHES competitor
+- ✅ 13 staff roles — EXCEEDS competitor (they have 6)
+- ✅ 33+ modules — EXCEEDS competitor
+- ✅ Primary + Secondary demo data — EXCEEDS competitor
+- ✅ Inventory requests, payroll, appraisals — NOT in competitor
+
+Stage Summary:
+- School code login, parent portal, and staff signup all working
+- SkulHub now matches or exceeds the competing product on all key features
+- Ready for customer demos with both primary and secondary school data

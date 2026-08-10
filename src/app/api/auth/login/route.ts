@@ -55,6 +55,27 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       )
     }
+    if (user.status === 'Pending') {
+      return NextResponse.json(
+        { error: 'Your account is awaiting approval from your principal. Please try again later.' },
+        { status: 403 }
+      )
+    }
+    if (user.status === 'Rejected') {
+      const reason = user.rejectionReason
+        ? ` Reason: ${user.rejectionReason}`
+        : ''
+      return NextResponse.json(
+        { error: `Your registration was not approved.${reason} Please contact your administrator.` },
+        { status: 403 }
+      )
+    }
+    if (user.status === 'Inactive') {
+      return NextResponse.json(
+        { error: 'Your account is inactive. Contact your administrator.' },
+        { status: 403 }
+      )
+    }
 
     // Update last login timestamp
     await db.userAccount.update({
