@@ -263,7 +263,7 @@ function IdCardPreview({ person }: { person: Person }) {
               <School className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold tracking-tight">EduManage Academy</p>
+              <p className="truncate text-sm font-bold tracking-tight">SkulHub Academy</p>
               <p className="truncate text-[9px] text-white/80">Excellence in Education · Est. 1998</p>
             </div>
           </div>
@@ -323,7 +323,7 @@ function IdCardPreview({ person }: { person: Person }) {
         {/* Footer strip */}
         <div className="bg-emerald-600 px-4 py-1.5">
           <p className="text-center text-[9px] font-medium text-white/90">
-            If found, please return to EduManage Academy · +254 700 000 000
+            If found, please return to SkulHub Academy · +254 700 000 000
           </p>
         </div>
       </div>

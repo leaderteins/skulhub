@@ -103,11 +103,11 @@ interface MockUser {
   lastLogin: string
 }
 const INITIAL_USERS: MockUser[] = [
-  { id: 'u1', name: 'James Mwangi', email: 'principal@edumanage.ac.ke', role: 'Principal', status: 'Active', lastLogin: '2 hours ago' },
-  { id: 'u2', name: 'Mary Atieno', email: 'bursar@edumanage.ac.ke', role: 'Bursar', status: 'Active', lastLogin: '5 hours ago' },
-  { id: 'u3', name: 'Peter Kamau', email: 'teacher.peter@edumanage.ac.ke', role: 'Teacher', status: 'Active', lastLogin: '1 day ago' },
-  { id: 'u4', name: 'Grace Wanjiru', email: 'librarian@edumanage.ac.ke', role: 'Librarian', status: 'Active', lastLogin: '3 days ago' },
-  { id: 'u5', name: 'Samuel Kiprop', email: 'teacher.samuel@edumanage.ac.ke', role: 'Teacher', status: 'Invited', lastLogin: 'Never' },
+  { id: 'u1', name: 'James Mwangi', email: 'principal@skulhub.ac.ke', role: 'Principal', status: 'Active', lastLogin: '2 hours ago' },
+  { id: 'u2', name: 'Mary Atieno', email: 'bursar@skulhub.ac.ke', role: 'Bursar', status: 'Active', lastLogin: '5 hours ago' },
+  { id: 'u3', name: 'Peter Kamau', email: 'teacher.peter@skulhub.ac.ke', role: 'Teacher', status: 'Active', lastLogin: '1 day ago' },
+  { id: 'u4', name: 'Grace Wanjiru', email: 'librarian@skulhub.ac.ke', role: 'Librarian', status: 'Active', lastLogin: '3 days ago' },
+  { id: 'u5', name: 'Samuel Kiprop', email: 'teacher.samuel@skulhub.ac.ke', role: 'Teacher', status: 'Invited', lastLogin: 'Never' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -117,11 +117,11 @@ export function SettingsModule() {
   const [tab, setTab] = useState('general')
 
   // General state
-  const [schoolName, setSchoolName] = useState('EduManage Academy')
+  const [schoolName, setSchoolName] = useState('SkulHub Academy')
   const [motto, setMotto] = useState('Elimu Nguvu · Knowledge is Power')
   const [address, setAddress] = useState('P.O. Box 12345-00100, Nairobi, Kenya')
   const [phone, setPhone] = useState('+254 700 000 000')
-  const [email, setEmail] = useState('info@edumanage.ac.ke')
+  const [email, setEmail] = useState('info@skulhub.ac.ke')
   const [academicYear, setAcademicYear] = useState('2025')
   const [currentTerm, setCurrentTerm] = useState('Term 1')
   const [termStart, setTermStart] = useState('2025-01-06')
@@ -140,11 +140,11 @@ export function SettingsModule() {
   const [smsSenderId, setSmsSenderId] = useState('EDUMG')
   const [smtpHost, setSmtpHost] = useState('smtp.gmail.com')
   const [smtpPort, setSmtpPort] = useState('587')
-  const [smtpUser, setSmtpUser] = useState('notifications@edumanage.ac.ke')
+  const [smtpUser, setSmtpUser] = useState('notifications@skulhub.ac.ke')
   const [smtpPassword, setSmtpPassword] = useState('')
   const [mpesaPaybill, setMpesaPaybill] = useState('522522')
   const [mpesaAccount, setMpesaAccount] = useState('Admission No.')
-  const [mpesaCallback, setMpesaCallback] = useState('https://edumanage.ac.ke/api/mpesa/callback')
+  const [mpesaCallback, setMpesaCallback] = useState('https://skulhub.ac.ke/api/mpesa/callback')
   const [notifPrefs, setNotifPrefs] = useState({
     feeReminders: true,
     attendanceAlerts: true,
@@ -231,7 +231,7 @@ export function SettingsModule() {
                   <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-700 text-white shadow-lg">
                     <div className="text-center">
                       <GraduationCap className="mx-auto h-8 w-8" />
-                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide">EduManage</p>
+                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide">SkulHub</p>
                     </div>
                   </div>
                   <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => toast.info('Logo upload — coming soon')}>
@@ -657,7 +657,7 @@ export function SettingsModule() {
                   <CardTitle className="flex items-center gap-2 text-base">
                     <ShieldCheck className="h-4.5 w-4.5 text-emerald-600" /> System Users
                   </CardTitle>
-                  <CardDescription>Manage who has access to EduManage Pro and their permissions</CardDescription>
+                  <CardDescription>Manage who has access to SkulHub and their permissions</CardDescription>
                 </div>
                 <Button size="sm" onClick={() => setAddUserOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
                   <Plus className="mr-1.5 h-4 w-4" /> Add User
@@ -775,7 +775,7 @@ export function SettingsModule() {
           <DialogHeader>
             <DialogTitle>Add System User</DialogTitle>
             <DialogDescription>
-              Invite a new staff member to access EduManage Pro. They will receive an email invitation.
+              Invite a new staff member to access SkulHub. They will receive an email invitation.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddUser} className="space-y-3">
@@ -785,7 +785,7 @@ export function SettingsModule() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="nu-email">Email Address</Label>
-              <Input id="nu-email" type="email" value={newUser.email} onChange={(e) => setNewUser((s) => ({ ...s, email: e.target.value }))} placeholder="jane@edumanage.ac.ke" required />
+              <Input id="nu-email" type="email" value={newUser.email} onChange={(e) => setNewUser((s) => ({ ...s, email: e.target.value }))} placeholder="jane@skulhub.ac.ke" required />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="nu-role">Role</Label>

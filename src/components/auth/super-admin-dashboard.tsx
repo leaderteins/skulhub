@@ -215,7 +215,7 @@ export function SuperAdminDashboard() {
             </div>
             <div>
               <h1 className="text-base font-bold leading-tight md:text-lg">
-                EduManage Pro · Platform Console
+                SkulHub · Platform Console
               </h1>
               <p className="text-xs text-muted-foreground">
                 Signed in as <span className="font-medium text-foreground">{user?.name}</span>

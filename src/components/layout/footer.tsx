@@ -7,7 +7,7 @@ export function Footer() {
       <div className="flex flex-col items-center justify-between gap-2 text-xs text-muted-foreground sm:flex-row">
         <div className="flex items-center gap-2">
           <School className="h-3.5 w-3.5 text-emerald-600" />
-          <span className="font-medium">EduManage Pro</span>
+          <span className="font-medium">SkulHub</span>
           <span className="hidden sm:inline">·</span>
           <span className="hidden sm:inline">Empowering Kenyan education, scalable worldwide</span>
         </div>

@@ -63,12 +63,12 @@ export function LoginForm() {
     // Try server first, then demo
     const result = await serverLogin(userEmail, userPass)
     if (result.success) {
-      toast.success('Logged in', { description: 'Welcome to EduManage Pro' })
+      toast.success('Logged in', { description: 'Welcome to SkulHub' })
     } else {
       const ok = login(userEmail, userPass)
       if (ok) {
         toast.success('Logged in (Demo mode)', {
-          description: 'Welcome to EduManage Pro',
+          description: 'Welcome to SkulHub',
         })
       } else {
         toast.error('Login failed', { description: result.error })
@@ -78,7 +78,7 @@ export function LoginForm() {
   }
 
   const superAdminLogin = async () => {
-    const saEmail = 'superadmin@edumanage.ac.ke'
+    const saEmail = 'superadmin@skulhub.ac.ke'
     const saPass = 'superadmin123'
     setEmail(saEmail)
     setPassword(saPass)
@@ -109,7 +109,7 @@ export function LoginForm() {
               <School className="h-7 w-7" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">EduManage Pro</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">SkulHub</h1>
               <p className="text-sm text-muted-foreground">School Management System</p>
             </div>
           </div>
@@ -134,7 +134,7 @@ export function LoginForm() {
 
           <div className="mt-6 rounded-xl border border-emerald-200/60 bg-emerald-50/40 p-4 dark:bg-emerald-950/20">
             <div className="flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-              <Sparkles className="h-4 w-4" /> New to EduManage Pro?
+              <Sparkles className="h-4 w-4" /> New to SkulHub?
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               Register your school in minutes and start a 30-day free trial — no credit card required.
@@ -158,7 +158,7 @@ export function LoginForm() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
                 <School className="h-5 w-5" />
               </div>
-              <span className="text-lg font-bold">EduManage Pro</span>
+              <span className="text-lg font-bold">SkulHub</span>
             </div>
             <CardTitle className="text-xl">Sign in to your account</CardTitle>
             <CardDescription>Enter your credentials to access the dashboard</CardDescription>
@@ -174,7 +174,7 @@ export function LoginForm() {
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="you@edumanage.ac.ke"
+                    placeholder="you@skulhub.ac.ke"
                     className="pl-9"
                     autoComplete="email"
                   />

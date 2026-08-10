@@ -86,7 +86,7 @@ export function Sidebar() {
             <School className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-base font-bold tracking-tight text-white">EduManage Pro</div>
+            <div className="truncate text-base font-bold tracking-tight text-white">SkulHub</div>
             <div className="truncate text-[11px] text-sidebar-foreground/60">School Management System</div>
           </div>
           <button

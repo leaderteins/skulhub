@@ -16,17 +16,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EduManage Pro — School Management System",
+  title: "SkulHub — School Management System",
   description: "Professional school, college & university management system. Built for Kenyan institutions, scalable worldwide.",
   keywords: ["school management", "Kenya education", "CBC", "university management", "fee management", "attendance"],
-  authors: [{ name: "EduManage Pro" }],
+  authors: [{ name: "SkulHub" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
   openGraph: {
-    title: "EduManage Pro",
+    title: "SkulHub",
     description: "World-class school management system for Kenya and beyond",
-    siteName: "EduManage Pro",
+    siteName: "SkulHub",
     type: "website",
   },
 };

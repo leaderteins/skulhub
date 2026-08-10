@@ -5,11 +5,11 @@ import { db } from '@/lib/db'
 
 // In production, this MUST be set via environment variable.
 const SESSION_SECRET =
-  process.env.SESSION_SECRET || 'edumanage-pro-dev-secret-change-in-production'
+  process.env.SESSION_SECRET || 'skulhub-pro-dev-secret-change-in-production'
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 
 // Default super-admin credentials (auto-provisioned on first login attempt)
-export const SUPER_ADMIN_EMAIL = 'superadmin@edumanage.ac.ke'
+export const SUPER_ADMIN_EMAIL = 'superadmin@skulhub.ac.ke'
 export const SUPER_ADMIN_DEFAULT_PASSWORD = 'superadmin123'
 
 /** Hash a password using bcrypt with 10 rounds. */
@@ -104,7 +104,7 @@ export function getTokenFromRequest(req: Request): string | null {
   }
   const cookieHeader = req.headers.get('cookie')
   if (cookieHeader) {
-    const match = cookieHeader.match(/(?:^|;\s*)edumanage-token=([^;]+)/)
+    const match = cookieHeader.match(/(?:^|;\s*)skulhub-token=([^;]+)/)
     if (match) return decodeURIComponent(match[1])
   }
   return null
@@ -130,7 +130,7 @@ export async function getUserFromRequest(req: Request) {
 
 /**
  * Ensure the platform super-admin exists. Auto-provisions a system school
- * ("EduManage Platform") and a super_admin user with default credentials.
+ * ("SkulHub Platform") and a super_admin user with default credentials.
  * Idempotent — safe to call on every login.
  */
 export async function ensureSuperAdmin() {
@@ -144,9 +144,9 @@ export async function ensureSuperAdmin() {
   if (!platform) {
     platform = await db.school.create({
       data: {
-        name: 'EduManage Platform',
+        name: 'SkulHub Platform',
         slug: 'platform',
-        email: 'platform@edumanage.ac.ke',
+        email: 'platform@skulhub.ac.ke',
         plan: 'Enterprise',
         status: 'Active',
         maxStudents: 9_999_999,

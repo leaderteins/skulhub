@@ -242,7 +242,7 @@ export function SuperAdminModule() {
             </div>
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Platform Administration</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-300">
-              Manage every school on EduManage Pro — monitor health, revenue, growth, and take action on subscriptions.
+              Manage every school on SkulHub — monitor health, revenue, growth, and take action on subscriptions.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">

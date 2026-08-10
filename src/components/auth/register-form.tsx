@@ -112,7 +112,7 @@ export function RegisterForm() {
     setLoading(false)
     if (result.success && result.school) {
       toast.success('School registered!', {
-        description: `Welcome to EduManage Pro — your trial lasts 30 days.`,
+        description: `Welcome to SkulHub — your trial lasts 30 days.`,
       })
       setSuccess({ schoolName: result.school.name, slug: result.school.slug })
     } else {
@@ -176,7 +176,7 @@ export function RegisterForm() {
               <School className="h-7 w-7" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">EduManage Pro</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">SkulHub</h1>
               <p className="text-sm text-muted-foreground">School Management System</p>
             </div>
           </div>
@@ -221,7 +221,7 @@ export function RegisterForm() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
                 <School className="h-5 w-5" />
               </div>
-              <span className="text-lg font-bold">EduManage Pro</span>
+              <span className="text-lg font-bold">SkulHub</span>
             </div>
             <CardTitle className="text-xl">Register your school</CardTitle>
             <CardDescription>
@@ -393,7 +393,7 @@ export function RegisterForm() {
               </Button>
 
               <p className="text-center text-xs text-muted-foreground">
-                By registering, you agree to EduManage Pro&apos;s Terms of Service and Privacy Policy.
+                By registering, you agree to SkulHub&apos;s Terms of Service and Privacy Policy.
               </p>
 
               <div className="text-center text-sm text-muted-foreground">

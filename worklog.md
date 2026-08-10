@@ -2439,3 +2439,52 @@ Stage Summary:
 - Super admin dashboard for platform management
 - Schools can now sign up, get their own isolated data, and be managed
 - This is the critical step for going to market — schools can now register and use the system
+
+---
+Task ID: 35 (rebrand + competing product analysis)
+Agent: Main
+Task: Rebrand from EduManage to SkulHub after discovering competing product at edumanage.co.ke
+
+COMPETING PRODUCT ANALYSIS:
+User shared 6 screenshots of edumanage.co.ke — a competing product already using the name "EduManage".
+Their features include:
+- School code-based login (users enter a school code to access their school)
+- Multi-step registration wizard (6 steps: School Basics, Type, Gender, Education Level, Pathways, Principal Account)
+- Staff signup with principal approval workflow
+- Parent portal (parents access child records via school code + admission no + phone)
+- CBC curriculum with pathways support
+- KNEC code integration
+- Category-based school classification (County, National, etc.)
+
+REBRANDING:
+- Renamed entire system from "EduManage Pro" to "SkulHub"
+- All references updated across 16 source files:
+  * EduManage Pro → SkulHub
+  * EduManage Academy → SkulHub Academy
+  * edumanage.ac.ke → skulhub.ac.ke
+  * edumanage.co.ke → skulhub.co.ke
+  * edumanage-auth → skulhub-auth (localStorage key)
+  * edumanage-token → skulhub-token (cookie name)
+  * edumanage-pro-dev-secret → skulhub-pro-dev-secret (session secret)
+- Layout metadata updated
+- All demo user emails updated (admin@skulhub.ac.ke, etc.)
+- Super admin email: superadmin@skulhub.ac.ke
+
+NEW CREDENTIALS:
+- Super Admin: superadmin@skulhub.ac.ke / superadmin123
+- Demo Admin: admin@skulhub.ac.ke / admin123
+- All other demo users: [role]@skulhub.ac.ke / [role]123
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser: "SkulHub: true, EduManage: false" — fully rebranded ✓
+- Login page shows "SkulHub — School Management System"
+- Register and Super Admin links visible
+
+NEXT STEPS (matching competitor features):
+- School code-based login (instead of just email)
+- Parent portal (view child records)
+- Staff self-signup with approval workflow
+- Multi-step registration wizard
+- CBC pathways support
+- KNEC code field

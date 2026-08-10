@@ -50,7 +50,7 @@ export function StaffRoomModule() {
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/15 backdrop-blur"><School className="h-8 w-8" /></div>
-            <div><h1 className="text-3xl font-bold tracking-tight">EduManage Academy</h1><p className="text-sm text-white/80">Staff Room Information Board</p></div>
+            <div><h1 className="text-3xl font-bold tracking-tight">SkulHub Academy</h1><p className="text-sm text-white/80">Staff Room Information Board</p></div>
           </div>
           <div className="text-right">
             <div className="flex items-center justify-end gap-2"><Clock className="h-6 w-6 text-emerald-300" /><span className="font-mono text-4xl font-bold tabular-nums">{timeStr}</span></div>

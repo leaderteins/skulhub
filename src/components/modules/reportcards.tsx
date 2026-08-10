@@ -455,9 +455,9 @@ function ReportCardDialog({ studentId, examId, onClose }: { studentId: string; e
                     <School className="h-7 w-7" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold leading-tight">EduManage Academy</h2>
+                    <h2 className="text-xl font-bold leading-tight">SkulHub Academy</h2>
                     <p className="text-xs text-white/80">P.O. Box 12345-00100, Nairobi, Kenya · +254 700 000 000</p>
-                    <p className="text-xs text-white/80">info@edumanage.ac.ke · www.edumanage.ac.ke</p>
+                    <p className="text-xs text-white/80">info@skulhub.ac.ke · www.skulhub.ac.ke</p>
                   </div>
                 </div>
                 <div className="hidden text-right sm:block">
@@ -610,7 +610,7 @@ function ReportCardDialog({ studentId, examId, onClose }: { studentId: string; e
               {/* Footer */}
               <div className="mt-4 flex flex-col items-center justify-between gap-2 border-t pt-3 text-[10px] text-muted-foreground sm:flex-row">
                 <span>Generated on {new Date(data.generatedAt).toLocaleString('en-KE')}</span>
-                <span>This is a computer-generated report card from EduManage Pro</span>
+                <span>This is a computer-generated report card from SkulHub</span>
               </div>
 
               {/* Print button (sticky at bottom of dialog) */}

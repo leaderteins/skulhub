@@ -86,20 +86,20 @@ export const FINANCE_ROLES: UserRole[] = ['super_admin', 'admin', 'principal', '
 
 // Demo users — admin is Moses Kinyanjui (used as dev fallback when DB auth fails)
 export const DEMO_USERS: Array<SystemUser & { password: string }> = [
-  { id: 'u1', name: 'Moses Kinyanjui', email: 'admin@edumanage.ac.ke', role: 'admin', avatar: 'MK', password: 'admin123', schoolName: 'EduManage Academy' },
-  { id: 'u2', name: 'Mary Wanjiru', email: 'principal@edumanage.ac.ke', role: 'principal', avatar: 'MW', password: 'principal123', schoolName: 'EduManage Academy' },
-  { id: 'u3', name: 'Peter Kamau', email: 'bursar@edumanage.ac.ke', role: 'bursar', avatar: 'PK', password: 'bursar123', schoolName: 'EduManage Academy' },
-  { id: 'u4', name: 'Grace Achieng', email: 'teacher@edumanage.ac.ke', role: 'teacher', avatar: 'GA', password: 'teacher123', schoolName: 'EduManage Academy' },
-  { id: 'u5', name: 'Dennis Kiprop', email: 'librarian@edumanage.ac.ke', role: 'librarian', avatar: 'DK', password: 'librarian123', schoolName: 'EduManage Academy' },
-  { id: 'u6', name: 'Faith Mutua', email: 'nurse@edumanage.ac.ke', role: 'nurse', avatar: 'FM', password: 'nurse123', schoolName: 'EduManage Academy' },
-  { id: 'u7', name: 'John Mwangi', email: 'admissions@edumanage.ac.ke', role: 'admissions', avatar: 'JM', password: 'admissions123', schoolName: 'EduManage Academy' },
-  { id: 'u8', name: 'Rose Chebet', email: 'matron@edumanage.ac.ke', role: 'matron', avatar: 'RC', password: 'matron123', schoolName: 'EduManage Academy' },
-  { id: 'u9', name: 'Samuel Otieno', email: 'secretary@edumanage.ac.ke', role: 'secretary', avatar: 'SO', password: 'secretary123', schoolName: 'EduManage Academy' },
-  { id: 'u10', name: 'David Kibet', email: 'driver@edumanage.ac.ke', role: 'bus_driver', avatar: 'DK', password: 'driver123', schoolName: 'EduManage Academy' },
-  { id: 'u11', name: 'Paul Wafula', email: 'gate@edumanage.ac.ke', role: 'gate_man', avatar: 'PW', password: 'gate123', schoolName: 'EduManage Academy' },
-  { id: 'u12', name: 'Esther Njeri', email: 'deputy@edumanage.ac.ke', role: 'deputy_principal', avatar: 'EN', password: 'deputy123', schoolName: 'EduManage Academy' },
-  { id: 'u13', name: 'Joseph Muthomi', email: 'cook@edumanage.ac.ke', role: 'cook', avatar: 'JM', password: 'cook123', schoolName: 'EduManage Academy' },
-  { id: 'u14', name: 'Platform Super Admin', email: 'superadmin@edumanage.ac.ke', role: 'super_admin', avatar: 'SA', password: 'superadmin123', schoolName: 'EduManage Platform', isSuperAdmin: true },
+  { id: 'u1', name: 'Moses Kinyanjui', email: 'admin@skulhub.ac.ke', role: 'admin', avatar: 'MK', password: 'admin123', schoolName: 'SkulHub Academy' },
+  { id: 'u2', name: 'Mary Wanjiru', email: 'principal@skulhub.ac.ke', role: 'principal', avatar: 'MW', password: 'principal123', schoolName: 'SkulHub Academy' },
+  { id: 'u3', name: 'Peter Kamau', email: 'bursar@skulhub.ac.ke', role: 'bursar', avatar: 'PK', password: 'bursar123', schoolName: 'SkulHub Academy' },
+  { id: 'u4', name: 'Grace Achieng', email: 'teacher@skulhub.ac.ke', role: 'teacher', avatar: 'GA', password: 'teacher123', schoolName: 'SkulHub Academy' },
+  { id: 'u5', name: 'Dennis Kiprop', email: 'librarian@skulhub.ac.ke', role: 'librarian', avatar: 'DK', password: 'librarian123', schoolName: 'SkulHub Academy' },
+  { id: 'u6', name: 'Faith Mutua', email: 'nurse@skulhub.ac.ke', role: 'nurse', avatar: 'FM', password: 'nurse123', schoolName: 'SkulHub Academy' },
+  { id: 'u7', name: 'John Mwangi', email: 'admissions@skulhub.ac.ke', role: 'admissions', avatar: 'JM', password: 'admissions123', schoolName: 'SkulHub Academy' },
+  { id: 'u8', name: 'Rose Chebet', email: 'matron@skulhub.ac.ke', role: 'matron', avatar: 'RC', password: 'matron123', schoolName: 'SkulHub Academy' },
+  { id: 'u9', name: 'Samuel Otieno', email: 'secretary@skulhub.ac.ke', role: 'secretary', avatar: 'SO', password: 'secretary123', schoolName: 'SkulHub Academy' },
+  { id: 'u10', name: 'David Kibet', email: 'driver@skulhub.ac.ke', role: 'bus_driver', avatar: 'DK', password: 'driver123', schoolName: 'SkulHub Academy' },
+  { id: 'u11', name: 'Paul Wafula', email: 'gate@skulhub.ac.ke', role: 'gate_man', avatar: 'PW', password: 'gate123', schoolName: 'SkulHub Academy' },
+  { id: 'u12', name: 'Esther Njeri', email: 'deputy@skulhub.ac.ke', role: 'deputy_principal', avatar: 'EN', password: 'deputy123', schoolName: 'SkulHub Academy' },
+  { id: 'u13', name: 'Joseph Muthomi', email: 'cook@skulhub.ac.ke', role: 'cook', avatar: 'JM', password: 'cook123', schoolName: 'SkulHub Academy' },
+  { id: 'u14', name: 'Platform Super Admin', email: 'superadmin@skulhub.ac.ke', role: 'super_admin', avatar: 'SA', password: 'superadmin123', schoolName: 'SkulHub Platform', isSuperAdmin: true },
 ]
 
 // --- Server-side auth types ------------------------------------------------
@@ -285,7 +285,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'edumanage-auth',
+      name: 'skulhub-auth',
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true)
       },

@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     )
-    res.cookies.set('edumanage-token', token, {
+    res.cookies.set('skulhub-token', token, {
       httpOnly: true,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60,
