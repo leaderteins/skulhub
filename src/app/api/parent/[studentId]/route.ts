@@ -84,6 +84,16 @@ export async function GET(
       take: 6,
     })
 
+    // Fetch timetable for the student's stream
+    let timetable: any[] = []
+    if (latest?.streamId) {
+      timetable = await db.timetable.findMany({
+        where: { streamId: latest.streamId },
+        include: { subject: { select: { name: true } }, teacher: { select: { firstName: true, lastName: true } } },
+        orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+      })
+    }
+
     return NextResponse.json({
       student: {
         id: student.id,
@@ -163,6 +173,15 @@ export async function GET(
         endDate: e.endDate,
         location: e.location,
         status: e.status,
+      })),
+      timetable: timetable.map(t => ({
+        id: t.id,
+        dayOfWeek: t.dayOfWeek,
+        startTime: t.startTime,
+        endTime: t.endTime,
+        room: t.room,
+        subject: { name: t.subject?.name || '—' },
+        teacher: t.teacher ? { name: `${t.teacher.firstName} ${t.teacher.lastName}` } : null,
       })),
     })
   } catch (error) {

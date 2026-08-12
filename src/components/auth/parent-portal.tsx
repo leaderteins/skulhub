@@ -500,6 +500,53 @@ export function ParentPortal() {
                   </CardContent>
                 </Card>
 
+                {/* Timetable */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <CalendarClock className="h-4 w-4 text-cyan-600" /> Weekly Timetable
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {dashboard.timetable && dashboard.timetable.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="p-1.5 text-left text-[10px] text-muted-foreground">Time</th>
+                              {['Mon','Tue','Wed','Thu','Fri'].map(d => (
+                                <th key={d} className="p-1.5 text-center text-[10px] font-medium text-muted-foreground">{d}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Array.from(new Set(dashboard.timetable.map((t: any) => t.startTime))).map(time => (
+                              <tr key={time} className="border-b border-muted/30">
+                                <td className="p-1.5 text-[10px] font-medium text-muted-foreground whitespace-nowrap">{time}</td>
+                                {['Monday','Tuesday','Wednesday','Thursday','Friday'].map(day => {
+                                  const entry = dashboard.timetable.find((t: any) => t.dayOfWeek === day && t.startTime === time)
+                                  return (
+                                    <td key={day} className="p-1 text-center">
+                                      {entry ? (
+                                        <div className="rounded-md bg-emerald-50 px-1.5 py-1 dark:bg-emerald-950/20">
+                                          <p className="text-[9px] font-semibold text-emerald-700 dark:text-emerald-400">{entry.subject?.name || '—'}</p>
+                                          <p className="text-[8px] text-muted-foreground">{entry.room || ''}</p>
+                                        </div>
+                                      ) : <span className="text-[9px] text-muted-foreground/30">—</span>}
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No timetable available.</p>
+                    )}
+                  </CardContent>
+                </Card>
+
                 {/* Announcements */}
                 <Card>
                   <CardHeader>
@@ -635,6 +682,11 @@ export function ParentPortal() {
                 desc: 'Latest exam results per subject',
               },
               {
+                icon: CalendarClock,
+                title: 'Timetable',
+                desc: "Child's weekly class schedule",
+              },
+              {
                 icon: GraduationCap,
                 title: 'School Updates',
                 desc: 'Announcements & upcoming events',
@@ -740,14 +792,6 @@ export function ParentPortal() {
                 )}
               </Button>
             </form>
-
-            <button
-              type="button"
-              onClick={fillDemo}
-              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-emerald-300 bg-emerald-50/40 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100/60 dark:bg-emerald-950/20 dark:text-emerald-400"
-            >
-              <Sparkles className="h-3.5 w-3.5" /> Auto-fill demo credentials
-            </button>
           </CardContent>
         </Card>
       </div>
