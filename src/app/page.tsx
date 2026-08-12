@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
 import { Footer } from '@/components/layout/footer'
 import { CommandPalette } from '@/components/layout/command-palette'
+import { LandingPage } from '@/components/landing-page'
 import { LoginForm } from '@/components/auth/login-form'
 import { RegisterForm } from '@/components/auth/register-form'
 import { ParentPortal } from '@/components/auth/parent-portal'
@@ -75,8 +76,6 @@ export default function Home() {
   }
 
   // Show registration form (or its success screen) while authView is 'register'
-  // — even after the user has been auto-logged-in, so the success message is
-  // visible before the dashboard takes over.
   if (authView === 'register') {
     return <RegisterForm />
   }
@@ -86,15 +85,19 @@ export default function Home() {
     return <StaffSignup />
   }
 
-  // Parent portal is shown when authView is 'parent'. It has its own
-  // internal login + dashboard flow and never sets a real user.
+  // Parent portal is shown when authView is 'parent'.
   if (authView === 'parent') {
     return <ParentPortal />
   }
 
-  // Show login if not authenticated (after hydration)
-  if (!user) {
+  // Show login form when authView is 'login'
+  if (!user && authView === 'login') {
     return <LoginForm />
+  }
+
+  // Show landing page for visitors (default view)
+  if (!user) {
+    return <LandingPage />
   }
 
   // Check if user has access to the active module

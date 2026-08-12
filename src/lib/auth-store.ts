@@ -153,7 +153,7 @@ export interface ServerRegisterResponse {
   token: string
 }
 
-type AuthView = 'login' | 'register' | 'staff-signup' | 'parent' | 'superadmin'
+type AuthView = 'landing' | 'login' | 'register' | 'staff-signup' | 'parent' | 'superadmin'
 
 interface AuthState {
   user: SystemUser | null
@@ -194,7 +194,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       serverToken: null,
       isSuperAdmin: false,
-      authView: 'login',
+      authView: 'landing',
       _hasHydrated: false,
       setHasHydrated: (state: boolean) => set({ _hasHydrated: state }),
       setAuthView: (view: AuthView) => set({ authView: view }),
@@ -312,7 +312,7 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           serverToken: null,
           isSuperAdmin: false,
-          authView: 'login',
+          authView: 'landing',
         }),
 
       hasAccess: (module: string) => {
