@@ -1,5 +1,5 @@
-// EduManage Pro — School/University Management System
-// Prisma schema (SQLite)
+// SkulHub — School/University Management System
+// Prisma schema (PostgreSQL)
 
 generator client {
   provider = "prisma-client-js"
@@ -24,6 +24,12 @@ model School {
   address       String?
   county        String?
   level         String   @default("Secondary") // "Primary" | "Junior Secondary" | "Secondary" | "University" | "Mixed"
+  knecCode      String?  // Kenya National Examinations Council code
+  yearEstablished Int?
+  category      String   @default("Private") // "National" | "County" | "Sub-County" | "Private" | "International"
+  gender        String   @default("Mixed") // "Boys" | "Girls" | "Mixed"
+  motto         String?
+  primaryColor  String   @default("#10b981") // school brand color
   logo          String?
   plan          String   @default("Starter") // "Starter" | "Standard" | "Premium" | "Enterprise"
   status        String   @default("Trial") // "Trial" | "Active" | "Suspended" | "Expired"

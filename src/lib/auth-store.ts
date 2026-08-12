@@ -127,15 +127,33 @@ export interface ServerRegisterPayload {
   adminName: string
   adminEmail: string
   adminPassword: string
+  // Extended wizard fields
+  level?: string
+  knecCode?: string
+  yearEstablished?: string | number
+  category?: string
+  gender?: string
+  motto?: string
+  primaryColor?: string
+  address?: string
+  adminPhone?: string
 }
 
 export interface ServerRegisterResponse {
-  school: { id: string; name: string; slug: string; plan: string; status: string }
+  school: {
+    id: string
+    name: string
+    slug: string
+    schoolCode: string
+    plan: string
+    status: string
+    trialEndsAt: string | Date | null
+  }
   user: { id: string; name: string; email: string; role: UserRole; schoolId: string; avatar: string }
   token: string
 }
 
-type AuthView = 'login' | 'register' | 'staff-signup' | 'parent' | 'superadmin'
+type AuthView = 'landing' | 'login' | 'register' | 'staff-signup' | 'parent' | 'superadmin'
 
 interface AuthState {
   user: SystemUser | null
@@ -149,7 +167,7 @@ interface AuthState {
   login: (email: string, password: string) => boolean
   // Server-side auth (real DB-backed)
   serverLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  serverRegister: (data: ServerRegisterPayload) => Promise<{ success: boolean; error?: string; school?: { id: string; name: string; slug: string } }>
+  serverRegister: (data: ServerRegisterPayload) => Promise<{ success: boolean; error?: string; school?: { id: string; name: string; slug: string; schoolCode: string } }>
   // Staff self-signup (pending approval) — does NOT log in
   staffSignup: (data: StaffSignupPayload) => Promise<{ success: boolean; error?: string; message?: string; schoolName?: string }>
   logout: () => void
@@ -176,7 +194,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       serverToken: null,
       isSuperAdmin: false,
-      authView: 'login',
+      authView: 'landing',
       _hasHydrated: false,
       setHasHydrated: (state: boolean) => set({ _hasHydrated: state }),
       setAuthView: (view: AuthView) => set({ authView: view }),
@@ -260,7 +278,7 @@ export const useAuthStore = create<AuthState>()(
           })
           return {
             success: true,
-            school: { id: payload.school.id, name: payload.school.name, slug: payload.school.slug },
+            school: { id: payload.school.id, name: payload.school.name, slug: payload.school.slug, schoolCode: payload.school.schoolCode },
           }
         } catch (e: any) {
           return { success: false, error: e?.message || 'Network error' }
@@ -294,7 +312,7 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           serverToken: null,
           isSuperAdmin: false,
-          authView: 'login',
+          authView: 'landing',
         }),
 
       hasAccess: (module: string) => {

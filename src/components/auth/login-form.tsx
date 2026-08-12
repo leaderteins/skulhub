@@ -361,10 +361,45 @@ export function LoginForm() {
               </button>
             </div>
 
+<<<<<<< HEAD
             {/* Video placeholder */}
             <div className="mt-5 rounded-xl border-2 border-dashed border-emerald-200 bg-emerald-50/30 p-6 text-center dark:border-emerald-800 dark:bg-emerald-950/10">
               <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
                 <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+=======
+            {/* Quick login (dev) */}
+            <div className="mt-5">
+              <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <Users className="h-3.5 w-3.5" />
+                <span>Quick login — click a role to sign in instantly (demo)</span>
+              </div>
+              <div className="grid max-h-72 grid-cols-1 gap-1.5 overflow-y-auto pr-1">
+                {DEMO_USERS.map(u => {
+                  const info = ROLE_INFO[u.role]
+                  return (
+                    <button
+                      key={u.id}
+                      onClick={() => quickLogin(u.email, u.password)}
+                      disabled={loading}
+                      className="group flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all hover:border-emerald-300 hover:bg-emerald-50/50 disabled:opacity-50 dark:hover:bg-emerald-950/20"
+                    >
+                      <Avatar className="h-8 w-8 border">
+                        <AvatarFallback
+                          className={`text-[10px] font-semibold ${info.bg} ${info.color}`}
+                        >
+                          {u.avatar}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-medium">{u.name}</p>
+                        <p className="truncate text-[10px] text-muted-foreground">{info.label}</p>
+                      </div>
+                      <span className="text-base">{info.icon}</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                    </button>
+                  )
+                })}
+>>>>>>> origin/main
               </div>
               <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Watch SkulHub in Action</p>
               <p className="mt-0.5 text-xs text-muted-foreground">2-minute demo video — see how schools transform with SkulHub</p>

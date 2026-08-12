@@ -71,6 +71,14 @@ export async function POST(req: NextRequest) {
       adminName,
       adminEmail,
       adminPassword,
+      level,
+      knecCode,
+      yearEstablished,
+      category,
+      gender,
+      motto,
+      primaryColor,
+      address,
     } = body as Record<string, string>
 
     // --- Validation ---------------------------------------------------------
@@ -117,13 +125,27 @@ export async function POST(req: NextRequest) {
 
     // --- Transaction: create school + admin + seed basic data --------------
     const { school, user } = await db.$transaction(async (tx) => {
-      const school = await tx.school.create({
+      // --- Generate unique school code ----------------------------------------
+    const schoolCount = await tx.school.count()
+    const year = new Date().getFullYear()
+    const schoolCode = `SKH-${year}-${String(schoolCount + 1).padStart(3, '0')}`
+
+    const school = await tx.school.create({
         data: {
           name: schoolName.trim(),
           slug,
+          schoolCode,
           email: schoolEmail?.trim() || null,
           phone: schoolPhone?.trim() || null,
           county: county?.trim() || null,
+          level: level || 'Secondary',
+          knecCode: knecCode?.trim() || null,
+          yearEstablished: yearEstablished ? parseInt(yearEstablished) : null,
+          category: category || 'Private',
+          gender: gender || 'Mixed',
+          motto: motto?.trim() || null,
+          primaryColor: primaryColor || '#10b981',
+          address: address?.trim() || null,
           plan: 'Starter',
           status: 'Trial',
           trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -174,8 +196,27 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // --- Seed default class levels (idempotent) ---------------------------
-      for (const cl of DEFAULT_CLASS_LEVELS) {
+      // --- Seed class levels based on school level ---------------------------
+      const schoolLevel = level || 'Secondary'
+      let classLevelsToSeed = DEFAULT_CLASS_LEVELS
+      if (schoolLevel === 'Primary') {
+        classLevelsToSeed = [
+          { name: 'Grade 1', stage: 'Primary', order: 1, capacity: 40 },
+          { name: 'Grade 2', stage: 'Primary', order: 2, capacity: 40 },
+          { name: 'Grade 3', stage: 'Primary', order: 3, capacity: 40 },
+          { name: 'Grade 4', stage: 'Primary', order: 4, capacity: 40 },
+          { name: 'Grade 5', stage: 'Primary', order: 5, capacity: 40 },
+          { name: 'Grade 6', stage: 'Primary', order: 6, capacity: 40 },
+          { name: 'Grade 7', stage: 'Junior Secondary', order: 7, capacity: 40 },
+          { name: 'Grade 8', stage: 'Junior Secondary', order: 8, capacity: 40 },
+        ]
+      } else if (schoolLevel === 'Mixed') {
+        classLevelsToSeed = [
+          ...['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8'].map((n, i) => ({ name: n, stage: i < 6 ? 'Primary' : 'Junior Secondary', order: i + 1, capacity: 40 })),
+          ...DEFAULT_CLASS_LEVELS.map((cl, i) => ({ ...cl, order: i + 9 })),
+        ]
+      }
+      for (const cl of classLevelsToSeed) {
         const existing = await tx.classLevel.findUnique({ where: { name: cl.name } })
         if (existing) continue
         await tx.classLevel.create({ data: cl })
@@ -194,6 +235,7 @@ export async function POST(req: NextRequest) {
           id: school.id,
           name: school.name,
           slug: school.slug,
+          schoolCode: school.schoolCode,
           plan: school.plan,
           status: school.status,
           trialEndsAt: school.trialEndsAt,
