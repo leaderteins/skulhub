@@ -3068,3 +3068,55 @@ VERIFICATION:
 - Landing page tested: all sections render (SkulHub, Features, Modules, Pricing, Free Trial)
 - VLM assessment: "highly professional... polished, trustworthy appearance"
 - Pushed to GitHub → Vercel auto-deploy triggered
+
+---
+Task ID: 42 (remove demos + hidden super admin + parent timetable + modernize)
+Agent: Main
+Task: Remove ALL demo credentials from public site, create private super admin access, add timetable to parent portal
+
+1. REMOVED ALL DEMO CREDENTIALS FROM PUBLIC SITE
+- Login form: completely rewritten — NO demo quick-login buttons, NO demo accounts visible
+- Login form: NO DEMO_USERS import, NO quickLogin function, NO demo button list
+- Parent portal: removed "Auto-fill demo credentials" button and fillDemo function
+- Staff signup: no demo credentials shown
+- Users must now use: school code → email → password (proper production flow)
+- Demo accounts still work if you manually type email/password (for dev only)
+
+2. HIDDEN SUPER ADMIN ACCESS (Private — Not on Public Site)
+- Super admin is accessed via keyboard shortcut: Ctrl+Shift+A (or Cmd+Shift+A on Mac)
+- This opens a private dialog asking for an access code
+- Access code: skulhub-super-2026 (change this to your own secret code)
+- Once verified, super admin is taken to the Super Admin Dashboard
+- NO link on the public website leads to super admin — completely hidden
+- Only you (the platform owner) know the shortcut and the code
+
+3. ADDED TIMETABLE TO PARENT PORTAL
+- Parent dashboard now includes a "Weekly Timetable" section
+- Shows a color-coded grid: Time × Monday-Friday
+- Each cell shows subject name and room number
+- API updated: /api/parent/[studentId] now returns timetable data from the student's stream
+- Timetable card added between grades and announcements
+- "Timetable" added to the parent portal feature list
+
+4. MODERNIZED LOGIN FORM
+- Full emerald/teal/cyan gradient background (not white)
+- Glassmorphism cards with backdrop-blur
+- Left branding panel on gradient background with white text
+- 4 feature cards with icons (Role-Based Access, M-Pesa Ready, Live Dashboard, Parent Portal)
+- Clean, professional, no clutter
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- agent-browser tested:
+  * Landing page shows "SkulHub" and "Sign In" ✓
+  * Login form: "school code" field visible, NO "Quick login" or "demo" ✓
+  * Ctrl+Shift+A opens "Super Admin Access" dialog with "Access Code" field ✓
+- Pushed to GitHub → Vercel auto-deploys
+
+SUPER ADMIN ACCESS INSTRUCTIONS (PRIVATE):
+1. Go to skulhub.co.ke (or skulhub.vercel.app)
+2. Click "Sign In" to get to the login page
+3. Press Ctrl+Shift+A (or Cmd+Shift+A on Mac)
+4. Enter access code: skulhub-super-2026
+5. You're now in the Super Admin Dashboard
+6. From here you can manage all schools, view revenue, activate/suspend schools
