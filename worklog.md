@@ -3027,3 +3027,44 @@ SYSTEM IMPLEMENTATION STATUS:
 - 426 demo students (Primary + Secondary)
 - Rebranded from EduManage to SkulHub
 - Super admin dashboard for platform management
+
+---
+Task ID: 40 (landing page + PostgreSQL migration prep)
+Agent: Main
+Task: Build landing page and prepare PostgreSQL migration while DNS propagates
+
+1. LANDING PAGE (src/components/landing-page.tsx)
+- Professional SaaS marketing page with:
+  * Navigation bar with SkulHub logo, Features/Modules/Pricing links, Sign In + Start Free Trial buttons
+  * Hero section: "The complete school management system for Kenyan schools"
+  * Stats: 33+ modules, 13 staff roles, 426 demo students, 30-day free trial
+  * Features section: 6 feature cards (Secure & Role-Based, Parent Portal, M-Pesa Ready,
+    Live Dashboard, Multi-School, CBC & 8-4-4)
+  * Modules grid: All 33+ modules with icons and descriptions
+  * Pricing section: 3 plans (Starter KES 2,500, Standard KES 5,000, Premium KES 10,000)
+  * CTA section: "Ready to transform your school?" with gradient card
+  * Footer with contact info and links
+- Landing page is the DEFAULT view for visitors (authView: 'landing')
+- "Sign In" button → shows login form
+- "Start Free Trial" button → shows registration wizard
+- VLM verified: "highly professional... comparable to established education technology products"
+
+2. POSTGRESQL MIGRATION PREP
+- Updated Prisma schema provider from "sqlite" to "postgresql"
+- Created prisma/schema.prisma.pg (PostgreSQL version) for production
+- Kept local SQLite schema for development
+- Added "postinstall": "prisma generate" to package.json (Vercel auto-generates client)
+- Updated build script: "prisma generate && next build"
+- Created .env.example with Supabase setup instructions
+- User needs to: create Supabase account → get connection string → set DATABASE_URL in Vercel
+
+3. PUSHED TO GITHUB
+- All changes pushed to github.com/leaderteins/skulhub
+- Vercel will auto-deploy from GitHub
+- Landing page will be live at skulhub.vercel.app immediately
+
+VERIFICATION:
+- `bun run lint` — 0 errors, 0 warnings (clean)
+- Landing page tested: all sections render (SkulHub, Features, Modules, Pricing, Free Trial)
+- VLM assessment: "highly professional... polished, trustworthy appearance"
+- Pushed to GitHub → Vercel auto-deploy triggered
