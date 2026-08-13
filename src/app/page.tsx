@@ -85,23 +85,13 @@ export default function Home() {
     return <StaffSignup />
   }
 
-<<<<<<< HEAD
-  // Parent portal is shown when authView is 'parent'. It has its own
-  // internal login + dashboard flow and never sets a real user.
-=======
   // Parent portal is shown when authView is 'parent'.
->>>>>>> origin/main
   if (authView === 'parent') {
     return <ParentPortal />
   }
 
-<<<<<<< HEAD
-  // Show login if not authenticated (after hydration)
-  if (!user) {
-=======
   // Show login form when authView is 'login'
   if (!user && authView === 'login') {
->>>>>>> origin/main
     return <LoginForm />
   }
 
