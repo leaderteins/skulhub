@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/auth-utils'
+import { db } from '@/lib/db'
 
 /**
  * GET /api/auth/me
@@ -11,6 +12,15 @@ export async function GET(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
+
+  // Fetch per-user module access overrides (if any)
+  const overrides = await db.userModuleAccess.findMany({
+    where: { userId: user.id },
+    select: { module: true, allowed: true },
+  })
+  const allowedModules = overrides.length > 0
+    ? overrides.filter(o => o.allowed).map(o => o.module)
+    : null
 
   return NextResponse.json({
     user: {
@@ -24,6 +34,7 @@ export async function GET(req: NextRequest) {
       avatar: user.avatar,
       status: user.status,
       isSuperAdmin: user.role === 'super_admin',
+      allowedModules,
     },
   })
 }

@@ -31,6 +31,16 @@ model School {
   motto         String?
   primaryColor  String   @default("#10b981") // school brand color
   logo          String?
+
+  // --- Safaricom Daraja M-Pesa STK Push credentials -------------------------
+  mpesaConsumerKey    String?  // Daraja app Consumer Key
+  mpesaConsumerSecret String?  // Daraja app Consumer Secret
+  mpesaPasskey        String?  // Daraja Lipa Na M-Pesa Online Passkey
+  mpesaShortcode      String?  // Paybill or Till number (Business Shortcode)
+  mpesaEnv            String   @default("sandbox") // "sandbox" | "production"
+  mpesaCallbackUrl    String?  // Publicly reachable URL Daraja will POST callbacks to
+  mpesaAccountRef     String   @default("Admission No.") // Account reference type
+
   plan          String   @default("Starter") // "Starter" | "Standard" | "Premium" | "Enterprise"
   status        String   @default("Trial") // "Trial" | "Active" | "Suspended" | "Expired"
   trialEndsAt   DateTime?
@@ -63,6 +73,24 @@ model UserAccount {
   updatedAt     DateTime @updatedAt
 
   staff         Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  moduleAccessOverrides UserModuleAccess[]
+}
+
+// ---------------------------------------------------------------------------
+// Per-User Module Access Overrides (admin can tick/untick which modules
+// a specific user can access — overrides role defaults)
+// ---------------------------------------------------------------------------
+
+model UserModuleAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  user      UserAccount @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module    String   // e.g. "finance", "students", "library"
+  allowed   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, module])
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +259,7 @@ model Student {
   clinicVisits ClinicVisit[]
   incidents   Incident[]
   bedAllocations BedAllocation[]
+  beds        Bed[]
   createdAt2  DateTime @default(now()) @map("created_at_2")
 
   @@index([lastName])
@@ -391,9 +420,17 @@ model Payment {
   payerPhone  String?
   receivedBy  String?
   receivedAt  DateTime @default(now())
+  status      String   @default("Completed") // "Pending" | "Completed" | "Failed"
   schoolId    String?
   school      School?  @relation(fields: [schoolId], references: [id])
   createdAt   DateTime @default(now())
+
+  // --- Daraja STK Push metadata --------------------------------------------
+  mpesaCheckoutRequestId String?  // Daraja CheckoutRequestID returned by STK Push
+  mpesaReceiptNumber     String?  // M-Pesa transaction code (MpesaReceiptNumber from callback)
+  mpesaPhoneNumber       String?  // Phone number that paid (MSISDN from callback)
+  mpesaResultCode        String?  // Daraja ResultCode (0 = success)
+  mpesaResultDesc        String?  // Daraja ResultDesc (human-readable result)
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
@@ -760,8 +797,25 @@ model Room {
   dormitory   Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
 
   allocations BedAllocation[]
+  beds        Bed[]
 
   @@unique([dormitoryId, roomNumber])
+}
+
+model Bed {
+  id          String   @id @default(cuid())
+  roomId      String
+  bedNumber   String   // e.g. "Bed A", "Bed 1"
+  status      String   @default("Available") // "Available" | "Occupied" | "Maintenance"
+  studentId   String?  // current occupant (null = vacant)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  student   Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  allocations BedAllocation[]
+
+  @@unique([roomId, bedNumber])
 }
 
 model BedAllocation {
@@ -769,6 +823,7 @@ model BedAllocation {
   studentId   String
   dormitoryId String
   roomId      String
+  bedId       String?  // optional link to the physical Bed record
   bedNumber   String   // e.g. "Bed A", "Bed 1"
   allocatedAt DateTime @default(now())
   vacatedAt   DateTime?
@@ -779,6 +834,7 @@ model BedAllocation {
   student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   dormitory Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
   room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  bed       Bed?      @relation(fields: [bedId], references: [id], onDelete: SetNull)
 }
 
 model DormInspection {
@@ -817,11 +873,19 @@ model Asset {
   location      String?  // building/room
   assignedTo    String?  // department or person
   quantity      Int      @default(1)
+  quantityInStock Int    @default(0) // live stock level (for consumables/reorderable items)
+  reorderLevel  Int      @default(0) // low-stock threshold (0 = not tracked)
+  unitPrice     Float    @default(0) // cost per unit (for restock cost estimation)
+  unit          String   @default("pcs") // "pcs" | "kg" | "litres" | "boxes" | "packs"
+  supplierName  String?  // preferred supplier name (free text)
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  maintenances  AssetMaintenance[]
+  maintenances    AssetMaintenance[]
+  stocktakes     StocktakeRecord[]
+  restockRequests RestockRequest[]
+  poItems         PurchaseOrderItem[]
 }
 
 model AssetMaintenance {
@@ -836,6 +900,59 @@ model AssetMaintenance {
   status      String   @default("Completed") // "Scheduled" | "In Progress" | "Completed" | "Cancelled"
   nextDueDate DateTime?
   createdAt   DateTime @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Stocktake Records (physical count vs system quantity)
+// ---------------------------------------------------------------------------
+
+model StocktakeRecord {
+  id              String   @id @default(cuid())
+  recordNo        String   @unique // "ST-2025-0001"
+  assetId         String
+  assetName       String   // denormalised snapshot
+  category        String   @default("Other")
+  systemQuantity  Int      @default(0)
+  countedQuantity Int      @default(0)
+  discrepancy     Int      @default(0) // counted - system (auto-computed)
+  notes           String?  // reason / explanation of discrepancy
+  status          String   @default("Recorded") // "Recorded" | "Reviewed" | "Adjusted"
+  countedBy       String
+  stocktakeDate   DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Restock Requests (generated from low-stock or stocktake shortage)
+// Status flow: Pending -> Approved -> Ordered -> Received (or Rejected)
+// ---------------------------------------------------------------------------
+
+model RestockRequest {
+  id                  String   @id @default(cuid())
+  requestNo           String   @unique // "RR-2025-0001"
+  assetId             String
+  assetName           String   // denormalised
+  category            String   @default("Other")
+  requestedQuantity   Int      @default(1)
+  unitPrice           Float    @default(0) // estimated unit cost
+  estimatedCost       Float    @default(0) // requestedQuantity * unitPrice
+  suggestedSupplierId String?  // optional FK to Supplier
+  suggestedSupplier   String?  // supplier name (denormalised, free text if no supplier record)
+  reason              String?  // "Low stock" | "Stocktake shortage" | "Damaged" | "New term demand"
+  priority            String   @default("Normal") // "Low" | "Normal" | "High" | "Urgent"
+  status              String   @default("Pending") // "Pending" | "Approved" | "Rejected" | "Ordered" | "Received"
+  requestedBy         String
+  approvedBy          String?
+  approvedAt          DateTime?
+  rejectedReason      String?
+  purchaseOrderId    String?  // linked PO once created
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
 }
@@ -979,21 +1096,42 @@ model Supplier {
 }
 
 model PurchaseOrder {
-  id          String   @id @default(cuid())
-  poNumber    String   @unique
-  supplierId  String
-  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  item        String
-  description String?
-  quantity    Int      @default(1)
-  unitPrice   Float
-  totalAmount Float
-  status      String   @default("Pending") // "Pending" | "Approved" | "Delivered" | "Cancelled"
-  requestedBy String?
-  approvedBy  String?
-  orderDate   DateTime @default(now())
-  deliveryDate DateTime?
-  createdAt   DateTime @default(now())
+  id                String   @id @default(cuid())
+  poNumber          String   @unique
+  supplierId        String
+  supplier          Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  item              String   // summary line (legacy / quick PO)
+  description       String?
+  quantity          Int      @default(1)
+  unitPrice         Float
+  totalAmount       Float
+  status            String   @default("Pending") // "Pending" | "Approved" | "Ordered" | "Received" | "Cancelled"
+  requestedBy       String?
+  approvedBy        String?
+  orderDate         DateTime @default(now())
+  deliveryDate      DateTime?
+  receivedDate      DateTime?
+  restockRequestId  String?  // link back to restock request
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  items PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id               String   @id @default(cuid())
+  purchaseOrderId  String
+  assetId          String?  // optional link to Asset (used to update stock on receipt)
+  itemName         String
+  quantity         Int      @default(1)
+  unitPrice        Float    @default(0)
+  totalPrice       Float    @default(0) // quantity * unitPrice
+  receivedQuantity Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  asset          Asset?        @relation(fields: [assetId], references: [id])
 }
 
 // ---------------------------------------------------------------------------
@@ -1144,4 +1282,21 @@ model ActivityLog {
   user      String?
   details   String?
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Contact Messages (landing page contact form — public submissions)
+// ---------------------------------------------------------------------------
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  schoolName String?
+  message   String
+  subject   String   @default("General Inquiry")
+  status    String   @default("New") // "New" | "Read" | "Replied" | "Archived"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

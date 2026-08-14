@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     ]
   }
 
-  const [dormitories, totalDorms, totalCapacity, totalRooms, totalAllocations, activeAllocations, totalInspections, byGender] = await Promise.all([
+  const [dormitories, totalDorms, totalCapacity, totalRooms, totalAllocations, activeAllocations, totalInspections, byGender, totalBeds, occupiedBeds] = await Promise.all([
     db.dormitory.findMany({
       where,
       orderBy: { name: 'asc' },
@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
     db.bedAllocation.count({ where: { status: 'Active' } }),
     db.dormInspection.count(),
     db.dormitory.groupBy({ by: ['gender'], _count: true }),
+    db.bed.count(),
+    db.bed.count({ where: { status: 'Occupied' } }),
   ])
 
   return NextResponse.json({
@@ -47,6 +49,8 @@ export async function GET(req: NextRequest) {
       totalDorms,
       totalCapacity: totalCapacity._sum.capacity || 0,
       totalRooms,
+      totalBeds,
+      occupiedBeds,
       totalAllocations: activeAllocations,
       occupancyRate: totalCapacity._sum.capacity ? Math.round((activeAllocations / totalCapacity._sum.capacity) * 100) : 0,
       totalInspections,

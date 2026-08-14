@@ -1,0 +1,849 @@
+     1→'use client'
+     2→import { useState } from 'react'
+     3→import { cn } from '@/lib/utils'
+     4→import { SectionHeader } from '@/components/shared'
+     5→import {
+     6→  Card,
+     7→  CardContent,
+     8→  CardDescription,
+     9→  CardHeader,
+    10→  CardTitle,
+    11→} from '@/components/ui/card'
+    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    13→import { Badge } from '@/components/ui/badge'
+    14→import { Button } from '@/components/ui/button'
+    15→import { Input } from '@/components/ui/input'
+    16→import { Label } from '@/components/ui/label'
+    17→import { Textarea } from '@/components/ui/textarea'
+    18→import { Switch } from '@/components/ui/switch'
+    19→import { Separator } from '@/components/ui/separator'
+    20→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    21→import {
+    22→  Table,
+    23→  TableBody,
+    24→  TableCell,
+    25→  TableHead,
+    26→  TableHeader,
+    27→  TableRow,
+    28→} from '@/components/ui/table'
+    29→import {
+    30→  Select,
+    31→  SelectContent,
+    32→  SelectItem,
+    33→  SelectTrigger,
+    34→  SelectValue,
+    35→} from '@/components/ui/select'
+    36→import {
+    37→  Dialog,
+    38→  DialogContent,
+    39→  DialogDescription,
+    40→  DialogFooter,
+    41→  DialogHeader,
+    42→  DialogTitle,
+    43→} from '@/components/ui/dialog'
+    44→import { toast } from 'sonner'
+    45→import {
+    46→  Settings as SettingsIcon,
+    47→  Building2,
+    48→  GraduationCap,
+    49→  Bell,
+    50→  ShieldCheck,
+    51→  Save,
+    52→  Plus,
+    53→  School,
+    54→  MapPin,
+    55→  Phone,
+    56→  Mail,
+    57→  Calendar,
+    58→  Globe,
+    59→  Coins,
+    60→  Clock,
+    61→  Smartphone,
+    62→  CreditCard,
+    63→  CheckCircle2,
+    64→  UserCog,
+    65→  Trash2,
+    66→  Hash,
+    67→} from 'lucide-react'
+    68→
+    69→// ---------------------------------------------------------------------------
+    70→// KCSE 12-point grading scale
+    71→// ---------------------------------------------------------------------------
+    72→const KCSE_GRADES = [
+    73→  { grade: 'A',  points: 12, min: 80, max: 100 },
+    74→  { grade: 'A-', points: 11, min: 75, max: 79 },
+    75→  { grade: 'B+', points: 10, min: 70, max: 74 },
+    76→  { grade: 'B',  points: 9,  min: 65, max: 69 },
+    77→  { grade: 'B-', points: 8,  min: 60, max: 64 },
+    78→  { grade: 'C+', points: 7,  min: 55, max: 59 },
+    79→  { grade: 'C',  points: 6,  min: 50, max: 54 },
+    80→  { grade: 'C-', points: 5,  min: 45, max: 49 },
+    81→  { grade: 'D+', points: 4,  min: 40, max: 44 },
+    82→  { grade: 'D',  points: 3,  min: 35, max: 39 },
+    83→  { grade: 'D-', points: 2,  min: 30, max: 34 },
+    84→  { grade: 'E',  points: 1,  min: 0,  max: 29 },
+    85→]
+    86→
+    87→const EXAM_TYPES = [
+    88→  'Opener',
+    89→  'Continuous Assessment',
+    90→  'Mid-Term',
+    91→  'End Term',
+    92→  'Mock',
+    93→  'National (KCSE)',
+    94→  'National (KCPE)',
+    95→]
+    96→
+    97→interface MockUser {
+    98→  id: string
+    99→  name: string
+   100→  email: string
+   101→  role: string
+   102→  status: 'Active' | 'Suspended' | 'Invited'
+   103→  lastLogin: string
+   104→}
+   105→const INITIAL_USERS: MockUser[] = [
+   106→  { id: 'u1', name: 'James Mwangi', email: 'principal@skulhub.ac.ke', role: 'Principal', status: 'Active', lastLogin: '2 hours ago' },
+   107→  { id: 'u2', name: 'Mary Atieno', email: 'bursar@skulhub.ac.ke', role: 'Bursar', status: 'Active', lastLogin: '5 hours ago' },
+   108→  { id: 'u3', name: 'Peter Kamau', email: 'teacher.peter@skulhub.ac.ke', role: 'Teacher', status: 'Active', lastLogin: '1 day ago' },
+   109→  { id: 'u4', name: 'Grace Wanjiru', email: 'librarian@skulhub.ac.ke', role: 'Librarian', status: 'Active', lastLogin: '3 days ago' },
+   110→  { id: 'u5', name: 'Samuel Kiprop', email: 'teacher.samuel@skulhub.ac.ke', role: 'Teacher', status: 'Invited', lastLogin: 'Never' },
+   111→]
+   112→
+   113→// ---------------------------------------------------------------------------
+   114→// Module
+   115→// ---------------------------------------------------------------------------
+   116→export function SettingsModule() {
+   117→  const [tab, setTab] = useState('general')
+   118→
+   119→  // General state
+   120→  const [schoolName, setSchoolName] = useState('SkulHub Academy')
+   121→  const [motto, setMotto] = useState('Elimu Nguvu · Knowledge is Power')
+   122→  const [address, setAddress] = useState('P.O. Box 12345-00100, Nairobi, Kenya')
+   123→  const [phone, setPhone] = useState('+254 700 000 000')
+   124→  const [email, setEmail] = useState('info@skulhub.ac.ke')
+   125→  const [academicYear, setAcademicYear] = useState('2025')
+   126→  const [currentTerm, setCurrentTerm] = useState('Term 1')
+   127→  const [termStart, setTermStart] = useState('2025-01-06')
+   128→  const [termEnd, setTermEnd] = useState('2025-04-04')
+   129→  const [currency, setCurrency] = useState('KES')
+   130→  const [timezone, setTimezone] = useState('Africa/Nairobi')
+   131→  const [language, setLanguage] = useState<'English' | 'Swahili'>('English')
+   132→
+   133→  // Academic state
+   134→  const [passMark, setPassMark] = useState('50')
+   135→  const [promotionCriteria, setPromotionCriteria] = useState('Average ≥ 50% and attendance ≥ 80%')
+   136→
+   137→  // Notifications state
+   138→  const [smsGateway, setSmsGateway] = useState('Safaricom')
+   139→  const [smsApiKey, setSmsApiKey] = useState('')
+   140→  const [smsSenderId, setSmsSenderId] = useState('EDUMG')
+   141→  const [smtpHost, setSmtpHost] = useState('smtp.gmail.com')
+   142→  const [smtpPort, setSmtpPort] = useState('587')
+   143→  const [smtpUser, setSmtpUser] = useState('notifications@skulhub.ac.ke')
+   144→  const [smtpPassword, setSmtpPassword] = useState('')
+   145→  const [mpesaPaybill, setMpesaPaybill] = useState('522522')
+   146→  const [mpesaAccount, setMpesaAccount] = useState('Admission No.')
+   147→  const [mpesaCallback, setMpesaCallback] = useState('https://skulhub.ac.ke/api/mpesa/callback')
+   148→  const [notifPrefs, setNotifPrefs] = useState({
+   149→    feeReminders: true,
+   150→    attendanceAlerts: true,
+   151→    examResults: true,
+   152→    eventReminders: false,
+   153→    transportUpdates: true,
+   154→    libraryOverdue: true,
+   155→  })
+   156→  const [smsEnabled, setSmsEnabled] = useState(true)
+   157→  const [emailEnabled, setEmailEnabled] = useState(true)
+   158→  const [mpesaEnabled, setMpesaEnabled] = useState(true)
+   159→
+   160→  // Users state
+   161→  const [users, setUsers] = useState<MockUser[]>(INITIAL_USERS)
+   162→  const [addUserOpen, setAddUserOpen] = useState(false)
+   163→  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Teacher' })
+   164→
+   165→  function handleSave(section: string) {
+   166→    toast.success(`${section} settings saved`, {
+   167→      description: 'Changes have been applied to your local configuration.',
+   168→    })
+   169→  }
+   170→
+   171→  function handleAddUser(e: React.FormEvent) {
+   172→    e.preventDefault()
+   173→    if (!newUser.name.trim() || !newUser.email.trim()) {
+   174→      toast.error('Name and email are required')
+   175→      return
+   176→    }
+   177→    const id = `u${users.length + 1}-${Date.now()}`
+   178→    setUsers([
+   179→      ...users,
+   180→      {
+   181→        id,
+   182→        name: newUser.name.trim(),
+   183→        email: newUser.email.trim(),
+   184→        role: newUser.role,
+   185→        status: 'Invited',
+   186→        lastLogin: 'Never',
+   187→      },
+   188→    ])
+   189→    toast.success('User invited', { description: `${newUser.name} added as ${newUser.role}` })
+   190→    setNewUser({ name: '', email: '', role: 'Teacher' })
+   191→    setAddUserOpen(false)
+   192→  }
+   193→
+   194→  function handleDeleteUser(id: string) {
+   195→    const u = users.find((x) => x.id === id)
+   196→    setUsers(users.filter((x) => x.id !== id))
+   197→    toast.success('User removed', { description: u ? `${u.name} has been removed` : '' })
+   198→  }
+   199→
+   200→  return (
+   201→    <div className="space-y-6">
+   202→      <SectionHeader
+   203→        title="System Settings"
+   204→        description="Manage your school profile, academic configuration, notifications and system users"
+   205→        icon={SettingsIcon}
+   206→      />
+   207→
+   208→      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+   209→        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:flex sm:w-auto">
+   210→          <TabsTrigger value="general" className="gap-1.5"><Building2 className="h-4 w-4" /> General</TabsTrigger>
+   211→          <TabsTrigger value="academic" className="gap-1.5"><GraduationCap className="h-4 w-4" /> Academic</TabsTrigger>
+   212→          <TabsTrigger value="notifications" className="gap-1.5"><Bell className="h-4 w-4" /> Notifications</TabsTrigger>
+   213→          <TabsTrigger value="users" className="gap-1.5"><ShieldCheck className="h-4 w-4" /> Users & Roles</TabsTrigger>
+   214→        </TabsList>
+   215→
+   216→        {/* ----------------------------------------------------------------- */}
+   217→        {/* General */}
+   218→        {/* ----------------------------------------------------------------- */}
+   219→        <TabsContent value="general" className="space-y-4">
+   220→          <Card>
+   221→            <CardHeader>
+   222→              <CardTitle className="flex items-center gap-2 text-base">
+   223→                <School className="h-4.5 w-4.5 text-emerald-600" /> School Profile
+   224→              </CardTitle>
+   225→              <CardDescription>Basic information about your institution</CardDescription>
+   226→            </CardHeader>
+   227→            <CardContent className="space-y-4">
+   228→              <div className="flex flex-col gap-4 sm:flex-row">
+   229→                {/* Logo */}
+   230→                <div className="flex flex-col items-center gap-2 sm:w-32">
+   231→                  <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-700 text-white shadow-lg">
+   232→                    <div className="text-center">
+   233→                      <GraduationCap className="mx-auto h-8 w-8" />
+   234→                      <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide">SkulHub</p>
+   235→                    </div>
+   236→                  </div>
+   237→                  <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => toast.info('Logo upload — coming soon')}>
+   238→                    Upload Logo
+   239→                  </Button>
+   240→                </div>
+   241→
+   242→                <div className="flex-1 space-y-3">
+   243→                  <div className="space-y-1.5">
+   244→                    <Label htmlFor="school-name">School Name</Label>
+   245→                    <Input id="school-name" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} />
+   246→                  </div>
+   247→                  <div className="space-y-1.5">
+   248→                    <Label htmlFor="motto">Motto</Label>
+   249→                    <Input id="motto" value={motto} onChange={(e) => setMotto(e.target.value)} />
+   250→                  </div>
+   251→                  <div className="grid gap-3 sm:grid-cols-2">
+   252→                    <div className="space-y-1.5">
+   253→                      <Label htmlFor="address" className="flex items-center gap-1"><MapPin className="h-3 w-3" /> Address</Label>
+   254→                      <Textarea id="address" rows={2} value={address} onChange={(e) => setAddress(e.target.value)} />
+   255→                    </div>
+   256→                    <div className="space-y-3">
+   257→                      <div className="space-y-1.5">
+   258→                        <Label htmlFor="phone" className="flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</Label>
+   259→                        <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+   260→                      </div>
+   261→                      <div className="space-y-1.5">
+   262→                        <Label htmlFor="email" className="flex items-center gap-1"><Mail className="h-3 w-3" /> Email</Label>
+   263→                        <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+   264→                      </div>
+   265→                    </div>
+   266→                  </div>
+   267→                </div>
+   268→              </div>
+   269→            </CardContent>
+   270→          </Card>
+   271→
+   272→          <div className="grid gap-4 md:grid-cols-2">
+   273→            <Card>
+   274→              <CardHeader>
+   275→                <CardTitle className="flex items-center gap-2 text-base">
+   276→                  <Calendar className="h-4.5 w-4.5 text-teal-600" /> Academic Calendar
+   277→                </CardTitle>
+   278→                <CardDescription>Current academic year and term settings</CardDescription>
+   279→              </CardHeader>
+   280→              <CardContent className="space-y-3">
+   281→                <div className="grid grid-cols-2 gap-3">
+   282→                  <div className="space-y-1.5">
+   283→                    <Label htmlFor="year">Academic Year</Label>
+   284→                    <Input id="year" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} />
+   285→                  </div>
+   286→                  <div className="space-y-1.5">
+   287→                    <Label htmlFor="term">Current Term</Label>
+   288→                    <Select value={currentTerm} onValueChange={setCurrentTerm}>
+   289→                      <SelectTrigger id="term"><SelectValue /></SelectTrigger>
+   290→                      <SelectContent>
+   291→                        <SelectItem value="Term 1">Term 1</SelectItem>
+   292→                        <SelectItem value="Term 2">Term 2</SelectItem>
+   293→                        <SelectItem value="Term 3">Term 3</SelectItem>
+   294→                      </SelectContent>
+   295→                    </Select>
+   296→                  </div>
+   297→                </div>
+   298→                <div className="grid grid-cols-2 gap-3">
+   299→                  <div className="space-y-1.5">
+   300→                    <Label htmlFor="t-start">Term Start</Label>
+   301→                    <Input id="t-start" type="date" value={termStart} onChange={(e) => setTermStart(e.target.value)} />
+   302→                  </div>
+   303→                  <div className="space-y-1.5">
+   304→                    <Label htmlFor="t-end">Term End</Label>
+   305→                    <Input id="t-end" type="date" value={termEnd} onChange={(e) => setTermEnd(e.target.value)} />
+   306→                  </div>
+   307→                </div>
+   308→                <div className="rounded-md bg-emerald-50 p-3 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+   309→                  <p className="flex items-center gap-1.5 font-medium">
+   310→                    <CheckCircle2 className="h-3.5 w-3.5" /> Active term
+   311→                  </p>
+   312→                  <p className="mt-0.5">
+   313→                    {currentTerm}, {academicYear} · {termStart} → {termEnd}
+   314→                  </p>
+   315→                </div>
+   316→              </CardContent>
+   317→            </Card>
+   318→
+   319→            <Card>
+   320→              <CardHeader>
+   321→                <CardTitle className="flex items-center gap-2 text-base">
+   322→                  <Globe className="h-4.5 w-4.5 text-cyan-600" /> Localization
+   323→                </CardTitle>
+   324→                <CardDescription>Regional and language preferences</CardDescription>
+   325→              </CardHeader>
+   326→              <CardContent className="space-y-3">
+   327→                <div className="space-y-1.5">
+   328→                  <Label htmlFor="currency" className="flex items-center gap-1"><Coins className="h-3 w-3" /> Currency</Label>
+   329→                  <Select value={currency} onValueChange={setCurrency}>
+   330→                    <SelectTrigger id="currency"><SelectValue /></SelectTrigger>
+   331→                    <SelectContent>
+   332→                      <SelectItem value="KES">KES — Kenyan Shilling</SelectItem>
+   333→                      <SelectItem value="USD">USD — US Dollar</SelectItem>
+   334→                      <SelectItem value="TSH">TSH — Tanzanian Shilling</SelectItem>
+   335→                      <SelectItem value="UGX">UGX — Ugandan Shilling</SelectItem>
+   336→                    </SelectContent>
+   337→                  </Select>
+   338→                </div>
+   339→                <div className="space-y-1.5">
+   340→                  <Label htmlFor="tz" className="flex items-center gap-1"><Clock className="h-3 w-3" /> Timezone</Label>
+   341→                  <Select value={timezone} onValueChange={setTimezone}>
+   342→                    <SelectTrigger id="tz"><SelectValue /></SelectTrigger>
+   343→                    <SelectContent>
+   344→                      <SelectItem value="Africa/Nairobi">Africa/Nairobi (GMT+3)</SelectItem>
+   345→                      <SelectItem value="Africa/Dar_es_Salaam">Africa/Dar es Salaam (GMT+3)</SelectItem>
+   346→                      <SelectItem value="Africa/Kampala">Africa/Kampala (GMT+3)</SelectItem>
+   347→                      <SelectItem value="UTC">UTC</SelectItem>
+   348→                    </SelectContent>
+   349→                  </Select>
+   350→                </div>
+   351→                <div className="space-y-1.5">
+   352→                  <Label>Default Language</Label>
+   353→                  <div className="grid grid-cols-2 gap-2">
+   354→                    {(['English', 'Swahili'] as const).map((lang) => (
+   355→                      <button
+   356→                        key={lang}
+   357→                        type="button"
+   358→                        onClick={() => setLanguage(lang)}
+   359→                        className={cn(
+   360→                          'flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors',
+   361→                          language === lang
+   362→                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+   363→                            : 'border-border hover:bg-muted',
+   364→                        )}
+   365→                      >
+   366→                        <span className="font-medium">{lang}</span>
+   367→                        {language === lang && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+   368→                      </button>
+   369→                    ))}
+   370→                  </div>
+   371→                </div>
+   372→              </CardContent>
+   373→            </Card>
+   374→          </div>
+   375→
+   376→          <div className="flex justify-end">
+   377→            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleSave('General')}>
+   378→              <Save className="mr-1.5 h-4 w-4" /> Save Changes
+   379→            </Button>
+   380→          </div>
+   381→        </TabsContent>
+   382→
+   383→        {/* ----------------------------------------------------------------- */}
+   384→        {/* Academic */}
+   385→        {/* ----------------------------------------------------------------- */}
+   386→        <TabsContent value="academic" className="space-y-4">
+   387→          <Card>
+   388→            <CardHeader>
+   389→              <CardTitle className="flex items-center gap-2 text-base">
+   390→                <Hash className="h-4.5 w-4.5 text-emerald-600" /> KCSE Grading System (12-Point Scale)
+   391→              </CardTitle>
+   392→              <CardDescription>
+   393→                Kenya National Examinations Council grade-to-points conversion used for report cards and transcripts
+   394→              </CardDescription>
+   395→            </CardHeader>
+   396→            <CardContent>
+   397→              <div className="overflow-hidden rounded-lg border">
+   398→                <Table>
+   399→                  <TableHeader>
+   400→                    <TableRow>
+   401→                      <TableHead>Grade</TableHead>
+   402→                      <TableHead>Points</TableHead>
+   403→                      <TableHead>Min %</TableHead>
+   404→                      <TableHead>Max %</TableHead>
+   405→                      <TableHead>Interpretation</TableHead>
+   406→                      <TableHead className="text-right">Color</TableHead>
+   407→                    </TableRow>
+   408→                  </TableHeader>
+   409→                  <TableBody>
+   410→                    {KCSE_GRADES.map((g) => {
+   411→                      const interp =
+   412→                        g.points >= 10 ? 'Distinction' :
+   413→                        g.points >= 7 ? 'Credit' :
+   414→                        g.points >= 4 ? 'Pass' : 'Fail'
+   415→                      const color =
+   416→                        g.grade.startsWith('A') ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' :
+   417→                        g.grade.startsWith('B') ? 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-400' :
+   418→                        g.grade.startsWith('C') ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' :
+   419→                        g.grade.startsWith('D') ? 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400' :
+   420→                        'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400'
+   421→                      return (
+   422→                        <TableRow key={g.grade}>
+   423→                          <TableCell><Badge variant="outline" className={cn('font-mono font-bold', color)}>{g.grade}</Badge></TableCell>
+   424→                          <TableCell className="font-mono font-semibold">{g.points}</TableCell>
+   425→                          <TableCell>{g.min}</TableCell>
+   426→                          <TableCell>{g.max}</TableCell>
+   427→                          <TableCell className="text-sm">{interp}</TableCell>
+   428→                          <TableCell className="text-right">
+   429→                            <span className={cn('inline-block h-3 w-8 rounded-full', color.split(' ')[0])} />
+   430→                          </TableCell>
+   431→                        </TableRow>
+   432→                      )
+   433→                    })}
+   434→                  </TableBody>
+   435→                </Table>
+   436→              </div>
+   437→            </CardContent>
+   438→          </Card>
+   439→
+   440→          <div className="grid gap-4 md:grid-cols-2">
+   441→            <Card>
+   442→              <CardHeader>
+   443→                <CardTitle className="text-base">Examination Types</CardTitle>
+   444→                <CardDescription>Configured exam categories for grading & reporting</CardDescription>
+   445→              </CardHeader>
+   446→              <CardContent className="space-y-2">
+   447→                <div className="flex flex-wrap gap-2">
+   448→                  {EXAM_TYPES.map((t) => (
+   449→                    <Badge key={t} variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+   450→                      {t}
+   451→                    </Badge>
+   452→                  ))}
+   453→                </div>
+   454→                <Separator className="my-3" />
+   455→                <div className="space-y-1.5">
+   456→                  <Label htmlFor="passmark">Pass Mark Threshold (%)</Label>
+   457→                  <Input id="passmark" type="number" min={0} max={100} value={passMark} onChange={(e) => setPassMark(e.target.value)} />
+   458→                  <p className="text-xs text-muted-foreground">Students scoring below this mark are flagged as needing support.</p>
+   459→                </div>
+   460→              </CardContent>
+   461→            </Card>
+   462→
+   463→            <Card>
+   464→              <CardHeader>
+   465→                <CardTitle className="text-base">Promotion Criteria</CardTitle>
+   466→                <CardDescription>Rules for advancing students to the next class level</CardDescription>
+   467→              </CardHeader>
+   468→              <CardContent className="space-y-3">
+   469→                <div className="space-y-1.5">
+   470→                  <Label htmlFor="promo">Promotion Rule</Label>
+   471→                  <Textarea id="promo" rows={3} value={promotionCriteria} onChange={(e) => setPromotionCriteria(e.target.value)} />
+   472→                </div>
+   473→                <div className="rounded-md border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+   474→                  <p className="font-medium text-foreground">Active rules:</p>
+   475→                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+   476→                    <li>Minimum mean grade of C- (5 points) for upper classes</li>
+   477→                    <li>Attendance ≥ 80% required</li>
+   478→                    <li>No outstanding fee balance above KES 5,000</li>
+   479→                    <li>Disciplinary record reviewed by class teacher</li>
+   480→                  </ul>
+   481→                </div>
+   482→              </CardContent>
+   483→            </Card>
+   484→          </div>
+   485→
+   486→          <div className="flex justify-end">
+   487→            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleSave('Academic')}>
+   488→              <Save className="mr-1.5 h-4 w-4" /> Save Changes
+   489→            </Button>
+   490→          </div>
+   491→        </TabsContent>
+   492→
+   493→        {/* ----------------------------------------------------------------- */}
+   494→        {/* Notifications */}
+   495→        {/* ----------------------------------------------------------------- */}
+   496→        <TabsContent value="notifications" className="space-y-4">
+   497→          <div className="grid gap-4 md:grid-cols-2">
+   498→            <Card>
+   499→              <CardHeader>
+   500→                <div className="flex items-center justify-between">
+   501→                  <div>
+   502→                    <CardTitle className="flex items-center gap-2 text-base">
+   503→                      <Smartphone className="h-4.5 w-4.5 text-emerald-600" /> SMS Gateway
+   504→                    </CardTitle>
+   505→                    <CardDescription>Send fee reminders & alerts via SMS</CardDescription>
+   506→                  </div>
+   507→                  <Switch checked={smsEnabled} onCheckedChange={setSmsEnabled} />
+   508→                </div>
+   509→              </CardHeader>
+   510→              <CardContent className="space-y-3">
+   511→                <div className="space-y-1.5">
+   512→                  <Label htmlFor="sms-gw">Gateway Provider</Label>
+   513→                  <Select value={smsGateway} onValueChange={setSmsGateway} disabled={!smsEnabled}>
+   514→                    <SelectTrigger id="sms-gw"><SelectValue /></SelectTrigger>
+   515→                    <SelectContent>
+   516→                      <SelectItem value="Safaricom">Safaricom</SelectItem>
+   517→                      <SelectItem value="Airtel">Airtel</SelectItem>
+   518→                      <SelectItem value="Africa's Talking">Africa's Talking</SelectItem>
+   519→                    </SelectContent>
+   520→                  </Select>
+   521→                </div>
+   522→                <div className="space-y-1.5">
+   523→                  <Label htmlFor="sms-key">API Key</Label>
+   524→                  <Input id="sms-key" type="password" placeholder="••••••••••••••••" value={smsApiKey} onChange={(e) => setSmsApiKey(e.target.value)} disabled={!smsEnabled} />
+   525→                </div>
+   526→                <div className="space-y-1.5">
+   527→                  <Label htmlFor="sms-sender">Sender ID</Label>
+   528→                  <Input id="sms-sender" maxLength={11} value={smsSenderId} onChange={(e) => setSmsSenderId(e.target.value)} disabled={!smsEnabled} />
+   529→                </div>
+   530→                <div className="rounded-md bg-muted/30 p-2 text-xs text-muted-foreground">
+   531→                  Rate: <span className="font-semibold text-foreground">KES 0.80</span> per SMS · Test balance: <span className="font-semibold text-emerald-600">KES 4,200</span>
+   532→                </div>
+   533→              </CardContent>
+   534→            </Card>
+   535→
+   536→            <Card>
+   537→              <CardHeader>
+   538→                <div className="flex items-center justify-between">
+   539→                  <div>
+   540→                    <CardTitle className="flex items-center gap-2 text-base">
+   541→                      <Mail className="h-4.5 w-4.5 text-teal-600" /> Email (SMTP)
+   542→                    </CardTitle>
+   543→                    <CardDescription>Send reports & newsletters via email</CardDescription>
+   544→                  </div>
+   545→                  <Switch checked={emailEnabled} onCheckedChange={setEmailEnabled} />
+   546→                </div>
+   547→              </CardHeader>
+   548→              <CardContent className="space-y-3">
+   549→                <div className="grid grid-cols-2 gap-3">
+   550→                  <div className="space-y-1.5">
+   551→                    <Label htmlFor="smtp-host">SMTP Host</Label>
+   552→                    <Input id="smtp-host" value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} disabled={!emailEnabled} />
+   553→                  </div>
+   554→                  <div className="space-y-1.5">
+   555→                    <Label htmlFor="smtp-port">Port</Label>
+   556→                    <Input id="smtp-port" value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} disabled={!emailEnabled} />
+   557→                  </div>
+   558→                </div>
+   559→                <div className="space-y-1.5">
+   560→                  <Label htmlFor="smtp-user">Username</Label>
+   561→                  <Input id="smtp-user" value={smtpUser} onChange={(e) => setSmtpUser(e.target.value)} disabled={!emailEnabled} />
+   562→                </div>
+   563→                <div className="space-y-1.5">
+   564→                  <Label htmlFor="smtp-pass">Password</Label>
+   565→                  <Input id="smtp-pass" type="password" placeholder="••••••••" value={smtpPassword} onChange={(e) => setSmtpPassword(e.target.value)} disabled={!emailEnabled} />
+   566→                </div>
+   567→              </CardContent>
+   568→            </Card>
+   569→
+   570→            <Card className="md:col-span-2">
+   571→              <CardHeader>
+   572→                <div className="flex items-center justify-between">
+   573→                  <div>
+   574→                    <CardTitle className="flex items-center gap-2 text-base">
+   575→                      <CreditCard className="h-4.5 w-4.5 text-amber-600" /> M-Pesa Integration
+   576→                    </CardTitle>
+   577→                    <CardDescription>Accept fee payments via Safaricom M-Pesa Paybill</CardDescription>
+   578→                  </div>
+   579→                  <Switch checked={mpesaEnabled} onCheckedChange={setMpesaEnabled} />
+   580→                </div>
+   581→              </CardHeader>
+   582→              <CardContent className="space-y-3">
+   583→                <div className="grid gap-3 md:grid-cols-3">
+   584→                  <div className="space-y-1.5">
+   585→                    <Label htmlFor="mpesa-pb">Paybill Number</Label>
+   586→                    <Input id="mpesa-pb" value={mpesaPaybill} onChange={(e) => setMpesaPaybill(e.target.value)} disabled={!mpesaEnabled} />
+   587→                  </div>
+   588→                  <div className="space-y-1.5">
+   589→                    <Label htmlFor="mpesa-acct">Account Reference</Label>
+   590→                    <Select value={mpesaAccount} onValueChange={setMpesaAccount} disabled={!mpesaEnabled}>
+   591→                      <SelectTrigger id="mpesa-acct"><SelectValue /></SelectTrigger>
+   592→                      <SelectContent>
+   593→                        <SelectItem value="Admission No.">Admission No.</SelectItem>
+   594→                        <SelectItem value="Student Name">Student Name</SelectItem>
+   595→                        <SelectItem value="Invoice No.">Invoice No.</SelectItem>
+   596→                      </SelectContent>
+   597→                    </Select>
+   598→                  </div>
+   599→                  <div className="space-y-1.5">
+   600→                    <Label htmlFor="mpesa-cb">Callback URL</Label>
+   601→                    <Input id="mpesa-cb" value={mpesaCallback} onChange={(e) => setMpesaCallback(e.target.value)} disabled={!mpesaEnabled} />
+   602→                  </div>
+   603→                </div>
+   604→                <div className="rounded-md bg-amber-50 p-3 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+   605→                  <p className="font-medium">Payment Instructions for Parents</p>
+   606→                  <p className="mt-1">Go to M-Pesa → Lipa na M-Pesa → Paybill → Enter <span className="font-mono font-bold">{mpesaPaybill}</span> → Account: <span className="font-mono font-bold">{mpesaAccount}</span></p>
+   607→                </div>
+   608→              </CardContent>
+   609→            </Card>
+   610→          </div>
+   611→
+   612→          <Card>
+   613→            <CardHeader>
+   614→              <CardTitle className="text-base">Notification Preferences</CardTitle>
+   615→              <CardDescription>Choose which events trigger automated notifications</CardDescription>
+   616→            </CardHeader>
+   617→            <CardContent>
+   618→              <div className="grid gap-3 sm:grid-cols-2">
+   619→                {([
+   620→                  { key: 'feeReminders', label: 'Fee Payment Reminders', desc: 'Alert parents 7 days before invoice due date' },
+   621→                  { key: 'attendanceAlerts', label: 'Attendance Alerts', desc: 'Notify parents when student is marked absent' },
+   622→                  { key: 'examResults', label: 'Exam Results Release', desc: 'Send results to parents after grading is finalised' },
+   623→                  { key: 'eventReminders', label: 'School Event Reminders', desc: 'SMS reminders for meetings, sports, holidays' },
+   624→                  { key: 'transportUpdates', label: 'Transport Updates', desc: 'Notify parents of route delays or changes' },
+   625→                  { key: 'libraryOverdue', label: 'Library Overdue Notices', desc: 'Email students with overdue book loans' },
+   626→                ] as const).map((p) => (
+   627→                  <div key={p.key} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+   628→                    <div>
+   629→                      <p className="text-sm font-medium">{p.label}</p>
+   630→                      <p className="text-xs text-muted-foreground">{p.desc}</p>
+   631→                    </div>
+   632→                    <Switch
+   633→                      checked={notifPrefs[p.key]}
+   634→                      onCheckedChange={(v) => setNotifPrefs((s) => ({ ...s, [p.key]: v }))}
+   635→                    />
+   636→                  </div>
+   637→                ))}
+   638→              </div>
+   639→            </CardContent>
+   640→          </Card>
+   641→
+   642→          <div className="flex justify-end">
+   643→            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleSave('Notifications')}>
+   644→              <Save className="mr-1.5 h-4 w-4" /> Save Changes
+   645→            </Button>
+   646→          </div>
+   647→        </TabsContent>
+   648→
+   649→        {/* ----------------------------------------------------------------- */}
+   650→        {/* Users & Roles */}
+   651→        {/* ----------------------------------------------------------------- */}
+   652→        <TabsContent value="users" className="space-y-4">
+   653→          <Card>
+   654→            <CardHeader>
+   655→              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   656→                <div>
+   657→                  <CardTitle className="flex items-center gap-2 text-base">
+   658→                    <ShieldCheck className="h-4.5 w-4.5 text-emerald-600" /> System Users
+   659→                  </CardTitle>
+   660→                  <CardDescription>Manage who has access to SkulHub and their permissions</CardDescription>
+   661→                </div>
+   662→                <Button size="sm" onClick={() => setAddUserOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
+   663→                  <Plus className="mr-1.5 h-4 w-4" /> Add User
+   664→                </Button>
+   665→              </div>
+   666→            </CardHeader>
+   667→            <CardContent className="p-0">
+   668→              <div className="overflow-x-auto">
+   669→                <Table>
+   670→                  <TableHeader>
+   671→                    <TableRow>
+   672→                      <TableHead>User</TableHead>
+   673→                      <TableHead>Role</TableHead>
+   674→                      <TableHead>Status</TableHead>
+   675→                      <TableHead className="hidden md:table-cell">Last Login</TableHead>
+   676→                      <TableHead className="text-right">Actions</TableHead>
+   677→                    </TableRow>
+   678→                  </TableHeader>
+   679→                  <TableBody>
+   680→                    {users.map((u) => (
+   681→                      <TableRow key={u.id}>
+   682→                        <TableCell>
+   683→                          <div className="flex items-center gap-2">
+   684→                            <Avatar className="h-8 w-8">
+   685→                              <AvatarFallback className={cn('text-xs font-semibold text-white',
+   686→                                roleColor(u.role))}>
+   687→                                {initialsOf(u.name)}
+   688→                              </AvatarFallback>
+   689→                            </Avatar>
+   690→                            <div className="min-w-0">
+   691→                              <p className="truncate text-sm font-medium">{u.name}</p>
+   692→                              <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+   693→                            </div>
+   694→                          </div>
+   695→                        </TableCell>
+   696→                        <TableCell>
+   697→                          <Badge variant="outline" className={cn('text-[10px] font-semibold', roleBadgeColor(u.role))}>
+   698→                            <UserCog className="mr-1 h-3 w-3" /> {u.role}
+   699→                          </Badge>
+   700→                        </TableCell>
+   701→                        <TableCell>
+   702→                          <Badge className={cn('h-5 px-1.5 text-[10px]', statusBadgeColor(u.status))}>
+   703→                            {u.status}
+   704→                          </Badge>
+   705→                        </TableCell>
+   706→                        <TableCell className="hidden text-xs text-muted-foreground md:table-cell">{u.lastLogin}</TableCell>
+   707→                        <TableCell className="text-right">
+   708→                          <Button
+   709→                            variant="ghost"
+   710→                            size="sm"
+   711→                            className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+   712→                            onClick={() => handleDeleteUser(u.id)}
+   713→                          >
+   714→                            <Trash2 className="h-3.5 w-3.5" />
+   715→                          </Button>
+   716→                        </TableCell>
+   717→                      </TableRow>
+   718→                    ))}
+   719→                  </TableBody>
+   720→                </Table>
+   721→              </div>
+   722→            </CardContent>
+   723→          </Card>
+   724→
+   725→          <Card>
+   726→            <CardHeader>
+   727→              <CardTitle className="text-base">Role Permissions Matrix</CardTitle>
+   728→              <CardDescription>Summary of access rights per role</CardDescription>
+   729→            </CardHeader>
+   730→            <CardContent>
+   731→              <div className="overflow-x-auto">
+   732→                <Table>
+   733→                  <TableHeader>
+   734→                    <TableRow>
+   735→                      <TableHead>Module</TableHead>
+   736→                      <TableHead className="text-center">Principal</TableHead>
+   737→                      <TableHead className="text-center">Bursar</TableHead>
+   738→                      <TableHead className="text-center">Teacher</TableHead>
+   739→                      <TableHead className="text-center">Librarian</TableHead>
+   740→                    </TableRow>
+   741→                  </TableHeader>
+   742→                  <TableBody>
+   743→                    {[
+   744→                      { mod: 'Dashboard', p: '✓', b: '✓', t: '✓', l: '✓' },
+   745→                      { mod: 'Students', p: '✓', b: '✓', t: 'View', l: 'View' },
+   746→                      { mod: 'Staff', p: '✓', b: 'View', t: 'View', l: '—' },
+   747→                      { mod: 'Academics', p: '✓', b: '—', t: '✓', l: '—' },
+   748→                      { mod: 'Attendance', p: '✓', b: '—', t: '✓', l: '—' },
+   749→                      { mod: 'Finance', p: '✓', b: '✓', t: 'View', l: '—' },
+   750→                      { mod: 'Communications', p: '✓', b: '✓', t: '✓', l: 'View' },
+   751→                      { mod: 'Library', p: '✓', b: '—', t: 'View', l: '✓' },
+   752→                      { mod: 'Transport', p: '✓', b: 'View', t: '—', l: '—' },
+   753→                      { mod: 'Reports', p: '✓', b: '✓', t: '✓', l: 'Limited' },
+   754→                      { mod: 'Settings', p: '✓', b: '—', t: '—', l: '—' },
+   755→                    ].map((row) => (
+   756→                      <TableRow key={row.mod}>
+   757→                        <TableCell className="font-medium">{row.mod}</TableCell>
+   758→                        <TableCell className="text-center text-emerald-600">{row.p}</TableCell>
+   759→                        <TableCell className="text-center text-emerald-600">{row.b}</TableCell>
+   760→                        <TableCell className="text-center text-emerald-600">{row.t}</TableCell>
+   761→                        <TableCell className="text-center text-emerald-600">{row.l}</TableCell>
+   762→                      </TableRow>
+   763→                    ))}
+   764→                  </TableBody>
+   765→                </Table>
+   766→              </div>
+   767→            </CardContent>
+   768→          </Card>
+   769→        </TabsContent>
+   770→      </Tabs>
+   771→
+   772→      {/* Add user dialog */}
+   773→      <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
+   774→        <DialogContent className="sm:max-w-[420px]">
+   775→          <DialogHeader>
+   776→            <DialogTitle>Add System User</DialogTitle>
+   777→            <DialogDescription>
+   778→              Invite a new staff member to access SkulHub. They will receive an email invitation.
+   779→            </DialogDescription>
+   780→          </DialogHeader>
+   781→          <form onSubmit={handleAddUser} className="space-y-3">
+   782→            <div className="space-y-1.5">
+   783→              <Label htmlFor="nu-name">Full Name</Label>
+   784→              <Input id="nu-name" value={newUser.name} onChange={(e) => setNewUser((s) => ({ ...s, name: e.target.value }))} placeholder="Jane Doe" required />
+   785→            </div>
+   786→            <div className="space-y-1.5">
+   787→              <Label htmlFor="nu-email">Email Address</Label>
+   788→              <Input id="nu-email" type="email" value={newUser.email} onChange={(e) => setNewUser((s) => ({ ...s, email: e.target.value }))} placeholder="jane@skulhub.ac.ke" required />
+   789→            </div>
+   790→            <div className="space-y-1.5">
+   791→              <Label htmlFor="nu-role">Role</Label>
+   792→              <Select value={newUser.role} onValueChange={(v) => setNewUser((s) => ({ ...s, role: v }))}>
+   793→                <SelectTrigger id="nu-role"><SelectValue /></SelectTrigger>
+   794→                <SelectContent>
+   795→                  {['Principal', 'Deputy Principal', 'Bursar', 'Teacher', 'Librarian', 'Clerk', 'HOD'].map((r) => (
+   796→                    <SelectItem key={r} value={r}>{r}</SelectItem>
+   797→                  ))}
+   798→                </SelectContent>
+   799→              </Select>
+   800→            </div>
+   801→            <DialogFooter>
+   802→              <Button type="button" variant="outline" onClick={() => setAddUserOpen(false)}>Cancel</Button>
+   803→              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
+   804→                <Plus className="mr-1.5 h-4 w-4" /> Send Invitation
+   805→              </Button>
+   806→            </DialogFooter>
+   807→          </form>
+   808→        </DialogContent>
+   809→      </Dialog>
+   810→    </div>
+   811→  )
+   812→}
+   813→
+   814→// ---------------------------------------------------------------------------
+   815→// Helpers
+   816→// ---------------------------------------------------------------------------
+   817→function initialsOf(name: string): string {
+   818→  const parts = name.trim().split(/\s+/)
+   819→  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase()
+   820→}
+   821→
+   822→function roleColor(role: string): string {
+   823→  const r = role.toLowerCase()
+   824→  if (r.includes('principal')) return 'bg-emerald-600'
+   825→  if (r.includes('bursar')) return 'bg-teal-600'
+   826→  if (r.includes('teacher') || r.includes('hod')) return 'bg-cyan-600'
+   827→  if (r.includes('librar')) return 'bg-amber-600'
+   828→  if (r.includes('clerk')) return 'bg-violet-600'
+   829→  return 'bg-slate-500'
+   830→}
+   831→
+   832→function roleBadgeColor(role: string): string {
+   833→  const r = role.toLowerCase()
+   834→  if (r.includes('principal')) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+   835→  if (r.includes('bursar')) return 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-400'
+   836→  if (r.includes('teacher') || r.includes('hod')) return 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400'
+   837→  if (r.includes('librar')) return 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
+   838→  if (r.includes('clerk')) return 'bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-400'
+   839→  return 'bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+   840→}
+   841→
+   842→function statusBadgeColor(status: string): string {
+   843→  const s = status.toLowerCase()
+   844→  if (s === 'active') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+   845→  if (s === 'suspended') return 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400'
+   846→  if (s === 'invited') return 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
+   847→  return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+   848→}
+   849→

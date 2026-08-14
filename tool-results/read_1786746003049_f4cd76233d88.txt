@@ -1,0 +1,1228 @@
+     1→// SkulHub — School/University Management System
+     2→// Prisma schema (PostgreSQL)
+     3→
+     4→generator client {
+     5→  provider = "prisma-client-js"
+     6→}
+     7→
+     8→datasource db {
+     9→  provider = "sqlite"
+    10→  url      = env("DATABASE_URL")
+    11→}
+    12→
+    13→// ---------------------------------------------------------------------------
+    14→// Multi-tenancy: School + User accounts
+    15→// ---------------------------------------------------------------------------
+    16→
+    17→model School {
+    18→  id            String   @id @default(cuid())
+    19→  name          String
+    20→  slug          String   @unique // url-friendly name e.g. "skulhub-academy"
+    21→  schoolCode    String   @unique // e.g. "SKH-2024-001" — used for login
+    22→  email         String?
+    23→  phone         String?
+    24→  address       String?
+    25→  county        String?
+    26→  level         String   @default("Secondary") // "Primary" | "Junior Secondary" | "Secondary" | "University" | "Mixed"
+    27→  knecCode      String?  // Kenya National Examinations Council code
+    28→  yearEstablished Int?
+    29→  category      String   @default("Private") // "National" | "County" | "Sub-County" | "Private" | "International"
+    30→  gender        String   @default("Mixed") // "Boys" | "Girls" | "Mixed"
+    31→  motto         String?
+    32→  primaryColor  String   @default("#10b981") // school brand color
+    33→  logo          String?
+    34→  plan          String   @default("Starter") // "Starter" | "Standard" | "Premium" | "Enterprise"
+    35→  status        String   @default("Trial") // "Trial" | "Active" | "Suspended" | "Expired"
+    36→  trialEndsAt   DateTime?
+    37→  maxStudents   Int      @default(200)
+    38→  createdAt     DateTime @default(now())
+    39→  updatedAt     DateTime @updatedAt
+    40→
+    41→  users         UserAccount[]
+    42→  students      Student[]
+    43→  staff         Staff[]
+    44→  invoices      Invoice[]
+    45→  payments      Payment[]
+    46→}
+    47→
+    48→model UserAccount {
+    49→  id            String   @id @default(cuid())
+    50→  schoolId      String
+    51→  school        School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+    52→  name          String
+    53→  email         String   @unique
+    54→  passwordHash  String
+    55→  role          String   @default("admin") // "super_admin" | "admin" | "principal" | "bursar" | "teacher" | etc
+    56→  phone         String?
+    57→  avatar        String?
+    58→  status        String   @default("Active") // "Active" | "Suspended" | "Inactive" | "Pending" | "Rejected"
+    59→  rejectionReason String? // populated when a staff self-signup is rejected by the principal
+    60→  staffId       String?  // optional link to a Staff record (for self-registered staff)
+    61→  lastLoginAt   DateTime?
+    62→  createdAt     DateTime @default(now())
+    63→  updatedAt     DateTime @updatedAt
+    64→
+    65→  staff         Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
+    66→}
+    67→
+    68→// ---------------------------------------------------------------------------
+    69→// Core academic structure
+    70→// ---------------------------------------------------------------------------
+    71→
+    72→model ClassLevel {
+    73→  id        String   @id @default(cuid())
+    74→  name      String   @unique // e.g. "Grade 1", "Form 1", "Form 4"
+    75→  stage     String   // "Primary" | "Junior Secondary" | "Senior School" | "University"
+    76→  order     Int      @default(0)
+    77→  capacity  Int      @default(40)
+    78→  createdAt DateTime @default(now())
+    79→
+    80→  streams     Stream[]
+    81→  enrollments Enrollment[]
+    82→  subjects    SubjectAssignment[]
+    83→  applications Application[]
+    84→  assessments Assessment[]
+    85→  lessonPlans LessonPlan[]
+    86→  homework    Homework[]
+    87→}
+    88→
+    89→model Stream {
+    90→  id          String   @id @default(cuid())
+    91→  name        String   // e.g. "1 East", "1 West", "A", "B"
+    92→  classLevelId String
+    93→  classLevel  ClassLevel @relation(fields: [classLevelId], references: [id], onDelete: Cascade)
+    94→  classTeacherId String? // Staff id
+    95→  classTeacher  Staff?   @relation("StreamClassTeacher", fields: [classTeacherId], references: [id])
+    96→  capacity    Int      @default(40)
+    97→  createdAt   DateTime @default(now())
+    98→
+    99→  enrollments Enrollment[]
+   100→  timetables  Timetable[]
+   101→
+   102→  @@unique([name, classLevelId])
+   103→}
+   104→
+   105→model Department {
+   106→  id          String   @id @default(cuid())
+   107→  name        String   @unique // e.g. "Mathematics", "Sciences", "Languages"
+   108→  headId      String?
+   109→  description String?
+   110→  createdAt   DateTime @default(now())
+   111→
+   112→  staff    Staff[]
+   113→  subjects Subject[]
+   114→}
+   115→
+   116→model Subject {
+   117→  id           String   @id @default(cuid())
+   118→  name         String   @unique // e.g. "Mathematics", "Kiswahili", "Chemistry"
+   119→  code         String   @unique
+   120→  departmentId String?
+   121→  department   Department? @relation(fields: [departmentId], references: [id])
+   122→  category     String   @default("Core") // "Core" | "Optional" | "Co-curricular"
+   123→  createdAt    DateTime @default(now())
+   124→
+   125→  assignments SubjectAssignment[]
+   126→  timetables  Timetable[]
+   127→  grades      Grade[]
+   128→  questions   QuestionBank[]
+   129→  assessments Assessment[]
+   130→  lessonPlans LessonPlan[]
+   131→  homework    Homework[]
+   132→}
+   133→
+   134→// Which subject is taught in which class level
+   135→model SubjectAssignment {
+   136→  id           String   @id @default(cuid())
+   137→  subjectId    String
+   138→  classLevelId String
+   139→  subject      Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+   140→  classLevel   ClassLevel @relation(fields: [classLevelId], references: [id], onDelete: Cascade)
+   141→  teacherId    String?
+   142→  teacher      Staff?     @relation(fields: [teacherId], references: [id])
+   143→  weeklyPeriods Int     @default(5)
+   144→
+   145→  @@unique([subjectId, classLevelId])
+   146→}
+   147→
+   148→// ---------------------------------------------------------------------------
+   149→// People
+   150→// ---------------------------------------------------------------------------
+   151→
+   152→model Staff {
+   153→  id            String   @id @default(cuid())
+   154→  employeeNo    String   @unique
+   155→  firstName     String
+   156→  lastName      String
+   157→  email         String?  @unique
+   158→  phone         String?
+   159→  gender        String   @default("Male") // "Male" | "Female"
+   160→  role          String   @default("Teacher") // "Teacher" | "Principal" | "Deputy Principal" | "HOD" | "Bursar" | "Librarian" | "Clerk" | "Driver" | "Security" | "Cleaner"
+   161→  departmentId  String?
+   162→  department    Department? @relation(fields: [departmentId], references: [id])
+   163→  schoolId      String?
+   164→  school        School?   @relation(fields: [schoolId], references: [id])
+   165→  qualification String?
+   166→  specialization String?
+   167→  employmentType String  @default("Permanent") // "Permanent" | "Contract" | "Part-time"
+   168→  salary        Float    @default(0)
+   169→  status        String   @default("Active") // "Active" | "On Leave" | "Suspended" | "Inactive"
+   170→  hireDate      DateTime @default(now())
+   171→  address       String?
+   172→  createdAt     DateTime @default(now())
+   173→  updatedAt     DateTime @updatedAt
+   174→
+   175→  taughtSubjects SubjectAssignment[]
+   176→  attendanceAsStaff Attendance[] @relation("AttendanceStaff")
+   177→  attendanceMarked  Attendance[] @relation("AttendanceMarker")
+   178→  timetable      Timetable[]
+   179→  drivenRoutes   TransportRoute[]
+   180→  classTeacherOf Stream[] @relation("StreamClassTeacher")
+   181→  dormWardenOf   Dormitory[] @relation("DormWarden")
+   182→  payslips       Payslip[]
+   183→  appraisals     Appraisal[]
+   184→  userAccounts   UserAccount[]
+   185→}
+   186→
+   187→model Guardian {
+   188→  id        String   @id @default(cuid())
+   189→  firstName String
+   190→  lastName  String
+   191→  phone     String
+   192→  email     String?
+   193→  relation  String   @default("Parent") // "Parent" | "Guardian" | "Sponsor"
+   194→  occupation String?
+   195→  address   String?
+   196→  createdAt DateTime @default(now())
+   197→
+   198→  students Student[]
+   199→}
+   200→
+   201→model Student {
+   202→  id            String   @id @default(cuid())
+   203→  admissionNo   String   @unique
+   204→  firstName     String
+   205→  lastName      String
+   206→  email         String?
+   207→  phone         String?
+   208→  gender        String   @default("Male")
+   209→  dateOfBirth   DateTime?
+   210→  bloodGroup    String?
+   211→  nationality   String   @default("Kenyan")
+   212→  county        String?  // Kenya-specific
+   213→  photoUrl      String?
+   214→  status        String   @default("Active") // "Active" | "Graduated" | "Transferred" | "Suspended" | "Dropped"
+   215→  admissionDate DateTime @default(now())
+   216→  boarding      Boolean  @default(false) // boarding vs day scholar
+   217→  schoolId      String?
+   218→  school        School?  @relation(fields: [schoolId], references: [id])
+   219→  createdAt     DateTime @default(now())
+   220→  updatedAt     DateTime @updatedAt
+   221→
+   222→  guardianId String?
+   223→  guardian   Guardian? @relation(fields: [guardianId], references: [id])
+   224→
+   225→  enrollments Enrollment[]
+   226→  attendance  Attendance[] @relation("AttendanceStudent")
+   227→  grades      Grade[]
+   228→  invoices    Invoice[]
+   229→  bookLoans   BookLoan[]
+   230→  medicalRecord MedicalRecord[]
+   231→  clinicVisits ClinicVisit[]
+   232→  incidents   Incident[]
+   233→  bedAllocations BedAllocation[]
+   234→  createdAt2  DateTime @default(now()) @map("created_at_2")
+   235→
+   236→  @@index([lastName])
+   237→}
+   238→
+   239→// Enrollment links a student to a stream in a given academic year & term
+   240→model Enrollment {
+   241→  id         String   @id @default(cuid())
+   242→  studentId  String
+   243→  streamId   String
+   244→  academicYear String  // e.g. "2025"
+   245→  term       String   // "Term 1" | "Term 2" | "Term 3"
+   246→  status     String   @default("Active") // "Active" | "Completed" | "Transferred"
+   247→  enrolledAt DateTime @default(now())
+   248→
+   249→  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+   250→  stream  Stream  @relation(fields: [streamId], references: [id], onDelete: Cascade)
+   251→  classLevel ClassLevel? @relation(fields: [classLevelId], references: [id])
+   252→  classLevelId String?
+   253→
+   254→  @@unique([studentId, academicYear, term])
+   255→}
+   256→
+   257→// ---------------------------------------------------------------------------
+   258→// Timetable
+   259→// ---------------------------------------------------------------------------
+   260→
+   261→model Timetable {
+   262→  id           String   @id @default(cuid())
+   263→  streamId     String
+   264→  subjectId    String
+   265→  teacherId    String?
+   266→  dayOfWeek    String   // "Monday".."Friday" | "Saturday"
+   267→  startTime    String   // "08:00"
+   268→  endTime      String   // "08:40"
+   269→  room         String?
+   270→  createdAt    DateTime @default(now())
+   271→
+   272→  stream   Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+   273→  subject  Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+   274→  teacher  Staff?   @relation(fields: [teacherId], references: [id])
+   275→}
+   276→
+   277→// ---------------------------------------------------------------------------
+   278→// Exams & Grades
+   279→// ---------------------------------------------------------------------------
+   280→
+   281→model Exam {
+   282→  id           String   @id @default(cuid())
+   283→  name         String   // e.g. "Term 1 Opener", "Mid-Term", "End Term 1", "KCSE Mock"
+   284→  academicYear String
+   285→  term         String
+   286→  examType    String   @default("Continuous Assessment") // "Opener" | "Mid-Term" | "End Term" | "Mock" | "National"
+   287→  startDate    DateTime
+   288→  endDate      DateTime?
+   289→  createdAt    DateTime @default(now())
+   290→
+   291→  grades Grade[]
+   292→}
+   293→
+   294→model Grade {
+   295→  id         String   @id @default(cuid())
+   296→  studentId  String
+   297→  subjectId  String
+   298→  examId     String
+   299→  marks      Float    // 0-100
+   300→  grade      String   // "A".."E" computed
+   301→  points     Int      // 12..1 (KCSE style) or 0-100
+   302→  remarks    String?
+   303→  createdAt  DateTime @default(now())
+   304→
+   305→  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+   306→  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+   307→  exam    Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
+   308→
+   309→  @@unique([studentId, subjectId, examId])
+   310→}
+   311→
+   312→// ---------------------------------------------------------------------------
+   313→// Attendance
+   314→// ---------------------------------------------------------------------------
+   315→
+   316→model Attendance {
+   317→  id        String   @id @default(cuid())
+   318→  studentId String?
+   319→  staffId   String?
+   320→  personType String  @default("Student") // "Student" | "Staff"
+   321→  date      DateTime
+   322→  status    String   // "Present" | "Absent" | "Late" | "Excused" | "Sick"
+   323→  checkInTime String?
+   324→  remarks   String?
+   325→  markedById String?
+   326→  createdAt DateTime @default(now())
+   327→
+   328→  student Student? @relation("AttendanceStudent", fields: [studentId], references: [id], onDelete: Cascade)
+   329→  staff   Staff?   @relation("AttendanceStaff", fields: [staffId], references: [id], onDelete: Cascade)
+   330→  marker  Staff?   @relation("AttendanceMarker", fields: [markedById], references: [id])
+   331→
+   332→  @@unique([studentId, staffId, date])
+   333→  @@index([date])
+   334→}
+   335→
+   336→// ---------------------------------------------------------------------------
+   337→// Finance
+   338→// ---------------------------------------------------------------------------
+   339→
+   340→model FeeStructure {
+   341→  id           String   @id @default(cuid())
+   342→  name         String   // e.g. "Form 1 Day Scholar 2025 T1"
+   343→  classLevelId String?
+   344→  academicYear String
+   345→  term         String
+   346→  boarding     Boolean  @default(false)
+   347→  tuitionFee   Float    @default(0)
+   348→  boardingFee  Float    @default(0)
+   349→  examFee      Float    @default(0)
+   350→  libraryFee   Float    @default(0)
+   351→  activityFee  Float    @default(0)
+   352→  otherFee     Float    @default(0)
+   353→  totalAmount  Float    @default(0)
+   354→  dueDate      DateTime?
+   355→  createdAt    DateTime @default(now())
+   356→
+   357→  invoices Invoice[]
+   358→}
+   359→
+   360→model Invoice {
+   361→  id           String   @id @default(cuid())
+   362→  invoiceNo    String   @unique
+   363→  studentId    String
+   364→  feeStructureId String?
+   365→  academicYear String
+   366→  term         String
+   367→  amount       Float
+   368→  amountPaid   Float    @default(0)
+   369→  balance      Float    @default(0)
+   370→  status       String   @default("Unpaid") // "Unpaid" | "Partially Paid" | "Paid" | "Overdue" | "Cancelled"
+   371→  dueDate      DateTime
+   372→  issueDate    DateTime @default(now())
+   373→  schoolId     String?
+   374→  school       School?  @relation(fields: [schoolId], references: [id])
+   375→  createdAt    DateTime @default(now())
+   376→  updatedAt    DateTime @updatedAt
+   377→
+   378→  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+   379→  feeStructure FeeStructure? @relation(fields: [feeStructureId], references: [id])
+   380→  payments Payment[]
+   381→}
+   382→
+   383→model Payment {
+   384→  id          String   @id @default(cuid())
+   385→  invoiceId   String
+   386→  studentId   String?
+   387→  amount      Float
+   388→  method      String   @default("Cash") // "Cash" | "Bank Transfer" | "M-Pesa" | "Cheque" | "Card"
+   389→  reference   String?  // M-Pesa code, cheque no, etc.
+   390→  payerName   String?
+   391→  payerPhone  String?
+   392→  receivedBy  String?
+   393→  receivedAt  DateTime @default(now())
+   394→  schoolId    String?
+   395→  school      School?  @relation(fields: [schoolId], references: [id])
+   396→  createdAt   DateTime @default(now())
+   397→
+   398→  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+   399→}
+   400→
+   401→model Scholarship {
+   402→  id          String   @id @default(cuid())
+   403→  studentId   String?
+   404→  name        String   // e.g. "Mpesa Foundation", "Equity Wings", "Government Bursary"
+   405→  provider    String?
+   406→  amount      Float
+   407→  coverage    String   @default("Full") // "Full" | "Partial" | "Half"
+   408→  academicYear String
+   409→  status      String   @default("Active") // "Active" | "Expired" | "Revoked"
+   410→  startDate   DateTime @default(now())
+   411→  endDate     DateTime?
+   412→  createdAt   DateTime @default(now())
+   413→}
+   414→
+   415→model Expense {
+   416→  id          String   @id @default(cuid())
+   417→  category    String   // "Salaries" | "Utilities" | "Maintenance" | "Supplies" | "Transport" | "Other"
+   418→  description String
+   419→  amount      Float
+   420→  date        DateTime @default(now())
+   421→  paymentMethod String @default("Cash")
+   422→  recipient   String?
+   423→  createdAt   DateTime @default(now())
+   424→}
+   425→
+   426→model Budget {
+   427→  id          String   @id @default(cuid())
+   428→  category    String   @unique
+   429→  amount      Float    // allocated budget for the term
+   430→  academicYear String   @default("2025")
+   431→  term        String   @default("Term 1")
+   432→  notes       String?
+   433→  createdAt   DateTime @default(now())
+   434→  updatedAt   DateTime @updatedAt
+   435→}
+   436→
+   437→// ---------------------------------------------------------------------------
+   438→// Communications
+   439→// ---------------------------------------------------------------------------
+   440→
+   441→model Announcement {
+   442→  id         String   @id @default(cuid())
+   443→  title      String
+   444→  body       String
+   445→  audience   String   @default("All") // "All" | "Students" | "Staff" | "Parents" | "Teachers"
+   446→  priority   String   @default("Normal") // "Low" | "Normal" | "High" | "Urgent"
+   447→  authorId   String?
+   448→  authorName String?
+   449→  pinned     Boolean  @default(false)
+   450→  publishedAt DateTime @default(now())
+   451→  createdAt  DateTime @default(now())
+   452→}
+   453→
+   454→model Notification {
+   455→  id        String   @id @default(cuid())
+   456→  recipient String   // phone or email
+   457→  channel   String   // "SMS" | "Email"
+   458→  subject   String?
+   459→  message   String
+   460→  status    String   @default("Queued") // "Queued" | "Sent" | "Delivered" | "Failed"
+   461→  createdAt DateTime @default(now())
+   462→  sentAt    DateTime?
+   463→}
+   464→
+   465→// ---------------------------------------------------------------------------
+   466→// Library
+   467→// ---------------------------------------------------------------------------
+   468→
+   469→model LibraryBook {
+   470→  id           String   @id @default(cuid())
+   471→  isbn         String?  @unique
+   472→  title        String
+   473→  author       String
+   474→  category     String   @default("General")
+   475→  publisher    String?
+   476→  yearPublished Int?
+   477→  copiesTotal  Int      @default(1)
+   478→  copiesAvailable Int   @default(1)
+   479→  shelfLocation String?
+   480→  status       String   @default("Available") // "Available" | "Out of Stock"
+   481→  createdAt    DateTime @default(now())
+   482→
+   483→  loans BookLoan[]
+   484→}
+   485→
+   486→model BookLoan {
+   487→  id         String   @id @default(cuid())
+   488→  bookId     String
+   489→  studentId  String?
+   490→  borrowerName String
+   491→  borrowDate DateTime @default(now())
+   492→  dueDate    DateTime
+   493→  returnDate DateTime?
+   494→  status     String   @default("Borrowed") // "Borrowed" | "Returned" | "Overdue" | "Lost"
+   495→  fine       Float    @default(0)
+   496→  createdAt  DateTime @default(now())
+   497→
+   498→  book    LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+   499→  student Student?    @relation(fields: [studentId], references: [id])
+   500→}
+   501→
+   502→// ---------------------------------------------------------------------------
+   503→// Transport
+   504→// ---------------------------------------------------------------------------
+   505→
+   506→model TransportRoute {
+   507→  id         String   @id @default(cuid())
+   508→  name       String   // e.g. "Rongai Route", "Kasarani Route"
+   509→  startPoint String
+   510→  endPoint   String
+   511→  stops      String?  // comma-separated stops
+   512→  distanceKm Float    @default(0)
+   513→  fare       Float    @default(0)
+   514→  vehicleId  String?
+   515→  driverId   String?
+   516→  createdAt  DateTime @default(now())
+   517→
+   518→  vehicle Vehicle?
+   519→  driver  Staff?   @relation(fields: [driverId], references: [id])
+   520→}
+   521→
+   522→model Vehicle {
+   523→  id            String   @id @default(cuid())
+   524→  registration  String   @unique // "KDA 123A"
+   525→  type          String   @default("Bus") // "Bus" | "Van" | "Saloon Car"
+   526→  capacity      Int      @default(30)
+   527→  make          String?
+   528→  model         String?
+   529→  year          Int?
+   530→  assignedRouteId String? @unique
+   531→  status        String   @default("Active") // "Active" | "Maintenance" | "Inactive"
+   532→  createdAt     DateTime @default(now())
+   533→
+   534→  route TransportRoute? @relation(fields: [assignedRouteId], references: [id])
+   535→}
+   536→
+   537→// ---------------------------------------------------------------------------
+   538→// Health & Wellness
+   539→// ---------------------------------------------------------------------------
+   540→
+   541→model MedicalRecord {
+   542→  id          String   @id @default(cuid())
+   543→  studentId   String
+   544→  bloodGroup  String?
+   545→  heightCm    Float?
+   546→  weightKg    Float?
+   547→  allergies   String?  // comma-separated
+   548→  conditions  String?  // chronic conditions: asthma, diabetes, etc.
+   549→  medications String?  // current medications
+   550→  immunization String? // immunization status
+   551→  emergencyContact String?
+   552→  emergencyPhone String?
+   553→  notes       String?
+   554→  updatedAt   DateTime @updatedAt
+   555→  createdAt   DateTime @default(now())
+   556→
+   557→  student  Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+   558→  visits   ClinicVisit[]
+   559→}
+   560→
+   561→model ClinicVisit {
+   562→  id          String   @id @default(cuid())
+   563→  studentId   String
+   564→  medicalRecordId String?
+   565→  visitDate   DateTime @default(now())
+   566→  complaint   String   // presenting complaint
+   567→  diagnosis   String?
+   568→  treatment   String?
+   569→  prescription String?
+   570→  temperature Float?   // °C
+   571→  bloodPressure String? // "120/80"
+   572→  severity    String   @default("Mild") // "Mild" | "Moderate" | "Severe"
+   573→  attendedBy  String?  // nurse/doctor name
+   574→  referredTo  String?  // hospital if referred
+   575→  followUpDate DateTime?
+   576→  status      String   @default("Treated") // "Treated" | "Referred" | "Follow-up" | "Admitted"
+   577→  createdAt   DateTime @default(now())
+   578→
+   579→  student Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+   580→  medicalRecord MedicalRecord? @relation(fields: [medicalRecordId], references: [id])
+   581→}
+   582→
+   583→// ---------------------------------------------------------------------------
+   584→// Alumni & Donations
+   585→// ---------------------------------------------------------------------------
+   586→
+   587→model Alumnus {
+   588→  id           String   @id @default(cuid())
+   589→  studentId    String?  // link to original Student record if available
+   590→  firstName    String
+   591→  lastName     String
+   592→  email        String?  @unique
+   593→  phone        String?
+   594→  gender       String   @default("Male")
+   595→  admissionNo  String?
+   596→  graduationYear Int
+   597→  classLevel   String?  // e.g. "Form 4"
+   598→  career       String?  // current profession
+   599→  employer     String?
+   600→  industry     String?  // e.g. "Finance", "Healthcare", "Technology"
+   601→  location     String?  // city/country
+   602→  linkedin     String?
+   603→  achievement  String?  // notable achievement
+   604→  status       String   @default("Active") // "Active" | "Lost Contact" | "Deceased"
+   605→  createdAt    DateTime @default(now())
+   606→  updatedAt    DateTime @updatedAt
+   607→
+   608→  donations Donation[]
+   609→}
+   610→
+   611→model Donation {
+   612→  id          String   @id @default(cuid())
+   613→  alumnusId   String
+   614→  amount      Float
+   615→  method      String   @default("M-Pesa") // "M-Pesa" | "Bank Transfer" | "Cash" | "Cheque"
+   616→  reference   String?
+   617→  purpose     String   @default("General") // "General" | "Scholarship" | "Infrastructure" | "Sports" | "Library"
+   618→  date        DateTime @default(now())
+   619→  notes       String?
+   620→  createdAt   DateTime @default(now())
+   621→
+   622→  alumnus Alumnus @relation(fields: [alumnusId], references: [id], onDelete: Cascade)
+   623→}
+   624→
+   625→// ---------------------------------------------------------------------------
+   626→// Admissions & Applications (prospective students)
+   627→// ---------------------------------------------------------------------------
+   628→
+   629→model Application {
+   630→  id            String   @id @default(cuid())
+   631→  applicantName String
+   632→  email         String?
+   633→  phone         String
+   634→  gender        String   @default("Male")
+   635→  dateOfBirth   DateTime?
+   636→  previousSchool String?
+   637→  appliedClassLevelId String?
+   638→  appliedYear   String   @default("2025")
+   639→  appliedTerm   String   @default("Term 1")
+   640→  boarding      Boolean  @default(false)
+   641→  guardianName  String
+   642→  guardianPhone String
+   643→  guardianEmail String?
+   644→  guardianOccupation String?
+   645→  county        String?
+   646→  // Application metadata
+   647→  applicationNo String   @unique
+   648→  source        String   @default("Walk-in") // "Walk-in" | "Online" | "Referral" | "Transfer"
+   649→  status        String   @default("Pending") // "Pending" | "Reviewing" | "Interview Scheduled" | "Accepted" | "Rejected" | "Enrolled" | "Waitlisted"
+   650→  priority      String   @default("Normal") // "Low" | "Normal" | "High"
+   651→  interviewDate DateTime?
+   652→  interviewNotes String?
+   653→  decisionDate  DateTime?
+   654→  decisionBy    String?
+   655→  rejectionReason String?
+   656→  notes         String?
+   657→  submittedAt   DateTime @default(now())
+   658→  createdAt     DateTime @default(now())
+   659→  updatedAt     DateTime @updatedAt
+   660→
+   661→  appliedClassLevel ClassLevel? @relation(fields: [appliedClassLevelId], references: [id])
+   662→}
+   663→
+   664→// ---------------------------------------------------------------------------
+   665→// Events & Activities (calendar, sports, clubs, trips, meetings)
+   666→// ---------------------------------------------------------------------------
+   667→
+   668→model Event {
+   669→  id          String   @id @default(cuid())
+   670→  title       String
+   671→  description String?
+   672→  category    String   @default("General") // "Academic" | "Sports" | "Cultural" | "Meeting" | "Trip" | "Holiday" | "Exam" | "General"
+   673→  startDate   DateTime
+   674→  endDate     DateTime?
+   675→  allDay      Boolean  @default(false)
+   676→  location    String?
+   677→  organizer   String?
+   678→  audience    String   @default("All") // "All" | "Students" | "Staff" | "Parents" | "Specific Class"
+   679→  status      String   @default("Scheduled") // "Scheduled" | "Ongoing" | "Completed" | "Cancelled" | "Postponed"
+   680→  priority    String   @default("Normal") // "Low" | "Normal" | "High"
+   681→  color       String   @default("emerald") // theme color key for calendar display
+   682→  createdAt   DateTime @default(now())
+   683→  updatedAt   DateTime @updatedAt
+   684→
+   685→  participants EventParticipant[]
+   686→}
+   687→
+   688→model EventParticipant {
+   689→  id        String   @id @default(cuid())
+   690→  eventId   String
+   691→  name      String
+   692→  role      String   @default("Attendee") // "Organizer" | "Attendee" | "Volunteer" | "Facilitator"
+   693→  status    String   @default("Invited") // "Invited" | "Confirmed" | "Declined" | "Attended" | "Absent"
+   694→  createdAt DateTime @default(now())
+   695→
+   696→  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+   697→}
+   698→
+   699→// ---------------------------------------------------------------------------
+   700→// Discipline & Behavior (incidents, conduct, sanctions)
+   701→// ---------------------------------------------------------------------------
+   702→
+   703→model Incident {
+   704→  id          String   @id @default(cuid())
+   705→  incidentNo  String   @unique
+   706→  studentId   String
+   707→  date        DateTime @default(now())
+   708→  location    String?  // "Classroom" | "Playground" | "Dormitory" | "Hall" | "Gate" | "Other"
+   709→  category    String   @default("Misconduct") // "Misconduct" | "Bullying" | "Truancy" | "Theft" | "Vandalism" | "Substance Abuse" | "Insubordination" | "Fighting" | "Dress Code" | "Other"
+   710→  severity    String   @default("Minor") // "Minor" | "Moderate" | "Major" | "Critical"
+   711→  description String
+   712→  reportedBy  String?  // staff name
+   713→  witnesses   String?  // comma-separated names
+   714→  status      String   @default("Open") // "Open" | "Investigating" | "Resolved" | "Appealed" | "Closed"
+   715→  // Sanction fields
+   716→  sanction    String?  // "Verbal Warning" | "Written Warning" | "Detention" | "Suspension" | "Expulsion" | "Community Service" | "Counselling" | "Parent Meeting"
+   717→  sanctionDetails String?
+   718→  sanctionStartDate DateTime?
+   719→  sanctionEndDate DateTime?
+   720→  resolvedDate DateTime?
+   721→  resolvedBy  String?
+   722→  resolutionNotes String?
+   723→  parentNotified Boolean @default(false)
+   724→  parentNotificationDate DateTime?
+   725→  createdAt   DateTime @default(now())
+   726→  updatedAt   DateTime @updatedAt
+   727→
+   728→  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+   729→}
+   730→
+   731→// ---------------------------------------------------------------------------
+   732→// Hostel & Boarding (dormitories, beds, allocations, inspections)
+   733→// ---------------------------------------------------------------------------
+   734→
+   735→model Dormitory {
+   736→  id          String   @id @default(cuid())
+   737→  name        String   @unique // e.g. "Mboya House", "Kenyatta House"
+   738→  gender      String   @default("Boys") // "Boys" | "Girls" | "Mixed"
+   739→  capacity    Int      @default(40)
+   740→  wardenId    String?  // Staff id of dorm warden
+   741→  warden      Staff?   @relation("DormWarden", fields: [wardenId], references: [id])
+   742→  location    String?  // building/block
+   743→  floors      Int      @default(1)
+   744→  status      String   @default("Active") // "Active" | "Maintenance" | "Closed"
+   745→  createdAt   DateTime @default(now())
+   746→
+   747→  rooms       Room[]
+   748→  allocations BedAllocation[]
+   749→  inspections DormInspection[]
+   750→}
+   751→
+   752→model Room {
+   753→  id          String   @id @default(cuid())
+   754→  dormitoryId String
+   755→  roomNumber  String   // e.g. "D1-101"
+   756→  floor       Int      @default(1)
+   757→  capacity    Int      @default(4)
+   758→  occupied    Int      @default(0)
+   759→  status      String   @default("Available") // "Available" | "Full" | "Maintenance"
+   760→  dormitory   Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
+   761→
+   762→  allocations BedAllocation[]
+   763→
+   764→  @@unique([dormitoryId, roomNumber])
+   765→}
+   766→
+   767→model BedAllocation {
+   768→  id          String   @id @default(cuid())
+   769→  studentId   String
+   770→  dormitoryId String
+   771→  roomId      String
+   772→  bedNumber   String   // e.g. "Bed A", "Bed 1"
+   773→  allocatedAt DateTime @default(now())
+   774→  vacatedAt   DateTime?
+   775→  status      String   @default("Active") // "Active" | "Vacated" | "Transferred"
+   776→  notes       String?
+   777→  createdAt   DateTime @default(now())
+   778→
+   779→  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+   780→  dormitory Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
+   781→  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+   782→}
+   783→
+   784→model DormInspection {
+   785→  id          String   @id @default(cuid())
+   786→  dormitoryId String
+   787→  date        DateTime @default(now())
+   788→  inspectedBy String?
+   789→  cleanliness Int      @default(0) // 0-10
+   790→  organization Int     @default(0) // 0-10
+   791→  discipline  Int      @default(0) // 0-10
+   792→  overallScore Int     @default(0) // computed average
+   793→  findings    String?
+   794→  actionTaken String?
+   795→  status      String   @default("Completed") // "Scheduled" | "Completed" | "Follow-up"
+   796→  createdAt   DateTime @default(now())
+   797→
+   798→  dormitory Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
+   799→}
+   800→
+   801→// ---------------------------------------------------------------------------
+   802→// Inventory & Assets (equipment, furniture, maintenance)
+   803→// ---------------------------------------------------------------------------
+   804→
+   805→model Asset {
+   806→  id            String   @id @default(cuid())
+   807→  assetTag      String   @unique // e.g. "AST-001"
+   808→  name          String
+   809→  category      String   @default("Furniture") // "Furniture" | "Electronics" | "Lab Equipment" | "Sports" | "Kitchen" | "Stationery" | "Vehicle" | "Other"
+   810→  description   String?
+   811→  serialNumber  String?
+   812→  purchaseDate  DateTime?
+   813→  purchaseCost  Float    @default(0)
+   814→  currentValue  Float    @default(0)
+   815→  condition     String   @default("Good") // "Excellent" | "Good" | "Fair" | "Poor" | "Damaged"
+   816→  status        String   @default("In Use") // "In Use" | "In Storage" | "Under Repair" | "Disposed" | "Lost"
+   817→  location      String?  // building/room
+   818→  assignedTo    String?  // department or person
+   819→  quantity      Int      @default(1)
+   820→  quantityInStock Int    @default(0) // live stock level (for consumables/reorderable items)
+   821→  reorderLevel  Int      @default(0) // low-stock threshold (0 = not tracked)
+   822→  unitPrice     Float    @default(0) // cost per unit (for restock cost estimation)
+   823→  unit          String   @default("pcs") // "pcs" | "kg" | "litres" | "boxes" | "packs"
+   824→  supplierName  String?  // preferred supplier name (free text)
+   825→  notes         String?
+   826→  createdAt     DateTime @default(now())
+   827→  updatedAt     DateTime @updatedAt
+   828→
+   829→  maintenances    AssetMaintenance[]
+   830→  stocktakes     StocktakeRecord[]
+   831→  restockRequests RestockRequest[]
+   832→  poItems         PurchaseOrderItem[]
+   833→}
+   834→
+   835→model AssetMaintenance {
+   836→  id          String   @id @default(cuid())
+   837→  assetId     String
+   838→  date        DateTime @default(now())
+   839→  type        String   @default("Repair") // "Repair" | "Service" | "Inspection" | "Upgrade" | "Replacement"
+   840→  description String
+   841→  cost        Float    @default(0)
+   842→  vendor      String?
+   843→  technician  String?
+   844→  status      String   @default("Completed") // "Scheduled" | "In Progress" | "Completed" | "Cancelled"
+   845→  nextDueDate DateTime?
+   846→  createdAt   DateTime @default(now())
+   847→
+   848→  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+   849→}
+   850→
+   851→// ---------------------------------------------------------------------------
+   852→// Stocktake Records (physical count vs system quantity)
+   853→// ---------------------------------------------------------------------------
+   854→
+   855→model StocktakeRecord {
+   856→  id              String   @id @default(cuid())
+   857→  recordNo        String   @unique // "ST-2025-0001"
+   858→  assetId         String
+   859→  assetName       String   // denormalised snapshot
+   860→  category        String   @default("Other")
+   861→  systemQuantity  Int      @default(0)
+   862→  countedQuantity Int      @default(0)
+   863→  discrepancy     Int      @default(0) // counted - system (auto-computed)
+   864→  notes           String?  // reason / explanation of discrepancy
+   865→  status          String   @default("Recorded") // "Recorded" | "Reviewed" | "Adjusted"
+   866→  countedBy       String
+   867→  stocktakeDate   DateTime @default(now())
+   868→  createdAt       DateTime @default(now())
+   869→
+   870→  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+   871→}
+   872→
+   873→// ---------------------------------------------------------------------------
+   874→// Restock Requests (generated from low-stock or stocktake shortage)
+   875→// Status flow: Pending → Approved → Ordered → Received  (or Rejected)
+   876→// ---------------------------------------------------------------------------
+   877→
+   878→model RestockRequest {
+   879→  id                  String   @id @default(cuid())
+   880→  requestNo           String   @unique // "RR-2025-0001"
+   881→  assetId             String
+   882→  assetName           String   // denormalised
+   883→  category            String   @default("Other")
+   884→  requestedQuantity   Int      @default(1)
+   885→  unitPrice           Float    @default(0) // estimated unit cost
+   886→  estimatedCost       Float    @default(0) // requestedQuantity * unitPrice
+   887→  suggestedSupplierId String?  // optional FK to Supplier
+   888→  suggestedSupplier   String?  // supplier name (denormalised, free text if no supplier record)
+   889→  reason              String?  // "Low stock" | "Stocktake shortage" | "Damaged" | "New term demand"
+   890→  priority            String   @default("Normal") // "Low" | "Normal" | "High" | "Urgent"
+   891→  status              String   @default("Pending") // "Pending" | "Approved" | "Rejected" | "Ordered" | "Received"
+   892→  requestedBy         String
+   893→  approvedBy          String?
+   894→  approvedAt          DateTime?
+   895→  rejectedReason      String?
+   896→  purchaseOrderId    String?  // linked PO once created
+   897→  notes               String?
+   898→  createdAt           DateTime @default(now())
+   899→  updatedAt           DateTime @updatedAt
+   900→
+   901→  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+   902→}
+   903→
+   904→// ---------------------------------------------------------------------------
+   905→// Purchase Orders (extended) — supports multi-item line items + restock link
+   906→// ---------------------------------------------------------------------------
+   907→
+   908→model PurchaseOrder {
+   909→  id                String   @id @default(cuid())
+   910→  poNumber          String   @unique
+   911→  supplierId        String
+   912→  supplier          Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+   913→  item              String   // summary line (legacy / quick PO)
+   914→  description       String?
+   915→  quantity          Int      @default(1)
+   916→  unitPrice         Float
+   917→  totalAmount       Float
+   918→  status            String   @default("Pending") // "Pending" | "Approved" | "Ordered" | "Received" | "Cancelled"
+   919→  requestedBy       String?
+   920→  approvedBy        String?
+   921→  orderDate         DateTime @default(now())
+   922→  deliveryDate      DateTime?
+   923→  receivedDate      DateTime?
+   924→  restockRequestId  String?  // link back to restock request
+   925→  notes             String?
+   926→  createdAt         DateTime @default(now())
+   927→  updatedAt         DateTime @updatedAt
+   928→
+   929→  items PurchaseOrderItem[]
+   930→}
+   931→
+   932→model PurchaseOrderItem {
+   933→  id               String   @id @default(cuid())
+   934→  purchaseOrderId  String
+   935→  assetId          String?  // optional link to Asset (used to update stock on receipt)
+   936→  itemName         String
+   937→  quantity         Int      @default(1)
+   938→  unitPrice        Float    @default(0)
+   939→  totalPrice       Float    @default(0) // quantity * unitPrice
+   940→  receivedQuantity Int      @default(0)
+   941→  createdAt        DateTime @default(now())
+   942→
+   943→  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+   944→  asset          Asset?        @relation(fields: [assetId], references: [id])
+   945→}
+   946→
+   947→// ---------------------------------------------------------------------------
+   948→// Cafeteria & Meals (menu, meal plans, dining attendance)
+   949→// ---------------------------------------------------------------------------
+   950→
+   951→model MealMenu {
+   952→  id          String   @id @default(cuid())
+   953→  date        DateTime
+   954→  mealType    String   // "Breakfast" | "Lunch" | "Supper" | "Tea Break"
+   955→  item        String   // main dish name
+   956→  accompaniment String? // side dish
+   957→  beverage    String?
+   958→  notes       String?
+   959→  servingsPlanned Int   @default(0)
+   960→  servingsServed  Int   @default(0)
+   961→  status      String   @default("Planned") // "Planned" | "Served" | "Cancelled"
+   962→  cook        String?
+   963→  createdAt   DateTime @default(now())
+   964→
+   965→  attendances MealAttendance[]
+   966→}
+   967→
+   968→model MealAttendance {
+   969→  id          String   @id @default(cuid())
+   970→  menuId      String
+   971→  personType  String   @default("Student") // "Student" | "Staff" | "Visitor"
+   972→  headcount   Int      @default(0)
+   973→  date        DateTime @default(now())
+   974→  notes       String?
+   975→  createdAt   DateTime @default(now())
+   976→
+   977→  menu MealMenu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+   978→}
+   979→
+   980→// ---------------------------------------------------------------------------
+   981→// Examinations & Assessments (question banks, CATs, rubrics)
+   982→// ---------------------------------------------------------------------------
+   983→
+   984→model QuestionBank {
+   985→  id          String   @id @default(cuid())
+   986→  subjectId   String?
+   987→  subject     Subject? @relation(fields: [subjectId], references: [id])
+   988→  question    String
+   989→  questionType String  @default("Multiple Choice") // "Multiple Choice" | "True/False" | "Short Answer" | "Essay" | "Fill in the Blank"
+   990→  options     String?  // JSON string for MC options
+   991→  correctAnswer String?
+   992→  marks       Int      @default(1)
+   993→  difficulty  String   @default("Medium") // "Easy" | "Medium" | "Hard"
+   994→  topic       String?  // sub-topic
+   995→  bloomLevel  String?  // "Knowledge" | "Comprehension" | "Application" | "Analysis" | "Synthesis" | "Evaluation"
+   996→  createdBy   String?
+   997→  status      String   @default("Active") // "Active" | "Archived"
+   998→  createdAt   DateTime @default(now())
+   999→  updatedAt   DateTime @updatedAt
+  1000→}
+  1001→
+  1002→model Assessment {
+  1003→  id          String   @id @default(cuid())
+  1004→  title       String
+  1005→  subjectId   String?
+  1006→  subject     Subject? @relation(fields: [subjectId], references: [id])
+  1007→  classLevelId String?
+  1008→  classLevel  ClassLevel? @relation(fields: [classLevelId], references: [id])
+  1009→  assessmentType String @default("CAT") // "CAT" | "Quiz" | "Assignment" | "Project" | "Mock" | "Practical"
+  1010→  term        String   @default("Term 1")
+  1011→  academicYear String  @default("2025")
+  1012→  totalMarks  Int      @default(100)
+  1013→  weight      Float    @default(0) // contribution to term grade (percentage)
+  1014→  duration    Int?     // in minutes
+  1015→  startDate   DateTime
+  1016→  endDate     DateTime?
+  1017→  status      String   @default("Draft") // "Draft" | "Published" | "Completed" | "Graded"
+  1018→  rubric      String?  // grading rubric notes
+  1019→  instructions String?
+  1020→  createdBy   String?
+  1021→  createdAt   DateTime @default(now())
+  1022→  updatedAt   DateTime @updatedAt
+  1023→}
+  1024→
+  1025→// ---------------------------------------------------------------------------
+  1026→// Visitors & Gate Entry (security tracking)
+  1027→// ---------------------------------------------------------------------------
+  1028→
+  1029→model Visitor {
+  1030→  id            String   @id @default(cuid())
+  1031→  visitorName   String
+  1032→  idNumber      String?
+  1033→  phone         String?
+  1034→  purpose       String   @default("Other")
+  1035→  personToSee   String?
+  1036→  vehicleReg    String?
+  1037→  checkInTime   DateTime @default(now())
+  1038→  checkOutTime  DateTime?
+  1039→  status        String   @default("Checked In")
+  1040→  notes         String?
+  1041→  recordedBy    String?
+  1042→  createdAt     DateTime @default(now())
+  1043→}
+  1044→
+  1045→// ---------------------------------------------------------------------------
+  1046→// Payroll (salaries, payslips, deductions, allowances)
+  1047→// ---------------------------------------------------------------------------
+  1048→
+  1049→model Payslip {
+  1050→  id            String   @id @default(cuid())
+  1051→  payslipNo     String   @unique
+  1052→  staffId       String
+  1053→  staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  1054→  month         String   // "January" etc
+  1055→  year          Int
+  1056→  basicSalary   Float
+  1057→  allowances    Float    @default(0)
+  1058→  deductions    Float    @default(0)
+  1059→  taxPAYE       Float    @default(0)
+  1060→  nssf          Float    @default(0)
+  1061→  nhif          Float    @default(0)
+  1062→  netPay        Float
+  1063→  status        String   @default("Pending") // "Pending" | "Approved" | "Paid"
+  1064→  payDate       DateTime?
+  1065→  createdAt     DateTime @default(now())
+  1066→}
+  1067→
+  1068→// ---------------------------------------------------------------------------
+  1069→// Procurement (purchase orders, suppliers)
+  1070→// ---------------------------------------------------------------------------
+  1071→
+  1072→model Supplier {
+  1073→  id        String   @id @default(cuid())
+  1074→  name      String
+  1075→  category  String   @default("General") // "Stationery" | "Food" | "Equipment" | "Services" | "Other"
+  1076→  contact   String?
+  1077→  phone     String?
+  1078→  email     String?
+  1079→  address   String?
+  1080→  status    String   @default("Active")
+  1081→  createdAt DateTime @default(now())
+  1082→  orders    PurchaseOrder[]
+  1083→}
+  1084→
+  1085→model Appraisal {
+  1086→  id            String   @id @default(cuid())
+  1087→  staffId       String
+  1088→  reviewDate    DateTime @default(now())
+  1089→  punctuality   Int      @default(0) // 0-10
+  1090→  teamwork      Int      @default(0)
+  1091→  studentResults Int     @default(0)
+  1092→  professionalism Int    @default(0)
+  1093→  innovation    Int      @default(0)
+  1094→  overallScore  Int      @default(0)
+  1095→  strengths     String?
+  1096→  improvements  String?
+  1097→  goals         String?
+  1098→  reviewerName  String?
+  1099→  status        String   @default("Completed") // "Draft" | "Completed" | "Reviewed"
+  1100→  createdAt     DateTime @default(now())
+  1101→}
+  1102→
+  1103→// ---------------------------------------------------------------------------
+  1104→// Facility Booking (halls, grounds, labs)
+  1105→// ---------------------------------------------------------------------------
+  1106→
+  1107→model Facility {
+  1108→  id        String   @id @default(cuid())
+  1109→  name      String   @unique
+  1110→  type      String   @default("Hall") // "Hall" | "Ground" | "Lab" | "Classroom" | "Field"
+  1111→  capacity  Int      @default(50)
+  1112→  location  String?
+  1113→  status    String   @default("Available")
+  1114→  bookings  FacilityBooking[]
+  1115→}
+  1116→
+  1117→model FacilityBooking {
+  1118→  id          String   @id @default(cuid())
+  1119→  facilityId  String
+  1120→  facility    Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  1121→  bookedBy    String
+  1122→  purpose     String
+  1123→  startDate   DateTime
+  1124→  endDate     DateTime
+  1125→  status      String   @default("Pending") // "Pending" | "Approved" | "Rejected" | "Completed"
+  1126→  createdAt   DateTime @default(now())
+  1127→}
+  1128→
+  1129→// ---------------------------------------------------------------------------
+  1130→// Lesson Plans (schemes of work)
+  1131→// ---------------------------------------------------------------------------
+  1132→
+  1133→model LessonPlan {
+  1134→  id          String   @id @default(cuid())
+  1135→  subjectId   String?
+  1136→  subject     Subject? @relation(fields: [subjectId], references: [id])
+  1137→  classLevelId String?
+  1138→  classLevel  ClassLevel? @relation(fields: [classLevelId], references: [id])
+  1139→  week        Int
+  1140→  term        String   @default("Term 1")
+  1141→  topic       String
+  1142→  objectives  String?
+  1143→  activities  String?
+  1144→  resources   String?
+  1145→  assessment  String?
+  1146→  notes       String?
+  1147→  createdBy   String?
+  1148→  status      String   @default("Draft") // "Draft" | "Published" | "Completed"
+  1149→  createdAt   DateTime @default(now())
+  1150→  updatedAt   DateTime @updatedAt
+  1151→}
+  1152→
+  1153→// ---------------------------------------------------------------------------
+  1154→// Homework / Assignments
+  1155→// ---------------------------------------------------------------------------
+  1156→
+  1157→model Homework {
+  1158→  id          String   @id @default(cuid())
+  1159→  title       String
+  1160→  subjectId   String?
+  1161→  subject     Subject? @relation(fields: [subjectId], references: [id])
+  1162→  classLevelId String?
+  1163→  classLevel  ClassLevel? @relation(fields: [classLevelId], references: [id])
+  1164→  description String
+  1165→  dueDate     DateTime
+  1166→  maxMarks    Int      @default(100)
+  1167→  status      String   @default("Active") // "Active" | "Closed" | "Graded"
+  1168→  createdBy   String?
+  1169→  createdAt   DateTime @default(now())
+  1170→}
+  1171→
+  1172→// ---------------------------------------------------------------------------
+  1173→// Feedback / Surveys
+  1174→// ---------------------------------------------------------------------------
+  1175→
+  1176→model Feedback {
+  1177→  id        String   @id @default(cuid())
+  1178→  category  String   @default("General") // "General" | "Teaching" | "Facilities" | "Food" | "Transport"
+  1179→  rating    Int      @default(5) // 1-5 stars
+  1180→  comment   String
+  1181→  submittedBy String? // anonymous or name
+  1182→  role      String   @default("Parent") // "Parent" | "Student" | "Staff"
+  1183→  status    String   @default("New") // "New" | "Reviewed" | "Addressed"
+  1184→  createdAt DateTime @default(now())
+  1185→}
+  1186→
+  1187→// ---------------------------------------------------------------------------
+  1188→// Inventory Requests (staff request items from store/kitchen)
+  1189→// ---------------------------------------------------------------------------
+  1190→
+  1191→model InventoryRequest {
+  1192→  id            String   @id @default(cuid())
+  1193→  requestNo     String   @unique
+  1194→  requestType   String   @default("Kitchen") // "Kitchen" | "Stationery" | "Cleaning" | "Maintenance" | "Lab" | "Sports" | "Other"
+  1195→  itemName      String
+  1196→  description   String?
+  1197→  quantity      Int      @default(1)
+  1198→  unit          String   @default("pcs") // "kg" | "litres" | "pcs" | "boxes" | "packs"
+  1199→  urgency       String   @default("Normal") // "Low" | "Normal" | "High" | "Urgent"
+  1200→  requestedBy   String
+  1201→  requesterRole String   @default("Staff")
+  1202→  department    String?  // "Kitchen" | "Library" | "Science Lab" | "Administration"
+  1203→  status        String   @default("Pending") // "Pending" | "Approved" | "Rejected" | "Fulfilled" | "Partially Fulfilled"
+  1204→  approvedBy    String?
+  1205→  approvedAt    DateTime?
+  1206→  fulfilledBy   String?
+  1207→  fulfilledAt   DateTime?
+  1208→  fulfilledQty  Int      @default(0)
+  1209→  rejectionReason String?
+  1210→  notes         String?
+  1211→  createdAt     DateTime @default(now())
+  1212→  updatedAt     DateTime @updatedAt
+  1213→}
+  1214→
+  1215→// ---------------------------------------------------------------------------
+  1216→// Activity log (audit trail)
+  1217→// ---------------------------------------------------------------------------
+  1218→
+  1219→model ActivityLog {
+  1220→  id        String   @id @default(cuid())
+  1221→  action    String
+  1222→  entity    String
+  1223→  entityId  String?
+  1224→  user      String?
+  1225→  details   String?
+  1226→  createdAt DateTime @default(now())
+  1227→}
+  1228→

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// GET /api/inventory?category=&condition=&status=&search=
+// GET /api/inventory?category=&condition=&status=&search=&lowStock=1
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const category = searchParams.get('category') || ''
   const condition = searchParams.get('condition') || ''
   const status = searchParams.get('status') || ''
   const search = searchParams.get('search')?.trim() || ''
+  const lowStockOnly = searchParams.get('lowStock') === '1'
 
   const where: {
     category?: string
@@ -50,6 +51,20 @@ export async function GET(req: NextRequest) {
     db.assetMaintenance.count({ where: { status: { in: ['Scheduled', 'In Progress'] } } }),
   ])
 
+  // Low-stock items: tracked (reorderLevel > 0) AND quantityInStock <= reorderLevel
+  const tracked = assets.filter(a => a.reorderLevel > 0)
+  const lowStockItems = tracked
+    .filter(a => a.quantityInStock <= a.reorderLevel)
+    .map(a => ({
+      id: a.id, name: a.name, assetTag: a.assetTag, category: a.category,
+      quantityInStock: a.quantityInStock, reorderLevel: a.reorderLevel,
+      unitPrice: a.unitPrice, unit: a.unit, supplierName: a.supplierName,
+    }))
+
+  const visibleAssets = lowStockOnly
+    ? assets.filter(a => a.reorderLevel > 0 && a.quantityInStock <= a.reorderLevel)
+    : assets
+
   return NextResponse.json({
     stats: {
       totalAssets,
@@ -58,19 +73,23 @@ export async function GET(req: NextRequest) {
       depreciation: (purchaseValue._sum.purchaseCost || 0) - (totalValue._sum.currentValue || 0),
       underRepair,
       maintenanceDue,
+      lowStockCount: lowStockItems.length,
+      trackedCount: tracked.length,
     },
-    assets: assets.map(a => ({
+    assets: visibleAssets.map(a => ({
       ...a,
       maintenanceCount: a.maintenances.length,
       lastMaintenance: a.maintenances[0]?.date || null,
+      isLowStock: a.reorderLevel > 0 && a.quantityInStock <= a.reorderLevel,
     })),
+    lowStockItems,
     byCategory: byCategory.map(c => ({ name: c.category, count: c._count, value: c._sum.currentValue || 0 })),
     byCondition: byCondition.map(c => ({ name: c.condition, count: c._count })),
     byStatus: byStatus.map(s => ({ name: s.status, count: s._count })),
   })
 }
 
-// POST /api/inventory — create a new asset
+// POST /api/inventory — create a new asset / inventory item
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
   if (!body || !body.name) {
@@ -78,6 +97,13 @@ export async function POST(req: NextRequest) {
   }
   const count = await db.asset.count()
   const assetTag = `AST-${String(count + 1).padStart(3, '0')}`
+
+  const quantity = Number(body.quantity) || 1
+  const quantityInStockRaw = body.quantityInStock !== undefined ? Number(body.quantityInStock) : 0
+  const quantityInStock = Number.isFinite(quantityInStockRaw) ? quantityInStockRaw : 0
+  const reorderLevel = Math.max(0, Number(body.reorderLevel) || 0)
+  const unitPrice = Math.max(0, Number(body.unitPrice) || 0)
+
   const asset = await db.asset.create({
     data: {
       assetTag,
@@ -92,7 +118,12 @@ export async function POST(req: NextRequest) {
       status: body.status || 'In Use',
       location: body.location || null,
       assignedTo: body.assignedTo || null,
-      quantity: Number(body.quantity) || 1,
+      quantity,
+      quantityInStock,
+      reorderLevel,
+      unitPrice,
+      unit: body.unit || 'pcs',
+      supplierName: body.supplierName || null,
       notes: body.notes || null,
     },
   })

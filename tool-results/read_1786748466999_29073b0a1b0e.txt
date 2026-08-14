@@ -1,0 +1,1129 @@
+     1→'use client'
+     2→import { useState, useMemo, useEffect } from 'react'
+     3→import { useFetch, apiPost } from '@/lib/api'
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     5→import { Button } from '@/components/ui/button'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+     8→import { Skeleton } from '@/components/ui/skeleton'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Label } from '@/components/ui/label'
+    11→import { Textarea } from '@/components/ui/textarea'
+    12→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    13→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+    14→import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+    15→import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+    16→import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command'
+    17→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    18→import { cn } from '@/lib/utils'
+    19→import { avatarColor, initials, fullName, formatDate, timeAgo, statusColor } from '@/lib/format'
+    20→import { toast } from 'sonner'
+    21→import {
+    22→  Home, BedDouble, DoorOpen, Users, ClipboardCheck, Plus, Search,
+    23→  ChevronRight, MapPin, User, Phone, Building2, Star, TrendingUp,
+    24→  CheckCircle2, X, Wrench, UserPlus, LogOut, AlertTriangle, Loader2, Bed, ChevronDown, ChevronRight as ChevronR,
+    25→} from 'lucide-react'
+    26→
+    27→interface HostelData {
+    28→  stats: {
+    29→    totalDorms: number; totalCapacity: number; totalRooms: number; totalBeds: number; occupiedBeds: number
+    30→    totalAllocations: number; occupancyRate: number; totalInspections: number
+    31→  }
+    32→  dormitories: Array<{
+    33→    id: string; name: string; gender: string; capacity: number; location: string | null
+    34→    floors: number; status: string
+    35→    warden: { id: string; firstName: string; lastName: string; phone: string; employeeNo: string } | null
+    36→    activeAllocations: number; roomCount: number; fullRooms: number; availableRooms: number
+    37→    avgInspectionScore: number | null
+    38→    latestInspection: { id: string; date: string; overallScore: number; findings: string } | null
+    39→    rooms: Array<{ id: string; roomNumber: string; floor: number; capacity: number; occupied: number; status: string }>
+    40→  }>
+    41→  byGender: Array<{ name: string; count: number }>
+    42→}
+    43→
+    44→const GENDER_COLORS: Record<string, string> = { Boys: '#0d9488', Girls: '#d97706', Mixed: '#8b5cf6' }
+    45→const GENDER_BADGE: Record<string, string> = {
+    46→  Boys: 'border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-800 dark:bg-cyan-950 dark:text-cyan-400',
+    47→  Girls: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400',
+    48→  Mixed: 'border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-400',
+    49→}
+    50→
+    51→// Bed status badges: Available=emerald, Occupied=amber, Maintenance=rose
+    52→function bedStatusBadge(status: string): string {
+    53→  if (status === 'Occupied') return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400'
+    54→  if (status === 'Maintenance') return 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-400'
+    55→  return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400'
+    56→}
+    57→
+    58→function roomStatusBadge(status: string): string {
+    59→  if (status === 'Full') return 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-400'
+    60→  if (status === 'Maintenance') return 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400'
+    61→  return 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400'
+    62→}
+    63→
+    64→function scoreColor(score: number) {
+    65→  if (score >= 8) return 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800'
+    66→  if (score >= 6) return 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800'
+    67→  return 'text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-950 dark:text-rose-400 dark:border-rose-800'
+    68→}
+    69→
+    70→export function HostelModule() {
+    71→  const { data, loading } = useFetch<HostelData>('/api/hostel')
+    72→  const [search, setSearch] = useState('')
+    73→  const [genderFilter, setGenderFilter] = useState('all')
+    74→  const [statusFilter, setStatusFilter] = useState('all')
+    75→  const [selectedDorm, setSelectedDorm] = useState<string | null>(null)
+    76→  const [assignOpen, setAssignOpen] = useState(false)
+    77→
+    78→  const params = new URLSearchParams()
+    79→  if (search) params.set('search', search)
+    80→  if (genderFilter !== 'all') params.set('gender', genderFilter)
+    81→  if (statusFilter !== 'all') params.set('status', statusFilter)
+    82→  const { data: filtered } = useFetch<HostelData>(`/api/hostel?${params.toString()}`, [search, genderFilter, statusFilter])
+    83→
+    84→  if (loading && !data) {
+    85→    return (
+    86→      <div className="space-y-6">
+    87→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    88→          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
+    89→        </div>
+    90→        <Skeleton className="h-96 w-full rounded-xl" />
+    91→      </div>
+    92→    )
+    93→  }
+    94→
+    95→  const display = filtered || data!
+    96→  const stats = display.stats
+    97→
+    98→  return (
+    99→    <div className="space-y-6">
+   100→      {/* Header banner */}
+   101→      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-600 via-cyan-600 to-sky-700 p-6 text-white shadow-xl">
+   102→        <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+   103→        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+   104→          <div>
+   105→            <div className="mb-1 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+   106→              <Home className="h-3 w-3" /> {stats.totalDorms} dorms · {stats.occupiedBeds}/{stats.totalBeds} beds occupied ({stats.occupancyRate}%)
+   107→            </div>
+   108→            <h2 className="text-2xl font-bold tracking-tight">Hostel & Boarding</h2>
+   109→            <p className="mt-1 max-w-xl text-sm text-white/80">
+   110→              Manage dormitories, bed allocations, and conduct regular welfare inspections.
+   111→            </p>
+   112→          </div>
+   113→          <Button
+   114→            onClick={() => setAssignOpen(true)}
+   115→            className="bg-white text-teal-700 hover:bg-white/90 shadow-lg"
+   116→          >
+   117→            <UserPlus className="mr-2 h-4 w-4" /> Assign Student to Bed
+   118→          </Button>
+   119→        </div>
+   120→      </div>
+   121→
+   122→      {/* Stat cards */}
+   123→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   124→        <Card className="stat-card">
+   125→          <CardContent className="flex items-center gap-3 p-5">
+   126→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 ring-1 ring-teal-500/20">
+   127→              <Home className="h-5 w-5" />
+   128→            </div>
+   129→            <div>
+   130→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Dormitories</p>
+   131→              <p className="text-2xl font-bold">{stats.totalDorms}</p>
+   132→            </div>
+   133→          </CardContent>
+   134→        </Card>
+   135→        <Card className="stat-card">
+   136→          <CardContent className="flex items-center gap-3 p-5">
+   137→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 ring-1 ring-cyan-500/20">
+   138→              <DoorOpen className="h-5 w-5" />
+   139→            </div>
+   140→            <div>
+   141→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Rooms</p>
+   142→              <p className="text-2xl font-bold">{stats.totalRooms}</p>
+   143→            </div>
+   144→          </CardContent>
+   145→        </Card>
+   146→        <Card className="stat-card">
+   147→          <CardContent className="flex items-center gap-3 p-5">
+   148→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20">
+   149→              <BedDouble className="h-5 w-5" />
+   150→            </div>
+   151→            <div>
+   152→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Boarders</p>
+   153→              <p className="text-2xl font-bold">{stats.totalAllocations}</p>
+   154→            </div>
+   155→          </CardContent>
+   156→        </Card>
+   157→        <Card className="stat-card">
+   158→          <CardContent className="flex items-center gap-3 p-5">
+   159→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20">
+   160→              <TrendingUp className="h-5 w-5" />
+   161→            </div>
+   162→            <div>
+   163→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Occupancy Rate</p>
+   164→              <p className="text-2xl font-bold">{stats.occupancyRate}%</p>
+   165→            </div>
+   166→          </CardContent>
+   167→        </Card>
+   168→      </div>
+   169→
+   170→      {/* Occupancy progress bar */}
+   171→      <Card>
+   172→        <CardContent className="p-5">
+   173→          <div className="mb-2 flex items-center justify-between">
+   174→            <div>
+   175→              <p className="text-sm font-semibold">Overall Occupancy</p>
+   176→              <p className="text-xs text-muted-foreground">{stats.occupiedBeds} of {stats.totalBeds} beds filled</p>
+   177→            </div>
+   178→            <span className="text-2xl font-bold text-teal-600">{stats.occupancyRate}%</span>
+   179→          </div>
+   180→          <div className="h-3 overflow-hidden rounded-full bg-muted">
+   181→            <div
+   182→              className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 transition-all duration-700"
+   183→              style={{ width: `${stats.occupancyRate}%` }}
+   184→            />
+   185→          </div>
+   186→        </CardContent>
+   187→      </Card>
+   188→
+   189→      {/* Filters */}
+   190→      <Card>
+   191→        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
+   192→          <div className="relative flex-1">
+   193→            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   194→            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search dormitory name or location..." className="pl-9" />
+   195→          </div>
+   196→          <Select value={genderFilter} onValueChange={setGenderFilter}>
+   197→            <SelectTrigger className="w-full md:w-36"><SelectValue placeholder="Gender" /></SelectTrigger>
+   198→            <SelectContent>
+   199→              <SelectItem value="all">All Genders</SelectItem>
+   200→              <SelectItem value="Boys">Boys</SelectItem>
+   201→              <SelectItem value="Girls">Girls</SelectItem>
+   202→              <SelectItem value="Mixed">Mixed</SelectItem>
+   203→            </SelectContent>
+   204→          </Select>
+   205→          <Select value={statusFilter} onValueChange={setStatusFilter}>
+   206→            <SelectTrigger className="w-full md:w-36"><SelectValue placeholder="Status" /></SelectTrigger>
+   207→            <SelectContent>
+   208→              <SelectItem value="all">All Statuses</SelectItem>
+   209→              <SelectItem value="Active">Active</SelectItem>
+   210→              <SelectItem value="Maintenance">Maintenance</SelectItem>
+   211→              <SelectItem value="Closed">Closed</SelectItem>
+   212→            </SelectContent>
+   213→          </Select>
+   214→        </CardContent>
+   215→      </Card>
+   216→
+   217→      {/* Dormitory cards grid */}
+   218→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+   219→        {display.dormitories.map(d => (
+   220→          <Card key={d.id} className="stat-card cursor-pointer transition-all hover:shadow-lg" onClick={() => setSelectedDorm(d.id)}>
+   221→            <CardContent className="p-5">
+   222→              {/* Header */}
+   223→              <div className="flex items-start justify-between gap-2">
+   224→                <div className="flex items-center gap-2.5">
+   225→                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-md">
+   226→                    <Home className="h-5 w-5" />
+   227→                  </div>
+   228→                  <div className="min-w-0">
+   229→                    <p className="truncate text-sm font-bold">{d.name}</p>
+   230→                    <p className="truncate text-[10px] text-muted-foreground">{d.location} · {d.floors} floor{d.floors > 1 ? 's' : ''}</p>
+   231→                  </div>
+   232→                </div>
+   233→                <Badge variant="outline" className={cn('shrink-0 text-[10px]', GENDER_BADGE[d.gender])}>{d.gender}</Badge>
+   234→              </div>
+   235→
+   236→              {/* Stats grid */}
+   237→              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+   238→                <div className="rounded-lg bg-muted/40 p-2">
+   239→                  <p className="text-[9px] uppercase text-muted-foreground">Rooms</p>
+   240→                  <p className="text-sm font-bold">{d.roomCount}</p>
+   241→                </div>
+   242→                <div className="rounded-lg bg-muted/40 p-2">
+   243→                  <p className="text-[9px] uppercase text-muted-foreground">Occupied</p>
+   244→                  <p className="text-sm font-bold text-teal-600">{d.activeAllocations}</p>
+   245→                </div>
+   246→                <div className="rounded-lg bg-muted/40 p-2">
+   247→                  <p className="text-[9px] uppercase text-muted-foreground">Capacity</p>
+   248→                  <p className="text-sm font-bold">{d.capacity}</p>
+   249→                </div>
+   250→              </div>
+   251→
+   252→              {/* Occupancy bar */}
+   253→              <div className="mt-2">
+   254→                <div className="mb-1 flex justify-between text-[10px]">
+   255→                  <span className="text-muted-foreground">Occupancy</span>
+   256→                  <span className="font-semibold">{d.capacity > 0 ? Math.round((d.activeAllocations / d.capacity) * 100) : 0}%</span>
+   257→                </div>
+   258→                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+   259→                  <div className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-500" style={{ width: `${d.capacity > 0 ? (d.activeAllocations / d.capacity) * 100 : 0}%` }} />
+   260→                </div>
+   261→              </div>
+   262→
+   263→              {/* Room availability */}
+   264→              <div className="mt-3 flex items-center gap-3 text-[10px]">
+   265→                <span className="flex items-center gap-1"><CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" />{d.availableRooms} available</span>
+   266→                <span className="flex items-center gap-1"><BedDouble className="h-2.5 w-2.5 text-amber-500" />{d.fullRooms} full</span>
+   267→              </div>
+   268→
+   269→              {/* Warden + inspection */}
+   270→              <div className="mt-3 space-y-1.5 border-t pt-2 text-[10px]">
+   271→                {d.warden && (
+   272→                  <div className="flex items-center gap-1.5 text-muted-foreground">
+   273→                    <User className="h-2.5 w-2.5" />
+   274→                    <span>Warden: <span className="font-medium text-foreground">{d.warden.firstName} {d.warden.lastName}</span></span>
+   275→                  </div>
+   276→                )}
+   277→                {d.avgInspectionScore !== null && (
+   278→                  <div className="flex items-center gap-1.5 text-muted-foreground">
+   279→                    <Star className="h-2.5 w-2.5 text-amber-500" />
+   280→                    <span>Avg Score: <span className={cn('font-bold', scoreColor(d.avgInspectionScore).split(' ')[0])}>{d.avgInspectionScore}/10</span></span>
+   281→                  </div>
+   282→                )}
+   283→              </div>
+   284→            </CardContent>
+   285→          </Card>
+   286→        ))}
+   287→      </div>
+   288→      {display.dormitories.length === 0 && (
+   289→        <Card>
+   290→          <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center text-sm text-muted-foreground">
+   291→            <Home className="h-8 w-8" />
+   292→            <p>No dormitories match your filters.</p>
+   293→          </CardContent>
+   294→        </Card>
+   295→      )}
+   296→
+   297→      {/* Detail dialog */}
+   298→      {selectedDorm && <DormitoryDetailDialog dormId={selectedDorm} onClose={() => setSelectedDorm(null)} onAssign={() => setAssignOpen(true)} />}
+   299→
+   300→      {/* Assign student to bed dialog (top-level entry) */}
+   301→      <AssignStudentDialog open={assignOpen} onOpenChange={setAssignOpen} onAssigned={() => setSelectedDorm(null)} />
+   302→    </div>
+   303→  )
+   304→}
+   305→
+   306→// ---------------------------------------------------------------------------
+   307→// Dormitory Detail Dialog
+   308→// ---------------------------------------------------------------------------
+   309→function DormitoryDetailDialog({ dormId, onClose, onAssign }: { dormId: string; onClose: () => void; onAssign: () => void }) {
+   310→  const { data: dorm, loading, refetch } = useFetch<any>(`/api/hostel/${dormId}`)
+   311→  const [expandedRooms, setExpandedRooms] = useState<Record<string, boolean>>({})
+   312→  const [vacateTarget, setVacateTarget] = useState<{ bedId: string; bedNumber: string; occupantName: string } | null>(null)
+   313→  const [maintTarget, setMaintTarget] = useState<{ bedId: string; bedNumber: string; occupantName: string | null } | null>(null)
+   314→  const [busyBedId, setBusyBedId] = useState<string | null>(null)
+   315→  const [assignForRoom, setAssignForRoom] = useState<{ roomId: string; bedId: string | null } | null>(null)
+   316→
+   317→  const toggleRoom = (roomId: string) => setExpandedRooms(prev => ({ ...prev, [roomId]: !prev[roomId] }))
+   318→
+   319→  const handleVacate = async () => {
+   320→    if (!vacateTarget) return
+   321→    setBusyBedId(vacateTarget.bedId)
+   322→    try {
+   323→      await apiPost('/api/hostel/vacate', { bedId: vacateTarget.bedId, reason: 'Manual checkout' })
+   324→      toast.success(`${vacateTarget.occupantName} checked out from ${vacateTarget.bedNumber}`)
+   325→      setVacateTarget(null)
+   326→      refetch()
+   327→    } catch (e: any) {
+   328→      toast.error(e?.message || 'Failed to vacate bed')
+   329→    } finally {
+   330→      setBusyBedId(null)
+   331→    }
+   332→  }
+   333→
+   334→  const handleMarkMaintenance = async (confirmVacate: boolean) => {
+   335→    if (!maintTarget) return
+   336→    setBusyBedId(maintTarget.bedId)
+   337→    try {
+   338→      const r = await fetch(`/api/hostel/beds/${maintTarget.bedId}`, {
+   339→        method: 'PATCH',
+   340→        headers: { 'Content-Type': 'application/json' },
+   341→        body: JSON.stringify({ status: 'Maintenance', vacateIfOccupied: confirmVacate }),
+   342→      })
+   343→      const json = await r.json()
+   344→      if (!r.ok) {
+   345→        toast.error(json?.error || `Failed (${r.status})`)
+   346→      } else {
+   347→        toast.success(`${maintTarget.bedNumber} marked as Maintenance`)
+   348→        setMaintTarget(null)
+   349→        refetch()
+   350→      }
+   351→    } catch (e: any) {
+   352→      toast.error(e?.message || 'Failed to update bed')
+   353→    } finally {
+   354→      setBusyBedId(null)
+   355→    }
+   356→  }
+   357→
+   358→  const handleRestore = async (bedId: string, bedNumber: string) => {
+   359→    setBusyBedId(bedId)
+   360→    try {
+   361→      const r = await fetch(`/api/hostel/beds/${bedId}`, {
+   362→        method: 'PATCH',
+   363→        headers: { 'Content-Type': 'application/json' },
+   364→        body: JSON.stringify({ status: 'Available' }),
+   365→      })
+   366→      const json = await r.json()
+   367→      if (!r.ok) {
+   368→        toast.error(json?.error || `Failed (${r.status})`)
+   369→      } else {
+   370→        toast.success(`${bedNumber} restored to Available`)
+   371→        refetch()
+   372→      }
+   373→    } catch (e: any) {
+   374→      toast.error(e?.message || 'Failed to restore bed')
+   375→    } finally {
+   376→      setBusyBedId(null)
+   377→    }
+   378→  }
+   379→
+   380→  return (
+   381→    <>
+   382→      <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+   383→        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto scrollbar-thin">
+   384→          {loading || !dorm ? (
+   385→            <div className="p-6 space-y-3">
+   386→              <Skeleton className="h-12 w-full" />
+   387→              <Skeleton className="h-32 w-full" />
+   388→              <Skeleton className="h-48 w-full" />
+   389→            </div>
+   390→          ) : (
+   391→            <>
+   392→              <DialogHeader>
+   393→                <DialogTitle className="flex items-center gap-2">
+   394→                  <Home className="h-5 w-5 text-teal-500" /> {dorm.name}
+   395→                </DialogTitle>
+   396→                <DialogDescription>{dorm.gender} · {dorm.location} · {dorm.floors} floor{dorm.floors > 1 ? 's' : ''}</DialogDescription>
+   397→              </DialogHeader>
+   398→
+   399→              {/* Info grid */}
+   400→              <div className="grid gap-3 sm:grid-cols-2">
+   401→                <Card className="border-teal-200/50 bg-teal-50/30 dark:bg-teal-950/10">
+   402→                  <CardContent className="p-4">
+   403→                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-400">Dormitory Info</p>
+   404→                    <div className="space-y-1.5 text-sm">
+   405→                      <div className="flex items-center gap-2"><Building2 className="h-3.5 w-3.5 text-muted-foreground" /><span>Capacity: {dorm.capacity} beds</span></div>
+   406→                      <div className="flex items-center gap-2"><DoorOpen className="h-3.5 w-3.5 text-muted-foreground" /><span>Rooms: {dorm.rooms.length}</span></div>
+   407→                      <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-muted-foreground" /><span>{dorm.location || 'N/A'}</span></div>
+   408→                      <div className="flex items-center gap-2"><Badge variant="secondary" className={cn('text-[10px]', statusColor(dorm.status))}>{dorm.status}</Badge></div>
+   409→                    </div>
+   410→                  </CardContent>
+   411→                </Card>
+   412→                <Card>
+   413→                  <CardContent className="p-4">
+   414→                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Warden</p>
+   415→                    {dorm.warden ? (
+   416→                      <div className="space-y-1.5 text-sm">
+   417→                        <div className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" /><span className="font-medium">{dorm.warden.firstName} {dorm.warden.lastName}</span></div>
+   418→                        <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" /><span>{dorm.warden.phone}</span></div>
+   419→                        <div className="flex items-center gap-2"><Badge variant="outline" className="text-[10px]">{dorm.warden.employeeNo}</Badge></div>
+   420→                      </div>
+   421→                    ) : <p className="text-xs text-muted-foreground">No warden assigned</p>}
+   422→                  </CardContent>
+   423→                </Card>
+   424→              </div>
+   425→
+   426→              {/* Rooms + Beds */}
+   427→              <div>
+   428→                <div className="mb-2 flex items-center justify-between">
+   429→                  <p className="text-sm font-semibold">Rooms & Beds ({dorm.rooms.length})</p>
+   430→                  <Button size="sm" variant="outline" onClick={onAssign} className="h-7 text-xs">
+   431→                    <UserPlus className="mr-1 h-3 w-3" /> Assign Student
+   432→                  </Button>
+   433→                </div>
+   434→                <div className="max-h-[28rem] space-y-2 overflow-y-auto scrollbar-thin pr-1">
+   435→                  {dorm.rooms.map((r: any) => {
+   436→                    const expanded = !!expandedRooms[r.id]
+   437→                    const beds = r.beds || []
+   438→                    const occupiedCount = beds.filter((b: any) => b.status === 'Occupied').length
+   439→                    return (
+   440→                      <div key={r.id} className="rounded-lg border">
+   441→                        <button
+   442→                          onClick={() => toggleRoom(r.id)}
+   443→                          className="flex w-full items-center justify-between p-3 text-left hover:bg-muted/40"
+   444→                        >
+   445→                          <div className="flex items-center gap-2">
+   446→                            {expanded
+   447→                              ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+   448→                              : <ChevronR className="h-4 w-4 text-muted-foreground" />}
+   449→                            <span className="text-sm font-medium">{r.roomNumber}</span>
+   450→                            <Badge variant="outline" className={cn('text-[10px]', roomStatusBadge(r.status))}>{r.status}</Badge>
+   451→                          </div>
+   452→                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+   453→                            <span>Floor {r.floor}</span>
+   454→                            <span className="font-semibold text-foreground">{occupiedCount}/{r.capacity}</span>
+   455→                            <span>occupied</span>
+   456→                          </div>
+   457→                        </button>
+   458→                        {expanded && (
+   459→                          <div className="border-t bg-muted/20 p-2">
+   460→                            {beds.length === 0 ? (
+   461→                              <p className="px-2 py-3 text-xs text-muted-foreground">No beds configured for this room.</p>
+   462→                            ) : (
+   463→                              <div className="grid gap-2 sm:grid-cols-2">
+   464→                                {beds.map((b: any) => (
+   465→                                  <BedCard
+   466→                                    key={b.id}
+   467→                                    bed={b}
+   468→                                    roomNumber={r.roomNumber}
+   469→                                    busy={busyBedId === b.id}
+   470→                                    onAssign={() => setAssignForRoom({ roomId: r.id, bedId: b.id })}
+   471→                                    onVacate={() => setVacateTarget({
+   472→                                      bedId: b.id,
+   473→                                      bedNumber: `${r.roomNumber} · ${b.bedNumber}`,
+   474→                                      occupantName: b.student ? `${b.student.firstName} ${b.student.lastName}` : '',
+   475→                                    })}
+   476→                                    onMaintenance={() => setMaintTarget({
+   477→                                      bedId: b.id,
+   478→                                      bedNumber: `${r.roomNumber} · ${b.bedNumber}`,
+   479→                                      occupantName: b.student ? `${b.student.firstName} ${b.student.lastName}` : null,
+   480→                                    })}
+   481→                                    onRestore={() => handleRestore(b.id, `${r.roomNumber} · ${b.bedNumber}`)}
+   482→                                  />
+   483→                                ))}
+   484→                              </div>
+   485→                            )}
+   486→                          </div>
+   487→                        )}
+   488→                      </div>
+   489→                    )
+   490→                  })}
+   491→                </div>
+   492→              </div>
+   493→
+   494→              {/* Inspections */}
+   495→              {dorm.inspections.length > 0 && (
+   496→                <div>
+   497→                  <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+   498→                    <ClipboardCheck className="h-4 w-4 text-teal-500" /> Inspection History ({dorm.inspections.length})
+   499→                  </p>
+   500→                  <div className="max-h-48 space-y-2 overflow-y-auto scrollbar-thin pr-1">
+   501→                    {dorm.inspections.map((insp: any) => (
+   502→                      <div key={insp.id} className="rounded-lg border p-3">
+   503→                        <div className="flex items-center justify-between">
+   504→                          <div className="flex items-center gap-2">
+   505→                            <Badge variant="outline" className={cn('text-[10px] font-bold', scoreColor(insp.overallScore))}>{insp.overallScore}/10</Badge>
+   506→                            <span className="text-xs text-muted-foreground">{formatDate(insp.date)}</span>
+   507→                            {insp.inspectedBy && <span className="text-[10px] text-muted-foreground">· by {insp.inspectedBy}</span>}
+   508→                          </div>
+   509→                        </div>
+   510→                        {insp.findings && <p className="mt-1 text-xs">{insp.findings}</p>}
+   511→                        <div className="mt-1.5 flex gap-3 text-[10px] text-muted-foreground">
+   512→                          <span>Cleanliness: <span className="font-semibold">{insp.cleanliness}/10</span></span>
+   513→                          <span>Organization: <span className="font-semibold">{insp.organization}/10</span></span>
+   514→                          <span>Discipline: <span className="font-semibold">{insp.discipline}/10</span></span>
+   515→                        </div>
+   516→                      </div>
+   517→                    ))}
+   518→                  </div>
+   519→                </div>
+   520→              )}
+   521→            </>
+   522→          )}
+   523→        </DialogContent>
+   524→      </Dialog>
+   525→
+   526→      {/* Vacate confirmation */}
+   527→      <AlertDialog open={!!vacateTarget} onOpenChange={(o) => { if (!o) setVacateTarget(null) }}>
+   528→        <AlertDialogContent>
+   529→          <AlertDialogHeader>
+   530→            <AlertDialogTitle className="flex items-center gap-2">
+   531→              <LogOut className="h-5 w-5 text-amber-500" /> Vacate Bed
+   532→            </AlertDialogTitle>
+   533→            <AlertDialogDescription>
+   534→              Check out <span className="font-semibold text-foreground">{vacateTarget?.occupantName}</span> from{' '}
+   535→              <span className="font-semibold text-foreground">{vacateTarget?.bedNumber}</span>?
+   536→              The bed will become Available and the student will no longer be a boarder (unless assigned elsewhere).
+   537→            </AlertDialogDescription>
+   538→          </AlertDialogHeader>
+   539→          <AlertDialogFooter>
+   540→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   541→            <AlertDialogAction
+   542→              onClick={handleVacate}
+   543→              className="bg-amber-600 hover:bg-amber-700 text-white"
+   544→            >
+   545→              Yes, Vacate Bed
+   546→            </AlertDialogAction>
+   547→          </AlertDialogFooter>
+   548→        </AlertDialogContent>
+   549→      </AlertDialog>
+   550→
+   551→      {/* Maintenance confirmation (bed occupied) */}
+   552→      <AlertDialog open={!!maintTarget && !!maintTarget?.occupantName} onOpenChange={(o) => { if (!o) setMaintTarget(null) }}>
+   553→        <AlertDialogContent>
+   554→          <AlertDialogHeader>
+   555→            <AlertDialogTitle className="flex items-center gap-2">
+   556→              <Wrench className="h-5 w-5 text-rose-500" /> Mark Bed for Maintenance
+   557→            </AlertDialogTitle>
+   558→            <AlertDialogDescription>
+   559→              <span className="font-semibold text-foreground">{maintTarget?.bedNumber}</span> is currently occupied by{' '}
+   560→              <span className="font-semibold text-foreground">{maintTarget?.occupantName}</span>.
+   561→              Putting this bed into Maintenance will check them out. Continue?
+   562→            </AlertDialogDescription>
+   563→          </AlertDialogHeader>
+   564→          <AlertDialogFooter>
+   565→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   566→            <AlertDialogAction
+   567→              onClick={() => handleMarkMaintenance(true)}
+   568→              className="bg-rose-600 hover:bg-rose-700 text-white"
+   569→            >
+   570→              Vacate & Mark Maintenance
+   571→            </AlertDialogAction>
+   572→          </AlertDialogFooter>
+   573→        </AlertDialogContent>
+   574→      </AlertDialog>
+   575→
+   576→      {/* Maintenance confirmation (bed empty) */}
+   577→      <AlertDialog open={!!maintTarget && !maintTarget?.occupantName} onOpenChange={(o) => { if (!o) setMaintTarget(null) }}>
+   578→        <AlertDialogContent>
+   579→          <AlertDialogHeader>
+   580→            <AlertDialogTitle className="flex items-center gap-2">
+   581→              <Wrench className="h-5 w-5 text-rose-500" /> Mark Bed for Maintenance
+   582→            </AlertDialogTitle>
+   583→            <AlertDialogDescription>
+   584→              Mark <span className="font-semibold text-foreground">{maintTarget?.bedNumber}</span> as under Maintenance? It will be unavailable for assignment until restored.
+   585→            </AlertDialogDescription>
+   586→          </AlertDialogHeader>
+   587→          <AlertDialogFooter>
+   588→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   589→            <AlertDialogAction
+   590→              onClick={() => handleMarkMaintenance(false)}
+   591→              className="bg-rose-600 hover:bg-rose-700 text-white"
+   592→            >
+   593→              Mark as Maintenance
+   594→            </AlertDialogAction>
+   595→          </AlertDialogFooter>
+   596→        </AlertDialogContent>
+   597→      </AlertDialog>
+   598→
+   599→      {/* Per-bed assign dialog (uses same flow as top-level assign but with bed preselected) */}
+   600→      {assignForRoom && (
+   601→        <AssignStudentDialog
+   602→          open
+   603→          onOpenChange={(o) => { if (!o) setAssignForRoom(null) }}
+   604→          preselectedBedId={assignForRoom.bedId}
+   605→          preselectedRoomId={assignForRoom.roomId}
+   606→          dormitoryId={dorm?.id}
+   607→          onAssigned={() => { setAssignForRoom(null); refetch() }}
+   608→        />
+   609→      )}
+   610→    </>
+   611→  )
+   612→}
+   613→
+   614→// ---------------------------------------------------------------------------
+   615→// Bed card (inside the expanded room)
+   616→// ---------------------------------------------------------------------------
+   617→function BedCard({
+   618→  bed, roomNumber, busy, onAssign, onVacate, onMaintenance, onRestore,
+   619→}: {
+   620→  bed: any
+   621→  roomNumber: string
+   622→  busy: boolean
+   623→  onAssign: () => void
+   624→  onVacate: () => void
+   625→  onMaintenance: () => void
+   626→  onRestore: () => void
+   627→}) {
+   628→  const occupant = bed.student
+   629→  return (
+   630→    <div className={cn(
+   631→      'rounded-lg border p-2.5 transition-all',
+   632→      bed.status === 'Occupied' ? 'border-amber-200 bg-amber-50/40 dark:border-amber-900/50 dark:bg-amber-950/10'
+   633→      : bed.status === 'Maintenance' ? 'border-rose-200 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/10'
+   634→      : 'border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/50 dark:bg-emerald-950/10',
+   635→    )}>
+   636→      <div className="flex items-start justify-between gap-2">
+   637→        <div className="flex items-center gap-2 min-w-0">
+   638→          <div className={cn(
+   639→            'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
+   640→            bed.status === 'Occupied' ? 'bg-amber-500/15 text-amber-600'
+   641→            : bed.status === 'Maintenance' ? 'bg-rose-500/15 text-rose-600'
+   642→            : 'bg-emerald-500/15 text-emerald-600',
+   643→          )}>
+   644→            <Bed className="h-3.5 w-3.5" />
+   645→          </div>
+   646→          <div className="min-w-0">
+   647→            <p className="text-xs font-semibold truncate">{bed.bedNumber}</p>
+   648→            <Badge variant="outline" className={cn('text-[9px] mt-0.5', bedStatusBadge(bed.status))}>{bed.status}</Badge>
+   649→          </div>
+   650→        </div>
+   651→        {busy && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+   652→      </div>
+   653→
+   654→      {occupant ? (
+   655→        <div className="mt-2 flex items-center gap-2 border-t pt-2">
+   656→          <Avatar className="h-6 w-6">
+   657→            <AvatarFallback className={cn('text-[9px] text-white', avatarColor(occupant.id))}>
+   658→              {initials(occupant.firstName, occupant.lastName)}
+   659→            </AvatarFallback>
+   660→          </Avatar>
+   661→          <div className="min-w-0 flex-1">
+   662→            <p className="text-[11px] font-medium truncate">{occupant.firstName} {occupant.lastName}</p>
+   663→            <p className="text-[10px] text-muted-foreground truncate">{occupant.admissionNo}</p>
+   664→          </div>
+   665→        </div>
+   666→      ) : (
+   667→        bed.status !== 'Maintenance' && (
+   668→          <p className="mt-2 border-t pt-2 text-[10px] italic text-muted-foreground">Empty bed</p>
+   669→        )
+   670→      )}
+   671→
+   672→      {/* Actions */}
+   673→      <div className="mt-2 flex flex-wrap gap-1">
+   674→        {bed.status === 'Available' && (
+   675→          <Button size="sm" variant="outline" onClick={onAssign} className="h-6 px-2 text-[10px] text-emerald-700 hover:text-emerald-800 dark:text-emerald-400">
+   676→            <UserPlus className="mr-1 h-3 w-3" /> Assign
+   677→          </Button>
+   678→        )}
+   679→        {bed.status === 'Occupied' && (
+   680→          <>
+   681→            <Button size="sm" variant="outline" onClick={onAssign} className="h-6 px-2 text-[10px]">
+   682→              <Users className="mr-1 h-3 w-3" /> Reassign
+   683→            </Button>
+   684→            <Button size="sm" variant="outline" onClick={onVacate} className="h-6 px-2 text-[10px] text-amber-700 hover:text-amber-800 dark:text-amber-400">
+   685→              <LogOut className="mr-1 h-3 w-3" /> Vacate
+   686→            </Button>
+   687→          </>
+   688→        )}
+   689→        {bed.status === 'Maintenance' ? (
+   690→          <Button size="sm" variant="outline" onClick={onRestore} className="h-6 px-2 text-[10px] text-emerald-700 hover:text-emerald-800 dark:text-emerald-400">
+   691→            <CheckCircle2 className="mr-1 h-3 w-3" /> Restore
+   692→          </Button>
+   693→        ) : (
+   694→          <Button size="sm" variant="ghost" onClick={onMaintenance} className="h-6 px-2 text-[10px] text-rose-600 hover:text-rose-700 dark:text-rose-400">
+   695→            <Wrench className="mr-1 h-3 w-3" /> Maint.
+   696→          </Button>
+   697→        )}
+   698→      </div>
+   699→    </div>
+   700→  )
+   701→}
+   702→
+   703→// ---------------------------------------------------------------------------
+   704→// Assign Student to Bed Dialog
+   705→// ---------------------------------------------------------------------------
+   706→interface AssignStudentDialogProps {
+   707→  open: boolean
+   708→  onOpenChange: (o: boolean) => void
+   709→  preselectedBedId?: string | null
+   710→  preselectedRoomId?: string | null
+   711→  dormitoryId?: string
+   712→  onAssigned?: () => void
+   713→}
+   714→
+   715→interface StudentSearchResult {
+   716→  id: string; admissionNo: string; firstName: string; lastName: string; gender: string
+   717→  phone?: string | null; boarding: boolean; status: string; photoUrl?: string | null
+   718→  currentEnrollment: any | null
+   719→  currentBed: { id: string; bedNumber: string; room: { id: string; roomNumber: string; dormitory: { name: string; gender: string } } } | null
+   720→}
+   721→
+   722→interface BedOption {
+   723→  id: string; bedNumber: string; status: string; studentId: string | null
+   724→  student: { id: string; admissionNo: string; firstName: string; lastName: string } | null
+   725→  room: { id: string; roomNumber: string; capacity: number; occupied: number; status: string; dormitory: { id: string; name: string; gender: string } }
+   726→}
+   727→
+   728→function AssignStudentDialog({ open, onOpenChange, preselectedBedId, preselectedRoomId, dormitoryId, onAssigned }: AssignStudentDialogProps) {
+   729→  // 1) Fetch list of dormitories (with rooms) for the cascading selectors
+   730→  const { data: hostelData, loading: loadingHostel } = useFetch<{ dormitories: any[] }>('/api/hostel')
+   731→
+   732→  // 2) Form state
+   733→  const [dormId, setDormId] = useState<string | null>(dormitoryId || null)
+   734→  const [roomId, setRoomId] = useState<string | null>(preselectedRoomId || null)
+   735→  const [bedId, setBedId] = useState<string | null>(preselectedBedId || null)
+   736→  const [studentQuery, setStudentQuery] = useState('')
+   737→  const [selectedStudent, setSelectedStudent] = useState<StudentSearchResult | null>(null)
+   738→  const [studentOpen, setStudentOpen] = useState(false)
+   739→  const [submitting, setSubmitting] = useState(false)
+   740→  const [warning, setWarning] = useState<{ code: string; message: string; details?: any } | null>(null)
+   741→  const [notes, setNotes] = useState('')
+   742→
+   743→  // Reset state when dialog opens
+   744→  useEffect(() => {
+   745→    if (open) {
+   746→      setDormId(dormitoryId || null)
+   747→      setRoomId(preselectedRoomId || null)
+   748→      setBedId(preselectedBedId || null)
+   749→      setStudentQuery('')
+   750→      setSelectedStudent(null)
+   751→      setWarning(null)
+   752→      setNotes('')
+   753→    }
+   754→  }, [open, preselectedBedId, preselectedRoomId, dormitoryId])
+   755→
+   756→  // Reset room/bed when dorm changes
+   757→  useEffect(() => {
+   758→    if (!open) return
+   759→    if (dormId && dormId !== dormitoryId) {
+   760→      setRoomId(null)
+   761→      setBedId(null)
+   762→    }
+   763→  }, [dormId])
+   764→
+   765→  // Reset bed when room changes
+   766→  useEffect(() => {
+   767→    if (!open) return
+   768→    if (roomId && roomId !== preselectedRoomId) {
+   769→      setBedId(null)
+   770→    }
+   771→  }, [roomId])
+   772→
+   773→  // Filter dormitories/rooms/beds based on current selections
+   774→  const dormitories = hostelData?.dormitories || []
+   775→  const selectedDorm = dormitories.find((d: any) => d.id === dormId)
+   776→  const rooms = useMemo(() => {
+   777→    if (!dormId) return []
+   778→    const d = dormitories.find((d: any) => d.id === dormId)
+   779→    return d?.rooms || []
+   780→  }, [dormId, dormitories])
+   781→
+   782→  // Fetch beds for the selected room (so we can show occupant info too)
+   783→  const bedsUrl = roomId ? `/api/hostel/beds?roomId=${roomId}` : null
+   784→  const { data: bedsData, loading: loadingBeds } = useFetch<{ beds: BedOption[] }>(bedsUrl, [roomId])
+   785→  const beds = bedsData?.beds || []
+   786→
+   787→  // 3) Student search (debounced via useEffect on studentQuery)
+   788→  const [studentResults, setStudentResults] = useState<StudentSearchResult[]>([])
+   789→  const [loadingStudents, setLoadingStudents] = useState(false)
+   790→  useEffect(() => {
+   791→    if (!studentOpen) return
+   792→    const q = studentQuery.trim()
+   793→    if (q.length < 1) {
+   794→      setStudentResults([])
+   795→      return
+   796→    }
+   797→    let cancelled = false
+   798→    setLoadingStudents(true)
+   799→    const t = setTimeout(() => {
+   800→      fetch(`/api/hostel/students/search?search=${encodeURIComponent(q)}&limit=20`)
+   801→        .then(async (r) => {
+   802→          if (!r.ok) return
+   803→          const json = await r.json()
+   804→          if (!cancelled) setStudentResults(json.students || [])
+   805→        })
+   806→        .catch(() => {})
+   807→        .finally(() => { if (!cancelled) setLoadingStudents(false) })
+   808→    }, 250)
+   809→    return () => { cancelled = true; clearTimeout(t) }
+   810→  }, [studentQuery, studentOpen])
+   811→
+   812→  const selectedBed = beds.find(b => b.id === bedId) || null
+   813→
+   814→  const canAssign = !!bedId && !!selectedStudent && !submitting
+   815→
+   816→  const handleAssign = async (force: boolean) => {
+   817→    if (!bedId || !selectedStudent) return
+   818→    setSubmitting(true)
+   819→    setWarning(null)
+   820→    try {
+   821→      const r = await fetch('/api/hostel/assign', {
+   822→        method: 'POST',
+   823→        headers: { 'Content-Type': 'application/json' },
+   824→        body: JSON.stringify({ bedId, studentId: selectedStudent.id, force, notes: notes.trim() || undefined }),
+   825→      })
+   826→      const json = await r.json()
+   827→      if (!r.ok) {
+   828→        if (r.status === 409 && (json.code === 'BED_OCCUPIED' || json.code === 'STUDENT_ALREADY_ASSIGNED' || json.code === 'GENDER_MISMATCH' || json.code === 'BED_MAINTENANCE' || json.code === 'ROOM_MAINTENANCE')) {
+   829→          setWarning({
+   830→            code: json.code,
+   831→            message: json.error || 'Conflict',
+   832→            details: json.currentOccupant || json.previousBed || null,
+   833→          })
+   834→          return
+   835→        }
+   836→        toast.error(json?.error || `Failed (${r.status})`)
+   837→        return
+   838→      }
+   839→      if (json.noOp) {
+   840→        toast.info(json.message || 'Student already assigned to this bed')
+   841→      } else {
+   842→        toast.success(`${selectedStudent.firstName} ${selectedStudent.lastName} assigned to ${selectedBed?.bedNumber || 'bed'}`)
+   843→      }
+   844→      onOpenChange(false)
+   845→      onAssigned?.()
+   846→    } catch (e: any) {
+   847→      toast.error(e?.message || 'Failed to assign student')
+   848→    } finally {
+   849→      setSubmitting(false)
+   850→    }
+   851→  }
+   852→
+   853→  return (
+   854→    <Dialog open={open} onOpenChange={(o) => { if (!submitting) onOpenChange(o) }}>
+   855→      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto scrollbar-thin">
+   856→        <DialogHeader>
+   857→          <DialogTitle className="flex items-center gap-2">
+   858→            <UserPlus className="h-5 w-5 text-teal-500" /> Assign Student to Bed
+   859→          </DialogTitle>
+   860→          <DialogDescription>
+   861→            Select a hostel, room, and bed, then search for a student by name or admission number.
+   862→          </DialogDescription>
+   863→        </DialogHeader>
+   864→
+   865→        <div className="space-y-4">
+   866→          {/* Step 1: Hostel */}
+   867→          <div className="space-y-1.5">
+   868→            <Label className="text-xs font-medium text-muted-foreground">1. Select Hostel</Label>
+   869→            {loadingHostel ? (
+   870→              <Skeleton className="h-10 w-full" />
+   871→            ) : (
+   872→              <Select value={dormId || ''} onValueChange={setDormId}>
+   873→                <SelectTrigger><SelectValue placeholder="Choose a dormitory..." /></SelectTrigger>
+   874→                <SelectContent>
+   875→                  {dormitories.map((d: any) => (
+   876→                    <SelectItem key={d.id} value={d.id}>
+   877→                      <span className="flex items-center gap-2">
+   878→                        <Home className="h-3.5 w-3.5 text-muted-foreground" />
+   879→                        <span>{d.name}</span>
+   880→                        <Badge variant="outline" className={cn('ml-1 text-[9px]', GENDER_BADGE[d.gender])}>{d.gender}</Badge>
+   881→                      </span>
+   882→                    </SelectItem>
+   883→                  ))}
+   884→                </SelectContent>
+   885→              </Select>
+   886→            )}
+   887→          </div>
+   888→
+   889→          {/* Step 2: Room */}
+   890→          <div className="space-y-1.5">
+   891→            <Label className="text-xs font-medium text-muted-foreground">2. Select Room</Label>
+   892→            <Select value={roomId || ''} onValueChange={setRoomId} disabled={!dormId}>
+   893→              <SelectTrigger><SelectValue placeholder={dormId ? 'Choose a room...' : 'Select a hostel first'} /></SelectTrigger>
+   894→              <SelectContent>
+   895→                {rooms.map((r: any) => (
+   896→                  <SelectItem key={r.id} value={r.id} disabled={r.status === 'Maintenance'}>
+   897→                    <span className="flex items-center gap-2">
+   898→                      <DoorOpen className="h-3.5 w-3.5 text-muted-foreground" />
+   899→                      <span>{r.roomNumber}</span>
+   900→                      <span className="text-[10px] text-muted-foreground">Floor {r.floor} · {r.occupied}/{r.capacity}</span>
+   901→                      {r.status !== 'Available' && (
+   902→                        <Badge variant="outline" className={cn('ml-1 text-[9px]', roomStatusBadge(r.status))}>{r.status}</Badge>
+   903→                      )}
+   904→                    </span>
+   905→                  </SelectItem>
+   906→                ))}
+   907→                {rooms.length === 0 && dormId && (
+   908→                  <p className="px-3 py-2 text-xs text-muted-foreground">No rooms in this dormitory.</p>
+   909→                )}
+   910→              </SelectContent>
+   911→            </Select>
+   912→          </div>
+   913→
+   914→          {/* Step 3: Bed */}
+   915→          <div className="space-y-1.5">
+   916→            <Label className="text-xs font-medium text-muted-foreground">3. Select Bed</Label>
+   917→            {!roomId ? (
+   918→              <p className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">Select a room to see its beds.</p>
+   919→            ) : loadingBeds ? (
+   920→              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+   921→                {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+   922→              </div>
+   923→            ) : beds.length === 0 ? (
+   924→              <p className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">No beds configured for this room.</p>
+   925→            ) : (
+   926→              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+   927→                {beds.map((b) => {
+   928→                  const isSelected = b.id === bedId
+   929→                  return (
+   930→                    <button
+   931→                      key={b.id}
+   932→                      onClick={() => setBedId(b.id)}
+   933→                      disabled={b.status === 'Maintenance'}
+   934→                      className={cn(
+   935→                        'rounded-lg border p-2 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50',
+   936→                        isSelected ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-500/30 dark:bg-teal-950/30' : 'hover:border-teal-300',
+   937→                        b.status === 'Occupied' && !isSelected && 'border-amber-200 bg-amber-50/30 dark:border-amber-900/50 dark:bg-amber-950/10',
+   938→                        b.status === 'Maintenance' && 'border-rose-200 bg-rose-50/30 dark:border-rose-900/50 dark:bg-rose-950/10',
+   939→                        b.status === 'Available' && !isSelected && 'border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/50 dark:bg-emerald-950/10',
+   940→                      )}
+   941→                    >
+   942→                      <div className="flex items-center justify-between">
+   943→                        <span className="text-xs font-semibold">{b.bedNumber}</span>
+   944→                        <Bed className={cn('h-3 w-3',
+   945→                          b.status === 'Occupied' ? 'text-amber-500'
+   946→                          : b.status === 'Maintenance' ? 'text-rose-500'
+   947→                          : 'text-emerald-500',
+   948→                        )} />
+   949→                      </div>
+   950→                      <Badge variant="outline" className={cn('mt-1 text-[9px]', bedStatusBadge(b.status))}>{b.status}</Badge>
+   951→                      {b.student && (
+   952→                        <p className="mt-1 truncate text-[10px] text-muted-foreground">
+   953→                          {b.student.firstName} {b.student.lastName[0]}.
+   954→                        </p>
+   955→                      )}
+   956→                    </button>
+   957→                  )
+   958→                })}
+   959→              </div>
+   960→            )}
+   961→          </div>
+   962→
+   963→          {/* Selected bed info */}
+   964→          {selectedBed && (
+   965→            <div className="rounded-md border border-teal-200 bg-teal-50/50 p-3 text-xs dark:border-teal-900/50 dark:bg-teal-950/10">
+   966→              <div className="flex items-center gap-2">
+   967→                <Bed className="h-4 w-4 text-teal-500" />
+   968→                <span className="font-semibold">Selected: {selectedBed.bedNumber}</span>
+   969→                <span className="text-muted-foreground">·</span>
+   970→                <span className="text-muted-foreground">Room {selectedBed.room.roomNumber}, {selectedBed.room.dormitory.name}</span>
+   971→              </div>
+   972→              {selectedBed.student && (
+   973→                <p className="mt-1 text-amber-700 dark:text-amber-400">
+   974→                  Currently occupied by {selectedBed.student.firstName} {selectedBed.student.lastName} ({selectedBed.student.admissionNo}) — reassigning will vacate them.
+   975→                </p>
+   976→              )}
+   977→            </div>
+   978→          )}
+   979→
+   980→          {/* Step 4: Student search */}
+   981→          <div className="space-y-1.5">
+   982→            <Label className="text-xs font-medium text-muted-foreground">4. Search & Select Student</Label>
+   983→            <Popover open={studentOpen} onOpenChange={setStudentOpen}>
+   984→              <PopoverTrigger asChild>
+   985→                <Button
+   986→                  variant="outline"
+   987→                  role="combobox"
+   988→                  className="w-full justify-start font-normal"
+   989→                  disabled={!bedId}
+   990→                >
+   991→                  {selectedStudent ? (
+   992→                    <span className="flex w-full items-center gap-2">
+   993→                      <Avatar className="h-6 w-6">
+   994→                        <AvatarFallback className={cn('text-[10px] text-white', avatarColor(selectedStudent.id))}>
+   995→                          {initials(selectedStudent.firstName, selectedStudent.lastName)}
+   996→                        </AvatarFallback>
+   997→                      </Avatar>
+   998→                      <span className="text-sm">{selectedStudent.firstName} {selectedStudent.lastName}</span>
+   999→                      <Badge variant="outline" className="text-[9px]">{selectedStudent.admissionNo}</Badge>
+  1000→                      {selectedStudent.currentBed && (
+  1001→                        <Badge variant="outline" className="text-[9px] border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-400">
+  1002→                          Current: {selectedStudent.currentBed.bedNumber}
+  1003→                        </Badge>
+  1004→                      )}
+  1005→                    </span>
+  1006→                  ) : (
+  1007→                    <span className="flex items-center gap-2 text-muted-foreground">
+  1008→                      <Search className="h-4 w-4" /> {bedId ? 'Search student by name or admission no...' : 'Select a bed first'}
+  1009→                    </span>
+  1010→                  )}
+  1011→                  <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+  1012→                </Button>
+  1013→              </PopoverTrigger>
+  1014→              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+  1015→                <Command shouldFilter={false}>
+  1016→                  <CommandInput
+  1017→                    placeholder="Type name or admission number..."
+  1018→                    value={studentQuery}
+  1019→                    onValueChange={setStudentQuery}
+  1020→                  />
+  1021→                  <CommandList>
+  1022→                    {loadingStudents ? (
+  1023→                      <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
+  1024→                        <Loader2 className="h-4 w-4 animate-spin" /> Searching...
+  1025→                      </div>
+  1026→                    ) : studentResults.length === 0 ? (
+  1027→                      studentQuery.trim()
+  1028→                        ? <CommandEmpty>No students found. Try a different search.</CommandEmpty>
+  1029→                        : <p className="px-3 py-6 text-center text-xs text-muted-foreground">Start typing to search students...</p>
+  1030→                    ) : (
+  1031→                      <CommandGroup heading="Students">
+  1032→                        {studentResults.map((s) => (
+  1033→                          <CommandItem
+  1034→                            key={s.id}
+  1035→                            value={s.id}
+  1036→                            onSelect={() => { setSelectedStudent(s); setStudentOpen(false); setWarning(null) }}
+  1037→                          >
+  1038→                            <Avatar className="h-7 w-7">
+  1039→                              <AvatarFallback className={cn('text-[10px] text-white', avatarColor(s.id))}>
+  1040→                                {initials(s.firstName, s.lastName)}
+  1041→                              </AvatarFallback>
+  1042→                            </Avatar>
+  1043→                            <div className="flex-1 min-w-0">
+  1044→                              <p className="text-sm font-medium truncate">
+  1045→                                {s.firstName} {s.lastName}
+  1046→                                <span className="ml-1.5 text-[10px] text-muted-foreground">{s.admissionNo}</span>
+  1047→                              </p>
+  1048→                              <p className="text-[10px] text-muted-foreground truncate">
+  1049→                                {s.gender}
+  1050→                                {s.currentEnrollment?.stream?.classLevel?.name ? ` · ${s.currentEnrollment.stream.classLevel.name}` : ''}
+  1051→                                {s.currentBed ? ` · currently in ${s.currentBed.bedNumber} (${s.currentBed.room.roomNumber})` : ' · no bed'}
+  1052→                              </p>
+  1053→                            </div>
+  1054→                            {s.currentBed && (
+  1055→                              <Badge variant="outline" className="text-[9px] border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-400">
+  1056→                                Boarding
+  1057→                              </Badge>
+  1058→                            )}
+  1059→                          </CommandItem>
+  1060→                        ))}
+  1061→                      </CommandGroup>
+  1062→                    )}
+  1063→                  </CommandList>
+  1064→                </Command>
+  1065→              </PopoverContent>
+  1066→            </Popover>
+  1067→          </div>
+  1068→
+  1069→          {/* Notes (optional) */}
+  1070→          <div className="space-y-1.5">
+  1071→            <Label className="text-xs font-medium text-muted-foreground">Notes (optional)</Label>
+  1072→            <Textarea
+  1073→              value={notes}
+  1074→              onChange={(e) => setNotes(e.target.value)}
+  1075→              placeholder="e.g. Prefect room, medical ground floor, etc."
+  1076→              className="min-h-[60px] resize-none text-sm"
+  1077→            />
+  1078→          </div>
+  1079→
+  1080→          {/* Warning state */}
+  1081→          {warning && (
+  1082→            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/30">
+  1083→              <div className="flex items-start gap-2">
+  1084→                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+  1085→                <div className="flex-1">
+  1086→                  <p className="font-semibold text-amber-800 dark:text-amber-300">
+  1087→                    {warning.code === 'BED_OCCUPIED' && 'Bed is already occupied'}
+  1088→                    {warning.code === 'STUDENT_ALREADY_ASSIGNED' && 'Student already assigned elsewhere'}
+  1089→                    {warning.code === 'GENDER_MISMATCH' && 'Gender mismatch'}
+  1090→                    {warning.code === 'BED_MAINTENANCE' && 'Bed under maintenance'}
+  1091→                    {warning.code === 'ROOM_MAINTENANCE' && 'Room under maintenance'}
+  1092→                  </p>
+  1093→                  <p className="mt-0.5 text-amber-700 dark:text-amber-400">{warning.message}</p>
+  1094→                </div>
+  1095→              </div>
+  1096→              {(warning.code === 'BED_OCCUPIED' || warning.code === 'STUDENT_ALREADY_ASSIGNED') && (
+  1097→                <div className="mt-2 flex justify-end">
+  1098→                  <Button
+  1099→                    size="sm"
+  1100→                    variant="outline"
+  1101→                    className="border-amber-400 text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/40"
+  1102→                    onClick={() => handleAssign(true)}
+  1103→                    disabled={submitting}
+  1104→                  >
+  1105→                    {submitting ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
+  1106→                    Confirm Reassign
+  1107→                  </Button>
+  1108→                </div>
+  1109→              )}
+  1110→            </div>
+  1111→          )}
+  1112→        </div>
+  1113→
+  1114→        <DialogFooter>
+  1115→          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+  1116→          <Button
+  1117→            onClick={() => handleAssign(false)}
+  1118→            disabled={!canAssign || !!warning}
+  1119→            className="bg-teal-600 hover:bg-teal-700"
+  1120→          >
+  1121→            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+  1122→            Assign Student
+  1123→          </Button>
+  1124→        </DialogFooter>
+  1125→      </DialogContent>
+  1126→    </Dialog>
+  1127→  )
+  1128→}
+  1129→

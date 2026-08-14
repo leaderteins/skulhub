@@ -702,6 +702,502 @@ function RecordPaymentDialog({
 }
 
 // ---------------------------------------------------------------------------
+// M-Pesa Daraja STK Push dialog
+// ---------------------------------------------------------------------------
+type StkStep = 'form' | 'sending' | 'waiting' | 'success' | 'failed' | 'not-configured'
+
+interface MpesaConfigState {
+  configured: boolean
+  missing: string[]
+  env: 'sandbox' | 'production'
+  shortcode: string | null
+  callbackUrl: string | null
+}
+
+function StkPushDialog({
+  open, onOpenChange, invoice, onCompleted,
+}: {
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  invoice: PickedInvoice | null
+  onCompleted: () => void
+}) {
+  const [selectedInvoice, setSelectedInvoice] = useState<PickedInvoice | null>(invoice)
+  const [phone, setPhone] = useState('')
+  const [amount, setAmount] = useState<string>('')
+  const [step, setStep] = useState<StkStep>('form')
+  const [paymentId, setPaymentId] = useState<string | null>(null)
+  const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null)
+  const [receipt, setReceipt] = useState<string | null>(null)
+  const [resultDesc, setResultDesc] = useState<string>('')
+  const [simulating, setSimulating] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [pollTimer, setPollTimer] = useState<ReturnType<typeof setInterval> | null>(null)
+
+  // --- Load M-Pesa config status when dialog opens -------------------------
+  const [config, setConfig] = useState<MpesaConfigState | null>(null)
+  useEffect(() => {
+    if (!open) return
+    setConfig(null)
+    fetch('/api/mpesa/config')
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (j) setConfig({
+          configured: !!j.configured,
+          missing: j.missing || [],
+          env: j.env === 'production' ? 'production' : 'sandbox',
+          shortcode: j.shortcode || null,
+          callbackUrl: j.callbackUrl || null,
+        })
+      })
+      .catch(() => {
+        // ignore — fail gracefully, treat as not configured
+      })
+  }, [open])
+
+  // --- Reset state whenever dialog opens / invoice changes ----------------
+  useEffect(() => {
+    if (open) {
+      setSelectedInvoice(invoice)
+      setPhone('')
+      setAmount(invoice ? String(invoice.balance) : '')
+      setStep('form')
+      setPaymentId(null)
+      setCheckoutRequestId(null)
+      setReceipt(null)
+      setResultDesc('')
+    } else {
+      // Cleanup polling when closed
+      if (pollTimer) {
+        clearInterval(pollTimer)
+        setPollTimer(null)
+      }
+    }
+  }, [open, invoice])
+
+  // --- Cleanup polling on unmount -----------------------------------------
+  useEffect(() => {
+    return () => {
+      if (pollTimer) clearInterval(pollTimer)
+    }
+  }, [pollTimer])
+
+  // --- Poll /api/payments/[id] for status updates -------------------------
+  function startPolling(pid: string) {
+    if (pollTimer) clearInterval(pollTimer)
+    const interval = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/payments/${pid}`)
+        if (!r.ok) return
+        const j = await r.json()
+        if (j.status === 'Completed') {
+          clearInterval(interval)
+          setPollTimer(null)
+          setReceipt(j.mpesaReceiptNumber || j.reference || null)
+          setResultDesc(j.mpesaResultDesc || 'Payment confirmed')
+          setStep('success')
+          toast.success('M-Pesa payment received', {
+            description: j.mpesaReceiptNumber ? `Receipt ${j.mpesaReceiptNumber}` : undefined,
+          })
+          onCompleted()
+        } else if (j.status === 'Failed') {
+          clearInterval(interval)
+          setPollTimer(null)
+          setResultDesc(j.mpesaResultDesc || 'Payment failed or cancelled')
+          setStep('failed')
+        }
+        // else keep polling (Pending)
+      } catch {
+        // ignore transient errors
+      }
+    }, 3000)
+    setPollTimer(interval)
+  }
+
+  // --- Submit STK Push -----------------------------------------------------
+  async function handleSubmit() {
+    if (!selectedInvoice) { toast.error('Please select an invoice'); return }
+    if (!phone.trim()) { toast.error('Phone number is required'); return }
+    const amt = parseFloat(amount)
+    if (!Number.isFinite(amt) || amt <= 0) { toast.error('Enter a valid amount'); return }
+    if (amt > selectedInvoice.balance + 0.01) {
+      toast.error(`Amount exceeds outstanding balance of ${formatKES(selectedInvoice.balance)}`)
+      return
+    }
+    setSubmitting(true)
+    setStep('sending')
+    try {
+      const r = await fetch('/api/mpesa/stk-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoiceId: selectedInvoice.id,
+          phone: phone.trim(),
+          amount: amt,
+        }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        // Show the helpful "not configured" message verbatim when that's the case
+        if (j?.error && j.error.includes('not configured')) {
+          setStep('not-configured')
+          setConfig(null)
+        } else {
+          setStep('form')
+        }
+        toast.error(j?.error || 'Failed to initiate STK Push')
+        return
+      }
+      setPaymentId(j.paymentId)
+      setCheckoutRequestId(j.checkoutRequestId)
+      setStep('waiting')
+      toast.success('STK Push sent', {
+        description: 'Check the parent\'s phone for the M-Pesa prompt',
+      })
+      startPolling(j.paymentId)
+    } catch (e: any) {
+      setStep('form')
+      toast.error('Network error', { description: e?.message })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // --- Simulate (dev helper to demo the callback flow without real Daraja)
+  async function handleSimulate(success: boolean) {
+    if (!paymentId) return
+    setSimulating(true)
+    try {
+      const r = await fetch('/api/mpesa/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId, success }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        toast.error(j?.error || 'Simulation failed')
+        return
+      }
+      // The next polling tick will pick up the new status; but trigger one immediately
+      if (pollTimer) clearInterval(pollTimer)
+      const immediate = setInterval(async () => {
+        try {
+          const pr = await fetch(`/api/payments/${paymentId}`)
+          const pj = await pr.json()
+          if (pj.status === 'Completed' || pj.status === 'Failed') {
+            clearInterval(immediate)
+            setPollTimer(null)
+            if (pj.status === 'Completed') {
+              setReceipt(pj.mpesaReceiptNumber || pj.reference || null)
+              setResultDesc(pj.mpesaResultDesc || 'Payment confirmed')
+              setStep('success')
+              toast.success('M-Pesa payment received', {
+                description: pj.mpesaReceiptNumber ? `Receipt ${pj.mpesaReceiptNumber}` : undefined,
+              })
+              onCompleted()
+            } else {
+              setResultDesc(pj.mpesaResultDesc || 'Payment failed')
+              setStep('failed')
+            }
+          }
+        } catch { /* ignore */ }
+      }, 1000)
+      setPollTimer(immediate)
+    } catch (e: any) {
+      toast.error('Network error', { description: e?.message })
+    } finally {
+      setSimulating(false)
+    }
+  }
+
+  const configured = !!config?.configured
+  const isWaiting = step === 'waiting'
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!isWaiting || !o) onOpenChange(o) }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+              <Smartphone className="h-4 w-4" />
+            </span>
+            Pay via M-Pesa (STK Push)
+          </DialogTitle>
+          <DialogDescription>
+            Send a Lipa na M-Pesa prompt to the parent's phone. They enter their PIN to authorise.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* --- Not configured alert ----------------------------------- */}
+          {step === 'not-configured' || (config && !configured) ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                    M-Pesa STK Push not configured
+                  </p>
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                    Go to <span className="font-semibold">Settings → M-Pesa</span> to add your
+                    Daraja API credentials (Consumer Key, Consumer Secret, Passkey and Shortcode).
+                  </p>
+                  {config && config.missing.length > 0 && (
+                    <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">
+                      Missing: <span className="font-mono">{config.missing.join(', ')}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* --- FORM step ---------------------------------------------- */}
+          {step === 'form' && (
+            <>
+              {/* M-Pesa info banner */}
+              <div className="rounded-lg border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-3 dark:border-emerald-900 dark:from-emerald-950/40 dark:to-teal-950/40">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500 text-white shrink-0">
+                    <Smartphone className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                      Daraja STK Push {config && <span className="opacity-70">· {config.env}</span>}
+                    </p>
+                    <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                      {config?.shortcode
+                        ? <>Shortcode <span className="font-mono font-bold">{config.shortcode}</span> · Parent gets an M-Pesa prompt</>
+                        : 'Loading configuration…'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {!invoice && (
+                <InvoicePicker value={selectedInvoice} onChange={(i) => {
+                  setSelectedInvoice(i)
+                  if (i && !amount) setAmount(String(i.balance))
+                }} />
+              )}
+
+              {selectedInvoice && (
+                <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Invoice</p>
+                    <p className="font-mono font-semibold">{selectedInvoice.invoiceNo}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Student</p>
+                    <p className="font-medium truncate">{selectedInvoice.studentName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total</p>
+                    <p className="font-semibold">{formatKES(selectedInvoice.amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Outstanding</p>
+                    <p className="font-semibold text-rose-600 dark:text-rose-400">{formatKES(selectedInvoice.balance)}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="stk-phone">Parent Phone Number <span className="text-rose-500">*</span></Label>
+                  <Input
+                    id="stk-phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="0712345678 or +254712345678"
+                    inputMode="tel"
+                    autoComplete="off"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    The phone that will receive the M-Pesa prompt. Must be a Safaricom line registered for M-Pesa.
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="stk-amount">Amount (KES) <span className="text-rose-500">*</span></Label>
+                  <Input
+                    id="stk-amount"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="0"
+                  />
+                  {selectedInvoice && selectedInvoice.balance > 0 && (
+                    <button type="button" className="self-start text-xs text-emerald-600 hover:underline dark:text-emerald-400"
+                      onClick={() => setAmount(String(selectedInvoice.balance))}>
+                      Use full balance ({formatKES(selectedInvoice.balance)})
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* --- SENDING step ------------------------------------------- */}
+          {step === 'sending' && (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
+              <p className="text-sm font-medium">Contacting Daraja…</p>
+              <p className="text-xs text-muted-foreground">Authenticating and sending the STK Push request.</p>
+            </div>
+          )}
+
+          {/* --- WAITING step ------------------------------------------- */}
+          {isWaiting && (
+            <div className="space-y-4">
+              <div className="flex flex-col items-center gap-3 py-4 text-center">
+                <div className="relative">
+                  <Smartphone className="h-12 w-12 text-emerald-600 dark:text-emerald-400" />
+                  <span className="absolute -right-1 -top-1 flex h-3 w-3">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Check your phone for the M-Pesa prompt…</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Waiting for the parent to enter their M-Pesa PIN.
+                    This page updates automatically.
+                  </p>
+                </div>
+              </div>
+
+              {selectedInvoice && (
+                <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-3 text-xs">
+                  <div>
+                    <p className="text-muted-foreground">Invoice</p>
+                    <p className="font-mono font-semibold">{selectedInvoice.invoiceNo}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Amount</p>
+                    <p className="font-semibold">{formatKES(parseFloat(amount) || 0)}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground">Phone</p>
+                    <p className="font-mono">{phone}</p>
+                  </div>
+                  {checkoutRequestId && (
+                    <div className="col-span-2">
+                      <p className="text-muted-foreground">CheckoutRequestID</p>
+                      <p className="font-mono text-[10px] truncate">{checkoutRequestId}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Local-dev Simulate helper (Daraja can't reach localhost) */}
+              <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+                <p className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                  Simulate callback (for local demo)
+                </p>
+                <p className="mt-0.5 text-[10px] text-amber-700/80 dark:text-amber-400/80">
+                  Daraja can't POST to a localhost URL. Use these buttons to trigger the
+                  same callback flow locally.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    size="sm" variant="outline"
+                    disabled={simulating}
+                    onClick={() => handleSimulate(true)}
+                    className="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-400"
+                  >
+                    {simulating ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3 w-3" />}
+                    Simulate Approve
+                  </Button>
+                  <Button
+                    size="sm" variant="outline"
+                    disabled={simulating}
+                    onClick={() => handleSimulate(false)}
+                    className="border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-400"
+                  >
+                    <X className="mr-1.5 h-3 w-3" />
+                    Simulate Decline
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- SUCCESS step ------------------------------------------- */}
+          {step === 'success' && (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+                <CheckCircle2 className="h-8 w-8" />
+              </div>
+              <div>
+                <p className="text-base font-semibold">Payment received</p>
+                <p className="mt-1 text-xs text-muted-foreground">{resultDesc}</p>
+              </div>
+              {receipt && (
+                <div className="w-full max-w-xs rounded-lg border bg-muted/30 p-3">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">M-Pesa Receipt</p>
+                  <p className="font-mono text-lg font-bold text-emerald-700 dark:text-emerald-400">{receipt}</p>
+                </div>
+              )}
+              {selectedInvoice && (
+                <p className="text-xs text-muted-foreground">
+                  Invoice <span className="font-mono font-medium">{selectedInvoice.invoiceNo}</span> has been updated.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* --- FAILED step -------------------------------------------- */}
+          {step === 'failed' && (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400">
+                <AlertCircle className="h-8 w-8" />
+              </div>
+              <div>
+                <p className="text-base font-semibold">Payment not completed</p>
+                <p className="mt-1 text-xs text-muted-foreground">{resultDesc || 'The STK Push failed or was cancelled.'}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setStep('form')}>
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Try Again
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          {step === 'form' && (
+            <>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || !selectedInvoice || !phone.trim() || !amount}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
+                Send M-Pesa Prompt
+              </Button>
+            </>
+          )}
+          {step === 'not-configured' && (
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+          )}
+          {(step === 'success' || step === 'failed') && (
+            <Button onClick={() => onOpenChange(false)} className="bg-emerald-600 hover:bg-emerald-700">
+              Done
+            </Button>
+          )}
+          {isWaiting && (
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>Close window</Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Overview tab
 // ---------------------------------------------------------------------------
 function OverviewTab() {
@@ -1044,12 +1540,13 @@ function GenerateInvoiceDialog({
 }
 
 function ViewInvoiceDialog({
-  open, onOpenChange, invoice, onRecordPayment,
+  open, onOpenChange, invoice, onRecordPayment, onStkPush,
 }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   invoice: InvoiceRow | null
   onRecordPayment: (i: InvoiceRow) => void
+  onStkPush: (i: InvoiceRow) => void
 }) {
   if (!invoice) return null
   const pct = invoice.amount > 0 ? Math.min(100, Math.round((invoice.amountPaid / invoice.amount) * 100)) : 0
@@ -1124,15 +1621,24 @@ function ViewInvoiceDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
           {invoice.status !== 'Paid' && invoice.status !== 'Cancelled' && (
-            <Button
-              onClick={() => { onOpenChange(false); onRecordPayment(invoice) }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              <HandCoins className="h-4 w-4" /> Record Payment
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => { onOpenChange(false); onStkPush(invoice) }}
+                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950"
+              >
+                <Smartphone className="h-4 w-4" /> M-Pesa STK Push
+              </Button>
+              <Button
+                onClick={() => { onOpenChange(false); onRecordPayment(invoice) }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <HandCoins className="h-4 w-4" /> Record Payment
+              </Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>
@@ -1151,6 +1657,8 @@ function InvoicesTab() {
   const [viewOpen, setViewOpen] = useState(false)
   const [payInvoice, setPayInvoice] = useState<PickedInvoice | null>(null)
   const [payOpen, setPayOpen] = useState(false)
+  const [stkInvoice, setStkInvoice] = useState<PickedInvoice | null>(null)
+  const [stkOpen, setStkOpen] = useState(false)
   const pageSize = 15
 
   useEffect(() => {
@@ -1175,6 +1683,15 @@ function InvoicesTab() {
       status: inv.status, dueDate: inv.dueDate,
     })
     setPayOpen(true)
+  }
+
+  const handleStkPush = (inv: InvoiceRow) => {
+    setStkInvoice({
+      id: inv.id, invoiceNo: inv.invoiceNo, studentName: inv.studentName, admissionNo: inv.admissionNo,
+      classLevel: inv.classLevel, amount: inv.amount, amountPaid: inv.amountPaid, balance: inv.balance,
+      status: inv.status, dueDate: inv.dueDate,
+    })
+    setStkOpen(true)
   }
 
   const handleView = (inv: InvoiceRow) => {
@@ -1355,12 +1872,19 @@ function InvoicesTab() {
         onOpenChange={setViewOpen}
         invoice={viewInvoice}
         onRecordPayment={handleRecordPayment}
+        onStkPush={handleStkPush}
       />
       <RecordPaymentDialog
         open={payOpen}
         onOpenChange={setPayOpen}
         invoice={payInvoice}
         onRecorded={() => refetch()}
+      />
+      <StkPushDialog
+        open={stkOpen}
+        onOpenChange={setStkOpen}
+        invoice={stkInvoice}
+        onCompleted={() => refetch()}
       />
     </div>
   )
@@ -1374,6 +1898,7 @@ function PaymentsTab() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [recordOpen, setRecordOpen] = useState(false)
+  const [stkOpen, setStkOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const params = new URLSearchParams()
@@ -1398,19 +1923,28 @@ function PaymentsTab() {
               <Smartphone className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-semibold">Pay School Fees via M-Pesa</p>
+              <p className="text-sm font-semibold">M-Pesa Daraja STK Push</p>
               <p className="text-xs text-emerald-50">
-                Paybill <span className="font-mono font-bold">522522</span> · Account = Student Admission No.
+                Send a Lipa na M-Pesa prompt to the parent's phone — they enter their PIN to pay.
               </p>
             </div>
           </div>
-          <Button
-            variant="secondary"
-            className="bg-white text-emerald-700 hover:bg-emerald-50"
-            onClick={() => setRecordOpen(true)}
-          >
-            <HandCoins className="h-4 w-4" /> Record Payment
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              className="bg-white text-emerald-700 hover:bg-emerald-50"
+              onClick={() => setStkOpen(true)}
+            >
+              <Smartphone className="h-4 w-4" /> Pay via M-Pesa STK Push
+            </Button>
+            <Button
+              variant="secondary"
+              className="bg-white/20 text-white hover:bg-white/30 backdrop-blur"
+              onClick={() => setRecordOpen(true)}
+            >
+              <HandCoins className="h-4 w-4" /> Record Manual Payment
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -1526,6 +2060,12 @@ function PaymentsTab() {
         onOpenChange={setRecordOpen}
         invoice={null}
         onRecorded={onRecorded}
+      />
+      <StkPushDialog
+        open={stkOpen}
+        onOpenChange={setStkOpen}
+        invoice={null}
+        onCompleted={onRecorded}
       />
     </div>
   )

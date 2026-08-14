@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// GET /api/hostel/[id] — dormitory detail with rooms, allocations, inspections
+// GET /api/hostel/[id] — dormitory detail with rooms (each with beds), allocations, inspections
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const dorm = await db.dormitory.findUnique({
@@ -11,6 +11,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       rooms: {
         orderBy: { roomNumber: 'asc' },
         include: {
+          beds: {
+            orderBy: { bedNumber: 'asc' },
+            include: {
+              student: {
+                select: {
+                  id: true, admissionNo: true, firstName: true, lastName: true, gender: true,
+                  phone: true,
+                  enrollments: { take: 1, select: { stream: { select: { name: true, classLevel: { select: { name: true } } } } } },
+                },
+              },
+            },
+          },
           allocations: {
             where: { status: 'Active' },
             include: {

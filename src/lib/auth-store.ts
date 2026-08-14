@@ -34,6 +34,7 @@ export interface SystemUser {
   schoolName?: string
   schoolSlug?: string
   isSuperAdmin?: boolean
+  allowedModules?: string[] | null
 }
 
 // Role display info
@@ -115,6 +116,7 @@ export interface ServerLoginResponse {
     schoolSlug: string | null
     avatar: string
     isSuperAdmin: boolean
+    allowedModules: string[] | null
   }
   token: string
 }
@@ -237,6 +239,7 @@ export const useAuthStore = create<AuthState>()(
               schoolName: u.schoolName ?? undefined,
               schoolSlug: u.schoolSlug ?? undefined,
               isSuperAdmin: !!u.isSuperAdmin,
+              allowedModules: u.allowedModules ?? null,
             },
             serverToken: payload.token,
             isSuperAdmin: !!u.isSuperAdmin,
@@ -318,6 +321,17 @@ export const useAuthStore = create<AuthState>()(
       hasAccess: (module: string) => {
         const user = get().user
         if (!user) return false
+        // Super admin: only platform modules (dashboard, superadmin, settings)
+        if (user.isSuperAdmin) {
+          return ['dashboard', 'superadmin', 'settings'].includes(module)
+        }
+        // If the admin has set per-user module overrides, use ONLY those.
+        // An empty array means "only dashboard". null/undefined means "use role defaults".
+        if (user.allowedModules) {
+          if (user.allowedModules.length === 0) return module === 'dashboard'
+          return user.allowedModules.includes(module)
+        }
+        // Fallback to role-based defaults
         return MODULE_ACCESS[user.role].includes(module)
       },
       canEdit: (module: string) => {

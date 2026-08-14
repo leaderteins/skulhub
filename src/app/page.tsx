@@ -11,6 +11,7 @@ import { LoginForm } from '@/components/auth/login-form'
 import { RegisterForm } from '@/components/auth/register-form'
 import { ParentPortal } from '@/components/auth/parent-portal'
 import { StaffSignup } from '@/components/auth/staff-signup'
+import { SuperAdminLoginForm } from '@/components/auth/super-admin-login'
 import { DashboardModule } from '@/components/modules/dashboard'
 import { AdmissionsModule } from '@/components/modules/admissions'
 import { StudentsModule } from '@/components/modules/students'
@@ -88,6 +89,14 @@ export default function Home() {
   // Parent portal is shown when authView is 'parent'.
   if (authView === 'parent') {
     return <ParentPortal />
+  }
+
+  // Super admin login form — shown when authView is 'superadmin'
+  // (triggered by the hidden Ctrl+Shift+A shortcut on the login form).
+  // Only shown when the user is NOT logged in; after successful login it
+  // falls through to the dashboard render below.
+  if (!user && authView === 'superadmin') {
+    return <SuperAdminLoginForm />
   }
 
   // Show login form when authView is 'login'

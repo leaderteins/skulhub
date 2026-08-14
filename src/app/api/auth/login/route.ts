@@ -83,6 +83,17 @@ export async function POST(req: NextRequest) {
       data: { lastLoginAt: new Date() },
     })
 
+    // Fetch per-user module access overrides (if any)
+    const overrides = await db.userModuleAccess.findMany({
+      where: { userId: user.id },
+      select: { module: true, allowed: true },
+    })
+    // If the user has overrides, return ONLY the allowed modules.
+    // If no overrides exist (empty array), return null → frontend uses role defaults.
+    const allowedModules = overrides.length > 0
+      ? overrides.filter(o => o.allowed).map(o => o.module)
+      : null
+
     const token = createSessionToken(user.id)
     const isSuperAdmin = user.role === 'super_admin'
 
@@ -97,6 +108,7 @@ export async function POST(req: NextRequest) {
         schoolSlug: user.school?.slug ?? null,
         avatar: user.avatar,
         isSuperAdmin,
+        allowedModules,
       },
       token,
     })

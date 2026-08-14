@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { SectionHeader } from '@/components/shared'
 import {
@@ -42,6 +42,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/lib/auth-store'
+import { ModuleAccessTab } from '@/components/modules/settings-module-access'
 import {
   Settings as SettingsIcon,
   Building2,
@@ -64,6 +66,15 @@ import {
   UserCog,
   Trash2,
   Hash,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Loader2,
+  RefreshCw,
+  AlertCircle,
+  ExternalLink,
+  Zap,
+  Plug,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -115,6 +126,11 @@ const INITIAL_USERS: MockUser[] = [
 // ---------------------------------------------------------------------------
 export function SettingsModule() {
   const [tab, setTab] = useState('general')
+  const { user } = useAuthStore()
+
+  // Only admin / principal / super_admin may see the per-user Module Access tab.
+  const canManageModuleAccess =
+    user?.role === 'admin' || user?.role === 'principal' || user?.role === 'super_admin'
 
   // General state
   const [schoolName, setSchoolName] = useState('SkulHub Academy')
@@ -142,9 +158,6 @@ export function SettingsModule() {
   const [smtpPort, setSmtpPort] = useState('587')
   const [smtpUser, setSmtpUser] = useState('notifications@skulhub.ac.ke')
   const [smtpPassword, setSmtpPassword] = useState('')
-  const [mpesaPaybill, setMpesaPaybill] = useState('522522')
-  const [mpesaAccount, setMpesaAccount] = useState('Admission No.')
-  const [mpesaCallback, setMpesaCallback] = useState('https://skulhub.ac.ke/api/mpesa/callback')
   const [notifPrefs, setNotifPrefs] = useState({
     feeReminders: true,
     attendanceAlerts: true,
@@ -155,7 +168,61 @@ export function SettingsModule() {
   })
   const [smsEnabled, setSmsEnabled] = useState(true)
   const [emailEnabled, setEmailEnabled] = useState(true)
-  const [mpesaEnabled, setMpesaEnabled] = useState(true)
+
+  // Daraja M-Pesa STK Push config state (loaded from /api/mpesa/config)
+  const [mpesaConsumerKey, setMpesaConsumerKey] = useState('')
+  const [mpesaConsumerSecret, setMpesaConsumerSecret] = useState('')
+  const [mpesaPasskey, setMpesaPasskey] = useState('')
+  const [mpesaShortcode, setMpesaShortcode] = useState('')
+  const [mpesaEnv, setMpesaEnv] = useState<'sandbox' | 'production'>('sandbox')
+  const [mpesaCallbackUrl, setMpesaCallbackUrl] = useState('')
+  const [mpesaAccountRef, setMpesaAccountRef] = useState('Admission No.')
+  const [mpesaConfigLoading, setMpesaConfigLoading] = useState(true)
+  const [mpesaConfigLoaded, setMpesaConfigLoaded] = useState(false)
+  const [mpesaSaving, setMpesaSaving] = useState(false)
+  const [mpesaTesting, setMpesaTesting] = useState(false)
+  const [mpesaTestResult, setMpesaTestResult] = useState<
+    | { ok: boolean; message: string; detail?: string }
+    | null
+  >(null)
+  const [mpesaShowSecret, setMpesaShowSecret] = useState(false)
+  const [mpesaShowPasskey, setMpesaShowPasskey] = useState(false)
+  // Tracks whether secret/passkey fields hold existing-but-masked values
+  // (so we know to only send them to the server if the user edits them)
+  const [mpesaHasStoredSecret, setMpesaHasStoredSecret] = useState(false)
+  const [mpesaHasStoredPasskey, setMpesaHasStoredPasskey] = useState(false)
+
+  // Fetch the current Daraja config on mount
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch('/api/mpesa/config')
+        if (!r.ok) return
+        const json = await r.json()
+        if (cancelled) return
+        setMpesaEnv(json.env === 'production' ? 'production' : 'sandbox')
+        setMpesaShortcode(json.shortcode || '')
+        setMpesaCallbackUrl(json.callbackUrl || '')
+        setMpesaAccountRef(json.accountRef || 'Admission No.')
+        setMpesaHasStoredSecret(!!json.hasConsumerSecret)
+        setMpesaHasStoredPasskey(!!json.hasPasskey)
+        // Show a placeholder so the user knows a secret is stored
+        if (json.hasConsumerSecret) setMpesaConsumerSecret('••••••••••••••••')
+        if (json.hasPasskey) setMpesaPasskey('••••••••••••••••')
+        if (json.consumerKeyMasked) {
+          // Display the masked key (full key is not returned for security)
+          setMpesaConsumerKey(json.shortcode ? json.consumerKeyMasked : '')
+        }
+        setMpesaConfigLoaded(true)
+      } catch {
+        // ignore — silent failure on first load
+      } finally {
+        if (!cancelled) setMpesaConfigLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   // Users state
   const [users, setUsers] = useState<MockUser[]>(INITIAL_USERS)
@@ -166,6 +233,118 @@ export function SettingsModule() {
     toast.success(`${section} settings saved`, {
       description: 'Changes have been applied to your local configuration.',
     })
+  }
+
+  // --- Daraja M-Pesa handlers ---------------------------------------------
+  function isMaskedPlaceholder(v: string): boolean {
+    return !v || v.startsWith('•••')
+  }
+
+  async function handleMpesaSave() {
+    if (!mpesaShortcode.trim()) {
+      toast.error('Shortcode (Paybill) is required')
+      return
+    }
+    if (!mpesaConsumerKey.trim() || isMaskedPlaceholder(mpesaConsumerKey)) {
+      toast.error('Consumer Key is required')
+      return
+    }
+    // Secret + passkey: only required on first save. After that, the masked
+    // placeholder means "keep the existing stored value" — send null to skip.
+    const sendSecret =
+      !isMaskedPlaceholder(mpesaConsumerSecret) ? mpesaConsumerSecret.trim() : null
+    const sendPasskey =
+      !isMaskedPlaceholder(mpesaPasskey) ? mpesaPasskey.trim() : null
+    if (!mpesaHasStoredSecret && !sendSecret) {
+      toast.error('Consumer Secret is required (first-time setup)')
+      return
+    }
+    if (!mpesaHasStoredPasskey && !sendPasskey) {
+      toast.error('Passkey is required (first-time setup)')
+      return
+    }
+
+    setMpesaSaving(true)
+    try {
+      const r = await fetch('/api/mpesa/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          consumerKey: mpesaConsumerKey.trim(),
+          consumerSecret: sendSecret,
+          passkey: sendPasskey,
+          shortcode: mpesaShortcode.trim(),
+          env: mpesaEnv,
+          callbackUrl: mpesaCallbackUrl.trim() || null,
+          accountRef: mpesaAccountRef,
+        }),
+      })
+      const json = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        throw new Error(json?.error || `HTTP ${r.status}`)
+      }
+      setMpesaHasStoredSecret(true)
+      setMpesaHasStoredPasskey(true)
+      setMpesaConsumerSecret('••••••••••••••••')
+      setMpesaPasskey('••••••••••••••••')
+      toast.success('M-Pesa Daraja credentials saved', {
+        description: json.configured
+          ? `Connected to ${json.env} as shortcode ${json.shortcode}`
+          : `Missing: ${(json.missing || []).join(', ')}`,
+      })
+    } catch (e: any) {
+      toast.error('Failed to save M-Pesa credentials', { description: e?.message })
+    } finally {
+      setMpesaSaving(false)
+    }
+  }
+
+  async function handleMpesaTest() {
+    setMpesaTesting(true)
+    setMpesaTestResult(null)
+    try {
+      // Send the in-form credentials so the user can test before saving
+      const body: any = {
+        consumerKey: !isMaskedPlaceholder(mpesaConsumerKey) ? mpesaConsumerKey.trim() : undefined,
+        env: mpesaEnv,
+      }
+      // Only send secret if user typed a new one
+      if (!isMaskedPlaceholder(mpesaConsumerSecret)) {
+        body.consumerSecret = mpesaConsumerSecret.trim()
+      }
+      const r = await fetch('/api/mpesa/oauth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await r.json().catch(() => ({}))
+      if (r.ok && json.ok) {
+        setMpesaTestResult({
+          ok: true,
+          message: 'Connected to Daraja successfully',
+          detail: `Env: ${json.env} · Shortcode: ${json.shortcode} · Token expires in ${json.expiresIn}s`,
+        })
+        toast.success('Daraja connection successful', {
+          description: `OAuth token received from ${json.env}`,
+        })
+      } else {
+        setMpesaTestResult({
+          ok: false,
+          message: 'Could not connect to Daraja',
+          detail: json?.error || `HTTP ${r.status}`,
+        })
+        toast.error('Daraja test failed', { description: json?.error })
+      }
+    } catch (e: any) {
+      setMpesaTestResult({
+        ok: false,
+        message: 'Network error',
+        detail: e?.message,
+      })
+      toast.error('Daraja test failed', { description: e?.message })
+    } finally {
+      setMpesaTesting(false)
+    }
   }
 
   function handleAddUser(e: React.FormEvent) {
@@ -210,7 +389,13 @@ export function SettingsModule() {
           <TabsTrigger value="general" className="gap-1.5"><Building2 className="h-4 w-4" /> General</TabsTrigger>
           <TabsTrigger value="academic" className="gap-1.5"><GraduationCap className="h-4 w-4" /> Academic</TabsTrigger>
           <TabsTrigger value="notifications" className="gap-1.5"><Bell className="h-4 w-4" /> Notifications</TabsTrigger>
-          <TabsTrigger value="users" className="gap-1.5"><ShieldCheck className="h-4 w-4" /> Users & Roles</TabsTrigger>
+          <TabsTrigger value="mpesa" className="gap-1.5"><Smartphone className="h-4 w-4" /> M-Pesa</TabsTrigger>
+          <TabsTrigger value="users" className="gap-1.5"><ShieldCheck className="h-4 w-4" /> Users &amp; Roles</TabsTrigger>
+          {canManageModuleAccess && (
+            <TabsTrigger value="module-access" className="gap-1.5">
+              <KeyRound className="h-4 w-4" /> Module Access
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ----------------------------------------------------------------- */}
@@ -567,44 +752,31 @@ export function SettingsModule() {
               </CardContent>
             </Card>
 
-            <Card className="md:col-span-2">
+            <Card className="md:col-span-2 border-dashed">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2 text-base">
-                      <CreditCard className="h-4.5 w-4.5 text-amber-600" /> M-Pesa Integration
+                      <Smartphone className="h-4.5 w-4.5 text-emerald-600" /> M-Pesa Daraja STK Push
                     </CardTitle>
-                    <CardDescription>Accept fee payments via Safaricom M-Pesa Paybill</CardDescription>
+                    <CardDescription>
+                      Accept STK Push payments — parents approve a prompt on their phone
+                    </CardDescription>
                   </div>
-                  <Switch checked={mpesaEnabled} onCheckedChange={setMpesaEnabled} />
+                  <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-400">
+                    Daraja API
+                  </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="mpesa-pb">Paybill Number</Label>
-                    <Input id="mpesa-pb" value={mpesaPaybill} onChange={(e) => setMpesaPaybill(e.target.value)} disabled={!mpesaEnabled} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="mpesa-acct">Account Reference</Label>
-                    <Select value={mpesaAccount} onValueChange={setMpesaAccount} disabled={!mpesaEnabled}>
-                      <SelectTrigger id="mpesa-acct"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Admission No.">Admission No.</SelectItem>
-                        <SelectItem value="Student Name">Student Name</SelectItem>
-                        <SelectItem value="Invoice No.">Invoice No.</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="mpesa-cb">Callback URL</Label>
-                    <Input id="mpesa-cb" value={mpesaCallback} onChange={(e) => setMpesaCallback(e.target.value)} disabled={!mpesaEnabled} />
-                  </div>
-                </div>
-                <div className="rounded-md bg-amber-50 p-3 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                  <p className="font-medium">Payment Instructions for Parents</p>
-                  <p className="mt-1">Go to M-Pesa → Lipa na M-Pesa → Paybill → Enter <span className="font-mono font-bold">{mpesaPaybill}</span> → Account: <span className="font-mono font-bold">{mpesaAccount}</span></p>
-                </div>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  M-Pesa Daraja STK Push configuration now lives on its own tab.
+                  Configure your Consumer Key, Secret, Passkey and Shortcode there
+                  to enable one-tap fee collection from the Finance module.
+                </p>
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => setTab('mpesa')}>
+                  <Smartphone className="mr-1.5 h-4 w-4" /> Open M-Pesa Settings
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -644,6 +816,309 @@ export function SettingsModule() {
               <Save className="mr-1.5 h-4 w-4" /> Save Changes
             </Button>
           </div>
+        </TabsContent>
+
+        {/* ----------------------------------------------------------------- */}
+        {/* M-Pesa Daraja STK Push Integration */}
+        {/* ----------------------------------------------------------------- */}
+        <TabsContent value="mpesa" className="space-y-4">
+          {mpesaConfigLoading ? (
+            <Card>
+              <CardContent className="flex items-center gap-3 p-6 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading M-Pesa configuration…
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {!mpesaConfigLoading && (
+            <>
+              {/* Status banner */}
+              <Card className={cn(
+                'overflow-hidden border',
+                mpesaConfigLoaded && (mpesaConsumerKey && mpesaShortcode && (mpesaHasStoredSecret || !isMaskedPlaceholder(mpesaConsumerSecret)) && (mpesaHasStoredPasskey || !isMaskedPlaceholder(mpesaPasskey)))
+                  ? 'border-emerald-200 dark:border-emerald-900'
+                  : 'border-amber-200 dark:border-amber-900'
+              )}>
+                <CardContent className={cn(
+                  'flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between',
+                  mpesaConfigLoaded && (mpesaConsumerKey && mpesaShortcode && (mpesaHasStoredSecret || !isMaskedPlaceholder(mpesaConsumerSecret)) && (mpesaHasStoredPasskey || !isMaskedPlaceholder(mpesaPasskey)))
+                    ? 'bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40'
+                    : 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40'
+                )}>
+                  <div className="flex items-start gap-3">
+                    <div className={cn(
+                      'flex h-10 w-10 items-center justify-center rounded-lg text-white shrink-0',
+                      mpesaConfigLoaded && (mpesaConsumerKey && mpesaShortcode && (mpesaHasStoredSecret || !isMaskedPlaceholder(mpesaConsumerSecret)) && (mpesaHasStoredPasskey || !isMaskedPlaceholder(mpesaPasskey)))
+                        ? 'bg-emerald-500'
+                        : 'bg-amber-500'
+                    )}>
+                      {mpesaConfigLoaded && (mpesaConsumerKey && mpesaShortcode && (mpesaHasStoredSecret || !isMaskedPlaceholder(mpesaConsumerSecret)) && (mpesaHasStoredPasskey || !isMaskedPlaceholder(mpesaPasskey)))
+                        ? <CheckCircle2 className="h-5 w-5" />
+                        : <AlertCircle className="h-5 w-5" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className={cn(
+                        'text-sm font-semibold',
+                        mpesaConfigLoaded && (mpesaConsumerKey && mpesaShortcode && (mpesaHasStoredSecret || !isMaskedPlaceholder(mpesaConsumerSecret)) && (mpesaHasStoredPasskey || !isMaskedPlaceholder(mpesaPasskey)))
+                          ? 'text-emerald-800 dark:text-emerald-300'
+                          : 'text-amber-800 dark:text-amber-300'
+                      )}>
+                        {mpesaConfigLoaded && (mpesaConsumerKey && mpesaShortcode && (mpesaHasStoredSecret || !isMaskedPlaceholder(mpesaConsumerSecret)) && (mpesaHasStoredPasskey || !isMaskedPlaceholder(mpesaPasskey)))
+                          ? 'Daraja STK Push is configured'
+                          : 'Daraja STK Push is NOT configured'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Environment: <span className="font-mono font-semibold">{mpesaEnv}</span>
+                        {mpesaShortcode && <> · Shortcode: <span className="font-mono font-semibold">{mpesaShortcode}</span></>}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    disabled={mpesaTesting}
+                    onClick={handleMpesaTest}
+                  >
+                    {mpesaTesting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Plug className="mr-1.5 h-3.5 w-3.5" />}
+                    Test Connection
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Test result */}
+              {mpesaTestResult && (
+                <div className={cn(
+                  'flex items-start gap-3 rounded-lg border p-3 text-sm',
+                  mpesaTestResult.ok
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    : 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300'
+                )}>
+                  {mpesaTestResult.ok
+                    ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                    : <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">{mpesaTestResult.message}</p>
+                    {mpesaTestResult.detail && (
+                      <p className="text-xs mt-0.5 opacity-90">{mpesaTestResult.detail}</p>
+                    )}
+                  </div>
+                  <button
+                    className="text-xs underline opacity-70 hover:opacity-100"
+                    onClick={() => setMpesaTestResult(null)}
+                  >Dismiss</button>
+                </div>
+              )}
+
+              {/* Credentials form */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <KeyRound className="h-4.5 w-4.5 text-emerald-600" /> Daraja API Credentials
+                  </CardTitle>
+                  <CardDescription>
+                    Create an app at{' '}
+                    <a href="https://developer.safaricom.co.ke" target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-0.5 font-medium text-emerald-600 hover:underline dark:text-emerald-400">
+                      developer.safaricom.co.ke
+                      <ExternalLink className="h-3 w-3" />
+                    </a>{' '}
+                    to obtain these values. They are stored encrypted on your school record.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="mpesa-ck">Consumer Key <span className="text-rose-500">*</span></Label>
+                      <Input
+                        id="mpesa-ck"
+                        value={mpesaConsumerKey}
+                        onChange={(e) => setMpesaConsumerKey(e.target.value)}
+                        placeholder="e.g. C7bRkX8…"
+                        autoComplete="off"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Daraja app Consumer Key (sandbox or production).</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="mpesa-cs">Consumer Secret {!mpesaHasStoredSecret && <span className="text-rose-500">*</span>}</Label>
+                      <div className="relative">
+                        <Input
+                          id="mpesa-cs"
+                          type={mpesaShowSecret ? 'text' : 'password'}
+                          value={mpesaConsumerSecret}
+                          onChange={(e) => setMpesaConsumerSecret(e.target.value)}
+                          placeholder={mpesaHasStoredSecret ? '•••••••••••••••• (saved)' : 'Paste your Daraja Consumer Secret'}
+                          autoComplete="off"
+                          className="pr-9"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setMpesaShowSecret((v) => !v)}
+                          aria-label={mpesaShowSecret ? 'Hide secret' : 'Show secret'}
+                        >
+                          {mpesaShowSecret ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {mpesaHasStoredSecret ? 'A secret is already saved — type a new one to replace it.' : 'Required on first setup.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="mpesa-pk">Lipa Na M-Pesa Online Passkey {!mpesaHasStoredPasskey && <span className="text-rose-500">*</span>}</Label>
+                      <div className="relative">
+                        <Input
+                          id="mpesa-pk"
+                          type={mpesaShowPasskey ? 'text' : 'password'}
+                          value={mpesaPasskey}
+                          onChange={(e) => setMpesaPasskey(e.target.value)}
+                          placeholder={mpesaHasStoredPasskey ? '•••••••••••••••• (saved)' : 'bfb279f9aa9bdbcf158…'}
+                          autoComplete="off"
+                          className="pr-9"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setMpesaShowPasskey((v) => !v)}
+                          aria-label={mpesaShowPasskey ? 'Hide passkey' : 'Show passkey'}
+                        >
+                          {mpesaShowPasskey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Used to compute the STK Push password. Find it on the Daraja portal.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="mpesa-sc">Business Shortcode / Paybill <span className="text-rose-500">*</span></Label>
+                      <Input
+                        id="mpesa-sc"
+                        value={mpesaShortcode}
+                        onChange={(e) => setMpesaShortcode(e.target.value)}
+                        placeholder="e.g. 174379 (sandbox) or your Paybill"
+                        inputMode="numeric"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Sandbox test shortcode is <span className="font-mono">174379</span>.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Environment</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setMpesaEnv('sandbox')}
+                          className={cn(
+                            'flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition',
+                            mpesaEnv === 'sandbox'
+                              ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-400'
+                              : 'border-border hover:bg-muted/50'
+                          )}
+                        >
+                          <Hash className="h-3.5 w-3.5" /> Sandbox
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMpesaEnv('production')}
+                          className={cn(
+                            'flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition',
+                            mpesaEnv === 'production'
+                              ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-400'
+                              : 'border-border hover:bg-muted/50'
+                          )}
+                        >
+                          <Zap className="h-3.5 w-3.5" /> Production
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Use Sandbox while testing. Switch to Production only after Safaricom approves your Go-Live request.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="mpesa-cb2">Callback URL</Label>
+                      <Input
+                        id="mpesa-cb2"
+                        value={mpesaCallbackUrl}
+                        onChange={(e) => setMpesaCallbackUrl(e.target.value)}
+                        placeholder="https://yourdomain.com/api/mpesa/callback"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Publicly-reachable URL Daraja will POST payment results to. In local dev, use the Simulate button in Finance.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="mpesa-ar">Account Reference (shown to payer)</Label>
+                    <Select value={mpesaAccountRef} onValueChange={setMpesaAccountRef}>
+                      <SelectTrigger id="mpesa-ar"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Admission No.">Admission No.</SelectItem>
+                        <SelectItem value="Student Name">Student Name</SelectItem>
+                        <SelectItem value="Invoice No.">Invoice No.</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">What parents see as the "Account" on the M-Pesa prompt. Max 12 chars.</p>
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <Button variant="outline" onClick={handleMpesaTest} disabled={mpesaTesting || mpesaSaving}>
+                      {mpesaTesting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plug className="mr-1.5 h-4 w-4" />}
+                      Test Connection
+                    </Button>
+                    <Button
+                      onClick={handleMpesaSave}
+                      disabled={mpesaSaving}
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {mpesaSaving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+                      Save Credentials
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Helper / instructions card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Smartphone className="h-4.5 w-4.5 text-teal-600" /> How STK Push Works
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ol className="space-y-2 text-sm text-muted-foreground">
+                    <li className="flex gap-2">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">1</span>
+                      <span>Bursar opens an unpaid invoice in the <span className="font-medium text-foreground">Finance</span> module and clicks <span className="font-medium text-foreground">Pay via M-Pesa (STK Push)</span>.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">2</span>
+                      <span>They enter the parent's phone number and confirm the amount.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">3</span>
+                      <span>SkulHub calls Daraja's STK Push API. The parent receives an M-Pesa prompt on their phone.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">4</span>
+                      <span>After the parent enters their M-Pesa PIN, Safaricom POSTs the result to our <span className="font-mono text-foreground">/api/mpesa/callback</span> URL.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">5</span>
+                      <span>The invoice is auto-settled — <span className="font-medium text-foreground">amountPaid</span> increases, balance reduces, and the receipt number is stored on the Payment.</span>
+                    </li>
+                  </ol>
+                  <div className="mt-4 rounded-md bg-amber-50 p-3 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                    <p className="font-medium">Local development tip</p>
+                    <p className="mt-1">
+                      Daraja cannot reach <span className="font-mono">localhost</span> callbacks. Use the
+                      <span className="font-medium"> Simulate </span> button on a pending payment in the Finance
+                      module to trigger the same callback flow locally.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
         {/* ----------------------------------------------------------------- */}
@@ -767,6 +1242,15 @@ export function SettingsModule() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ----------------------------------------------------------------- */}
+        {/* Module Access (per-user permission overrides) */}
+        {/* ----------------------------------------------------------------- */}
+        {canManageModuleAccess && (
+          <TabsContent value="module-access" className="space-y-4">
+            <ModuleAccessTab />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Add user dialog */}
