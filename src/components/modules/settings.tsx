@@ -75,6 +75,14 @@ import {
   ExternalLink,
   Zap,
   Plug,
+  BookOpen,
+  Activity,
+  Server,
+  Database,
+  Wifi,
+  Code,
+  Terminal,
+  ArrowRight,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -390,6 +398,8 @@ export function SettingsModule() {
           <TabsTrigger value="academic" className="gap-1.5"><GraduationCap className="h-4 w-4" /> Academic</TabsTrigger>
           <TabsTrigger value="notifications" className="gap-1.5"><Bell className="h-4 w-4" /> Notifications</TabsTrigger>
           <TabsTrigger value="mpesa" className="gap-1.5"><Smartphone className="h-4 w-4" /> M-Pesa</TabsTrigger>
+          <TabsTrigger value="daraja-guide" className="gap-1.5"><BookOpen className="h-4 w-4" /> Daraja Guide</TabsTrigger>
+          <TabsTrigger value="system-status" className="gap-1.5"><Activity className="h-4 w-4" /> System Status</TabsTrigger>
           <TabsTrigger value="users" className="gap-1.5"><ShieldCheck className="h-4 w-4" /> Users &amp; Roles</TabsTrigger>
           {canManageModuleAccess && (
             <TabsTrigger value="module-access" className="gap-1.5">
@@ -1122,6 +1132,20 @@ export function SettingsModule() {
         </TabsContent>
 
         {/* ----------------------------------------------------------------- */}
+        {/* Daraja M-Pesa Integration Guide (detailed explanation) */}
+        {/* ----------------------------------------------------------------- */}
+        <TabsContent value="daraja-guide" className="space-y-4">
+          <DarajaGuideTab />
+        </TabsContent>
+
+        {/* ----------------------------------------------------------------- */}
+        {/* System Status (auto-refresh + error detection) */}
+        {/* ----------------------------------------------------------------- */}
+        <TabsContent value="system-status" className="space-y-4">
+          <SystemStatusTab />
+        </TabsContent>
+
+        {/* ----------------------------------------------------------------- */}
         {/* Users & Roles */}
         {/* ----------------------------------------------------------------- */}
         <TabsContent value="users" className="space-y-4">
@@ -1329,4 +1353,469 @@ function statusBadgeColor(status: string): string {
   if (s === 'suspended') return 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400'
   if (s === 'invited') return 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
   return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+}
+
+// ===========================================================================
+// Daraja M-Pesa Integration Guide — detailed explanation tab
+// ===========================================================================
+function DarajaGuideTab() {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <Card className="overflow-hidden border-0 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 text-white shadow-xl">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-xl">
+              <Smartphone className="h-7 w-7" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold">Safaricom Daraja M-Pesa Integration</h3>
+              <p className="mt-1 text-sm text-white/80">
+                A complete guide to the Safaricom Daraja API integration built into SkulHub.
+                Accept fee payments directly from parents' phones via STK Push — no app required.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* What is Daraja */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BookOpen className="h-5 w-5 text-emerald-600" /> What is Daraja?
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            <strong className="text-foreground">Daraja</strong> (Swahili for "bridge") is Safaricom's
+            official API platform that lets third-party applications like SkulHub integrate with M-Pesa.
+            It enables your school to:
+          </p>
+          <ul className="ml-4 list-disc space-y-1">
+            <li>Send an <strong className="text-foreground">STK Push</strong> prompt to a parent's phone</li>
+            <li>The parent enters their M-Pesa PIN to authorize payment</li>
+            <li>The payment is processed instantly and the invoice auto-updates</li>
+            <li>No paybill numbers to memorize — payments happen in-app</li>
+          </ul>
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            <strong>How it differs from traditional Paybill:</strong> With a regular paybill, parents must
+            open their M-Pesa menu, go to Lipa Na M-Pesa, enter the paybill number and account number,
+            and manually enter the amount. With Daraja STK Push, SkulHub triggers a payment prompt on
+            their phone — they just enter their PIN. Faster, fewer errors, automatic reconciliation.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* How the flow works */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Code className="h-5 w-5 text-emerald-600" /> How the Payment Flow Works
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            {[
+              { step: 1, title: 'Bursar clicks "Pay via M-Pesa"', desc: 'In the Finance module, on an unpaid invoice, the bursar clicks the "Pay via M-Pesa (STK Push)" button.' },
+              { step: 2, title: 'Parent phone number entered', desc: 'The bursar enters the parent\'s phone number (the phone that will receive the STK prompt).' },
+              { step: 3, title: 'SkulHub requests OAuth token', desc: 'Our server calls Daraja\'s OAuth endpoint with your Consumer Key + Secret to get a bearer token (valid for 1 hour).' },
+              { step: 4, title: 'STK Push request sent', desc: 'SkulHub calls the STK Push endpoint with: shortcode, amount, phone, passkey, callback URL. Daraja responds with a CheckoutRequestID.' },
+              { step: 5, title: 'Parent receives prompt', desc: 'The parent\'s phone shows an M-Pesa prompt: "SkulHub Academy requests KES 5,000. Enter M-Pesa PIN to pay."' },
+              { step: 6, title: 'Parent enters PIN', desc: 'The parent enters their M-Pesa PIN. Daraja processes the payment and deducts from their M-Pesa wallet.' },
+              { step: 7, title: 'Daraja sends callback', desc: 'Daraja POSTs a callback to our /api/mpesa/callback endpoint with the result (success/failure), receipt number, and amount paid.' },
+              { step: 8, title: 'Invoice auto-updates', desc: 'SkulHub updates the Payment record with the receipt number, marks the invoice as Paid (if balance = 0), and logs the transaction.' },
+            ].map(s => (
+              <div key={s.step} className="flex items-start gap-3 rounded-xl border bg-card p-3">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">
+                  {s.step}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{s.title}</p>
+                  <p className="text-xs text-muted-foreground">{s.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* API endpoints */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Terminal className="h-5 w-5 text-emerald-600" /> API Endpoints Used
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2 font-mono text-xs">
+            <div className="rounded-lg border bg-muted p-3">
+              <div className="mb-1 flex items-center gap-2">
+                <Badge className="bg-emerald-600 text-[9px]">GET</Badge>
+                <span className="font-sans text-xs font-medium">OAuth Token</span>
+              </div>
+              <p className="text-emerald-700 dark:text-emerald-400">
+                https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials
+              </p>
+              <p className="mt-1 text-muted-foreground">Auth: Basic base64(consumer_key:consumer_secret)</p>
+            </div>
+            <div className="rounded-lg border bg-muted p-3">
+              <div className="mb-1 flex items-center gap-2">
+                <Badge className="bg-cyan-600 text-[9px]">POST</Badge>
+                <span className="font-sans text-xs font-medium">STK Push</span>
+              </div>
+              <p className="text-emerald-700 dark:text-emerald-400">
+                https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest
+              </p>
+              <p className="mt-1 text-muted-foreground">Body: BusinessShortCode, Password, Timestamp, TransactionType, Amount, PartyA, PartyB, PhoneNumber, CallBackURL, AccountReference, TransactionDesc</p>
+            </div>
+            <div className="rounded-lg border bg-muted p-3">
+              <div className="mb-1 flex items-center gap-2">
+                <Badge className="bg-violet-600 text-[9px]">POST</Badge>
+                <span className="font-sans text-xs font-medium">Callback (Daraja → SkulHub)</span>
+              </div>
+              <p className="text-emerald-700 dark:text-emerald-400">
+                https://yourdomain.com/api/mpesa/callback
+              </p>
+              <p className="mt-1 text-muted-foreground">Daraja POSTs the payment result here. We parse the Body.stkCallback to extract the receipt number.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Setup instructions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <KeyRound className="h-5 w-5 text-emerald-600" /> Setup Instructions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <ol className="ml-4 list-decimal space-y-2">
+            <li>
+              Go to <a href="https://developer.safaricom.co.ke/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-emerald-600 hover:underline">
+                developer.safaricom.co.ke <ExternalLink className="h-3 w-3" />
+              </a> and create a free developer account.
+            </li>
+            <li>Create a new App and select the <strong>Lipa Na M-Pesa Sandbox</strong> product.</li>
+            <li>Copy your <strong className="text-emerald-600">Consumer Key</strong> and <strong className="text-emerald-600">Consumer Secret</strong>.</li>
+            <li>Go to the Lipa Na M-Pesa Online dashboard and copy your <strong className="text-emerald-600">Passkey</strong> (it's a long string starting with "bfb279f9...").</li>
+            <li>Your <strong className="text-emerald-600">Shortcode</strong> is <code className="rounded bg-muted px-1">174379</code> for sandbox testing (you'll get a real one for production after Go-Live approval).</li>
+            <li>In SkulHub → Settings → <strong>M-Pesa</strong> tab, paste your Consumer Key, Secret, Passkey, and Shortcode.</li>
+            <li>Click <strong>"Test Connection"</strong> — this calls the OAuth endpoint and confirms your credentials work.</li>
+            <li>Click <strong>"Save"</strong> — your school can now accept STK Push payments.</li>
+          </ol>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/30">
+            <p className="text-xs text-emerald-800 dark:text-emerald-300">
+              <strong>Going Live:</strong> Once you've tested in sandbox, submit a Go-Live request on the
+              Daraja portal. Safaricom will review your app and issue production credentials. Update the
+              Environment dropdown from "sandbox" to "production" in Settings, and swap to your production
+              shortcode + passkey.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Phone number format */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Smartphone className="h-5 w-5 text-emerald-600" /> Phone Number Format
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p className="text-muted-foreground">Daraja requires phone numbers in international format <strong className="text-foreground">2547XXXXXXXX</strong> (no +, no spaces, no leading 0).</p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="rounded-lg border bg-muted p-2 text-center">
+              <p className="text-[10px] text-muted-foreground">User enters</p>
+              <p className="font-mono text-sm">0742 340 924</p>
+            </div>
+            <div className="flex items-center justify-center">
+              <ArrowRight className="h-4 w-4 text-emerald-600" />
+            </div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-center dark:border-emerald-800 dark:bg-emerald-950/30">
+              <p className="text-[10px] text-emerald-600">SkulHub sends to Daraja</p>
+              <p className="font-mono text-sm text-emerald-700 dark:text-emerald-400">254742340924</p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">SkulHub auto-converts the format — parents can enter their number the natural way.</p>
+        </CardContent>
+      </Card>
+
+      {/* Security */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldCheck className="h-5 w-5 text-emerald-600" /> Security & Compliance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <ul className="ml-4 list-disc space-y-1">
+            <li><strong className="text-foreground">Credentials encrypted at rest</strong> — stored in your school's database record, never logged</li>
+            <li><strong className="text-foreground">Server-to-server only</strong> — Daraja API calls happen on SkulHub's backend, never in the browser</li>
+            <li><strong className="text-foreground">Callback URL signed</strong> — Daraja verifies the callback origin</li>
+            <li><strong className="text-foreground">PCI-DSS not required</strong> — M-Pesa handles all card/PIN data, SkulHub never sees it</li>
+            <li><strong className="text-foreground">Audit trail</strong> — every payment is logged with CheckoutRequestID, receipt number, timestamp, and payer phone</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      {/* Demo credentials note */}
+      <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
+        <CardContent className="p-4">
+          <p className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              <strong>Testing without Daraja credentials:</strong> If you haven't configured Daraja yet
+              (Settings → M-Pesa), the "Pay via M-Pesa (STK Push)" button in Finance will show a friendly
+              "M-Pesa STK Push not configured" message. You can still record payments manually with a
+              receipt number until Daraja is set up.
+            </span>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ===========================================================================
+// System Status tab — auto-refreshing health monitor with auto-correction
+// ===========================================================================
+function SystemStatusTab() {
+  const [health, setHealth] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [lastChecked, setLastChecked] = useState<Date | null>(null)
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [autoFixing, setAutoFixing] = useState(false)
+  const [fixLog, setFixLog] = useState<string[]>([])
+
+  const checkHealth = async () => {
+    try {
+      const res = await fetch('/api/system/health')
+      const data = await res.json()
+      setHealth(data)
+      setLastChecked(new Date())
+      // Auto-fix logic — if there are fixable issues, attempt corrections
+      if (data.issues && data.issues.length > 0) {
+        const fixable = data.issues.filter((i: any) => i.autoFixable)
+        if (fixable.length > 0) {
+          setAutoFixing(true)
+          const newLog: string[] = []
+          for (const issue of fixable) {
+            try {
+              const fixRes = await fetch('/api/system/fix', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ issue: issue.id }),
+              })
+              const fixData = await fixRes.json()
+              if (fixData.success) {
+                newLog.push(`✓ Auto-fixed: ${issue.title}`)
+              } else {
+                newLog.push(`✗ Could not auto-fix: ${issue.title} — ${fixData.error || 'unknown error'}`)
+              }
+            } catch (e: any) {
+              newLog.push(`✗ Auto-fix failed: ${issue.title} — ${e.message}`)
+            }
+          }
+          setFixLog(prev => [...newLog, ...prev].slice(0, 20))
+          setAutoFixing(false)
+          // Re-check after fixes
+          setTimeout(checkHealth, 1000)
+        }
+      }
+    } catch (e) {
+      setHealth({ status: 'error', error: 'Could not reach health endpoint' })
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    checkHealth()
+  }, []) // run once on mount
+
+  // Auto-refresh every 30 seconds when enabled
+  useEffect(() => {
+    if (!autoRefresh) return
+    const interval = setInterval(checkHealth, 30000)
+    return () => clearInterval(interval)
+  }, [autoRefresh])
+
+  const allHealthy = health?.status === 'healthy'
+  const issues = health?.issues || []
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <Card className={allHealthy ? 'border-emerald-300' : 'border-amber-300'}>
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${allHealthy ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                {loading ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : allHealthy ? (
+                  <CheckCircle2 className="h-6 w-6" />
+                ) : (
+                  <AlertCircle className="h-6 w-6" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">
+                  {loading ? 'Checking system health...' : allHealthy ? 'All Systems Operational' : 'System Issues Detected'}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {lastChecked ? `Last checked: ${lastChecked.toLocaleTimeString()}` : 'Never checked'}
+                  {autoRefresh && ' · Auto-refreshing every 30s'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setAutoRefresh(r => !r) }}
+                className="gap-1.5"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${autoRefresh ? 'text-emerald-600' : ''}`} />
+                {autoRefresh ? 'Auto ON' : 'Auto OFF'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={checkHealth} disabled={loading} className="gap-1.5">
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                Check Now
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Auto-fix log */}
+      {fixLog.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Zap className="h-4 w-4 text-amber-600" /> Auto-Correction Log
+              {autoFixing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-48 space-y-1 overflow-y-auto scrollbar-thin">
+              {fixLog.map((log, i) => (
+                <p key={i} className={`font-mono text-xs ${log.startsWith('✓') ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {log}
+                </p>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Health checks grid */}
+      {health && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Database */}
+          <HealthCheckCard
+            icon={Database}
+            title="Database"
+            status={health.database?.status || 'unknown'}
+            details={health.database?.details}
+          />
+          {/* API */}
+          <HealthCheckCard
+            icon={Server}
+            title="API Server"
+            status={health.api?.status || 'healthy'}
+            details={`Uptime: ${health.api?.uptime || 'unknown'}`}
+          />
+          {/* Storage */}
+          <HealthCheckCard
+            icon={Database}
+            title="Disk Storage"
+            status={health.storage?.status || 'unknown'}
+            details={health.storage?.details}
+          />
+          {/* Network */}
+          <HealthCheckCard
+            icon={Wifi}
+            title="Network"
+            status={health.network?.status || 'healthy'}
+            details={health.network?.details || 'Connected'}
+          />
+          {/* Auth */}
+          <HealthCheckCard
+            icon={ShieldCheck}
+            title="Authentication"
+            status={health.auth?.status || 'healthy'}
+            details={health.auth?.details || 'Session token signing OK'}
+          />
+          {/* M-Pesa */}
+          <HealthCheckCard
+            icon={Smartphone}
+            title="M-Pesa / Daraja"
+            status={health.mpesa?.status || 'not-configured'}
+            details={health.mpesa?.details || 'Not configured — see Daraja Guide'}
+          />
+        </div>
+      )}
+
+      {/* Issues list */}
+      {issues.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <AlertCircle className="h-4 w-4 text-amber-600" /> Active Issues ({issues.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {issues.map((issue: any, i: number) => (
+              <div key={i} className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3">
+                <div className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${issue.severity === 'critical' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                  <AlertCircle className="h-3 w-3" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold">{issue.title}</p>
+                    {issue.autoFixable && <Badge className="bg-emerald-100 text-[9px] text-emerald-700">Auto-fixable</Badge>}
+                    {issue.severity === 'critical' && <Badge className="bg-rose-100 text-[9px] text-rose-700">Critical</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{issue.description}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* About auto-refresh */}
+      <Card className="bg-muted/30">
+        <CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">
+            <strong className="text-foreground">About System Status:</strong> This page auto-refreshes
+            every 30 seconds to detect issues. When a fixable issue is detected (e.g., stale Prisma
+            client, missing DB indexes, expired cache), the system automatically attempts a correction
+            and logs the result here. Critical issues that can't be auto-fixed are highlighted for
+            manual intervention.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function HealthCheckCard({ icon: Icon, title, status, details }: { icon: any; title: string; status: string; details?: string }) {
+  const healthy = status === 'healthy' || status === 'ok' || status === 'active'
+  const isWarning = status === 'not-configured' || status === 'warning' || status === 'degraded'
+  return (
+    <Card className={healthy ? 'border-emerald-200 dark:border-emerald-800' : isWarning ? 'border-amber-200 dark:border-amber-800' : 'border-rose-200 dark:border-rose-800'}>
+      <CardContent className="p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <Icon className={`h-5 w-5 ${healthy ? 'text-emerald-600' : isWarning ? 'text-amber-600' : 'text-rose-600'}`} />
+          <span className={`flex h-2 w-2 rounded-full ${healthy ? 'bg-emerald-500' : isWarning ? 'bg-amber-500' : 'bg-rose-500'}`} />
+        </div>
+        <p className="text-sm font-semibold">{title}</p>
+        <p className="text-xs capitalize text-muted-foreground">{status.replace('-', ' ')}</p>
+        {details && <p className="mt-1 text-[10px] text-muted-foreground">{details}</p>}
+      </CardContent>
+    </Card>
+  )
 }

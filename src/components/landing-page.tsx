@@ -318,8 +318,8 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Demo Video Modal */}
-      <DemoVideoModal open={showVideo} onClose={() => setShowVideo(false)} />
+      {/* Demo Video Modal — keyed by open state so it remounts & resets each time */}
+      {showVideo && <DemoVideoModal key="demo-video" onClose={() => setShowVideo(false)} />}
 
       {/* Footer with Contact Form */}
       <footer id="contact" className="border-t bg-gradient-to-br from-slate-50 to-emerald-50/30 dark:from-slate-950 dark:to-emerald-950/20 py-16">
@@ -459,39 +459,81 @@ function ContactForm() {
 }
 
 // ---------------------------------------------------------------------------
-// Demo Video Modal — animated product tour (CSS slideshow simulating a video)
+// Demo Video Modal — auto-playing animated product tour with video controls
+// (play/pause, timeline scrubber, scene navigation, fullscreen)
 // ---------------------------------------------------------------------------
-function DemoVideoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function DemoVideoModal({ onClose }: { onClose: () => void }) {
   const [scene, setScene] = useState(0)
+  const [playing, setPlaying] = useState(true)
+  const [progress, setProgress] = useState(0) // 0-100 within current scene
   const scenes = [
-    { title: 'Dashboard Overview', desc: 'Real-time stats: student counts, fee collection, attendance trends', icon: BarChart3 },
-    { title: 'Student Management', desc: 'Admissions, profiles, guardians, enrollment history', icon: Users },
-    { title: 'Finance & Fees', desc: 'Invoices, M-Pesa payments, receipts, outstanding balances', icon: Wallet },
-    { title: 'Academics & Exams', desc: 'CBC & 8-4-4 subjects, CATs, report cards, grade analytics', icon: ClipboardCheck },
-    { title: 'Parent Portal', desc: 'Parents check fees, grades, attendance from their phone', icon: Smartphone },
+    { title: 'Dashboard Overview', desc: 'Real-time stats: student counts, fee collection, attendance trends', icon: BarChart3, color: 'from-emerald-600 to-teal-700' },
+    { title: 'Student Management', desc: 'Admissions, profiles, guardians, enrollment history', icon: Users, color: 'from-cyan-600 to-emerald-700' },
+    { title: 'Finance & Fees', desc: 'Invoices, M-Pesa payments, receipts, outstanding balances', icon: Wallet, color: 'from-amber-600 to-emerald-700' },
+    { title: 'Academics & Exams', desc: 'CBC & 8-4-4 subjects, CATs, report cards, grade analytics', icon: ClipboardCheck, color: 'from-teal-600 to-cyan-700' },
+    { title: 'Parent Portal', desc: 'Parents check fees, grades, attendance from their phone', icon: Smartphone, color: 'from-violet-600 to-emerald-700' },
   ]
+  const SCENE_DURATION = 3500 // ms per scene
 
-  // Auto-advance scenes every 3.5s. Remounting the modal (via key prop)
-  // resets scene to 0 automatically when it opens.
+  // Auto-advance scenes + progress bar (simulates video playback)
   useEffect(() => {
-    if (!open) return
+    if (!playing) return
+    const startTime = Date.now()
     const timer = setInterval(() => {
-      setScene(s => (s + 1) % scenes.length)
-    }, 3500)
+      const elapsed = Date.now() - startTime
+      const pct = Math.min(100, (elapsed / SCENE_DURATION) * 100)
+      setProgress(pct)
+      if (pct >= 100) {
+        setScene(s => (s + 1) % scenes.length)
+      }
+    }, 50)
     return () => clearInterval(timer)
-  }, [open])
+  }, [playing, scene])
 
-  if (!open) return null
+  // Keyboard shortcuts: Space=play/pause, ←/→=scenes, Esc=close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault()
+        setPlaying(p => !p)
+      } else if (e.code === 'ArrowRight') {
+        setScene(s => (s + 1) % scenes.length)
+        setProgress(0)
+      } else if (e.code === 'ArrowLeft') {
+        setScene(s => (s - 1 + scenes.length) % scenes.length)
+        setProgress(0)
+      } else if (e.code === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   const current = scenes[scene]
   const Icon = current.icon
+  const totalProgress = ((scene + progress / 100) / scenes.length) * 100
+
+  const goToScene = (i: number) => {
+    setScene(i)
+    setProgress(0)
+    setPlaying(true)
+  }
+
+  const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const pct = (e.clientX - rect.left) / rect.width
+    const targetScene = Math.min(scenes.length - 1, Math.floor(pct * scenes.length))
+    goToScene(targetScene)
+  }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md" onClick={onClose}>
-      <div className="relative w-full max-w-4xl" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md" onClick={onClose}>
+      <div className="relative w-full max-w-5xl" onClick={e => e.stopPropagation()}>
         <button
           onClick={onClose}
-          className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
-          aria-label="Close"
+          className="absolute -top-11 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          aria-label="Close video"
         >
           <X className="h-5 w-5" />
         </button>
@@ -505,42 +547,114 @@ function DemoVideoModal({ open, onClose }: { open: boolean; onClose: () => void 
               <span className="text-sm font-medium text-white">SkulHub Product Tour</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
-              <span className="text-[10px] font-medium text-white/60">LIVE DEMO</span>
+              <span className={`h-2 w-2 rounded-full ${playing ? 'animate-pulse bg-rose-500' : 'bg-white/40'}`} />
+              <span className="text-[10px] font-medium text-white/60">{playing ? 'PLAYING' : 'PAUSED'} · {Math.round(totalProgress)}%</span>
             </div>
           </div>
-          {/* Video content (animated scene) */}
-          <div className="relative aspect-video bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900">
+
+          {/* "Video" stage */}
+          <div className={`relative aspect-video bg-gradient-to-br ${current.color} overflow-hidden`}>
             {/* Animated background orbs */}
-            <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
-            <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-teal-500/10 blur-3xl" />
-            {/* Scene content */}
-            <div key={scene} className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/30">
-                <Icon className="h-8 w-8" />
+            <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-black/10 blur-3xl" />
+
+            {/* Scene content with slide transition */}
+            <div key={scene} className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center animate-[fadeIn_0.4s_ease-out]">
+              <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-md text-white shadow-2xl">
+                <Icon className="h-10 w-10" />
               </div>
-              <h3 className="text-2xl font-bold text-white md:text-3xl">{current.title}</h3>
-              <p className="mt-2 max-w-md text-sm text-white/70 md:text-base">{current.desc}</p>
+              <h3 className="text-3xl font-bold tracking-tight text-white md:text-4xl drop-shadow">{current.title}</h3>
+              <p className="mt-3 max-w-lg text-base text-white/90 md:text-lg drop-shadow">{current.desc}</p>
+              <div className="mt-5 rounded-full bg-white/10 px-3 py-1 backdrop-blur">
+                <span className="text-xs font-medium text-white/80">Scene {scene + 1} of {scenes.length}</span>
+              </div>
             </div>
-            {/* Progress dots */}
-            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1.5">
-              {scenes.map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    i === scene ? 'w-8 bg-emerald-400' : 'w-1.5 bg-white/30'
-                  }`}
-                />
-              ))}
+
+            {/* Play/pause overlay button (click center to toggle) */}
+            <button
+              onClick={() => setPlaying(p => !p)}
+              className="absolute inset-0 flex items-center justify-center group"
+              aria-label={playing ? 'Pause' : 'Play'}
+            >
+              <div className={`flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-md ring-2 ring-white/30 transition-all duration-300 group-hover:scale-110 group-hover:bg-white/30 ${playing ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+                {playing ? (
+                  <svg className="h-8 w-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+                ) : (
+                  <svg className="h-8 w-8 ml-1 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                )}
+              </div>
+            </button>
+
+            {/* Scene navigation arrows (left/right) */}
+            <button
+              onClick={() => goToScene((scene - 1 + scenes.length) % scenes.length)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white opacity-0 hover:bg-black/50 group-hover:opacity-100 transition-opacity"
+              aria-label="Previous scene"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <button
+              onClick={() => goToScene((scene + 1) % scenes.length)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white opacity-0 hover:bg-black/50 group-hover:opacity-100 transition-opacity"
+              aria-label="Next scene"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          </div>
+
+          {/* Video controls bar */}
+          <div className="bg-slate-800/95 px-4 py-3">
+            {/* Timeline scrubber */}
+            <div
+              className="group/timeline relative mb-2 h-1.5 cursor-pointer rounded-full bg-white/20"
+              onClick={handleScrub}
+            >
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500"
+                style={{ width: `${totalProgress}%` }}
+              />
+              <div
+                className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white shadow opacity-0 group-hover/timeline:opacity-100"
+                style={{ left: `calc(${totalProgress}% - 6px)` }}
+              />
             </div>
-            {/* Scene counter */}
-            <div className="absolute right-4 top-4 rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-medium text-white/80">
-              {scene + 1} / {scenes.length}
+            {/* Controls row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPlaying(p => !p)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                  aria-label={playing ? 'Pause' : 'Play'}
+                >
+                  {playing ? (
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+                  ) : (
+                    <svg className="h-4 w-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  )}
+                </button>
+                <span className="text-[11px] font-medium text-white/70">
+                  {String(scene + 1).padStart(2, '0')}:{String(Math.floor(progress / 1.666)).padStart(2, '0')} / 00:18
+                </span>
+              </div>
+              {/* Scene dots */}
+              <div className="flex items-center gap-1.5">
+                {scenes.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => goToScene(i)}
+                    className={`h-2 rounded-full transition-all ${
+                      i === scene ? 'w-8 bg-emerald-400' : 'w-2 bg-white/30 hover:bg-white/50'
+                    }`}
+                    aria-label={`Go to scene ${i + 1}: ${s.title}`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
-          {/* Video footer with CTA */}
+
+          {/* Footer CTA */}
           <div className="flex items-center justify-between border-t border-white/10 bg-slate-800/80 px-4 py-3">
-            <p className="text-xs text-white/60">Want to see more? Start your free trial</p>
+            <p className="text-xs text-white/60">Want to explore the real thing? Start your free trial</p>
             <Button
               size="sm"
               className="bg-emerald-600 hover:bg-emerald-700"
@@ -553,6 +667,9 @@ function DemoVideoModal({ open, onClose }: { open: boolean; onClose: () => void 
             </Button>
           </div>
         </div>
+        <p className="mt-3 text-center text-[10px] text-white/40">
+          Press <kbd className="rounded bg-white/10 px-1 py-0.5">Space</kbd> to play/pause · <kbd className="rounded bg-white/10 px-1 py-0.5">←</kbd> <kbd className="rounded bg-white/10 px-1 py-0.5">→</kbd> to navigate · <kbd className="rounded bg-white/10 px-1 py-0.5">Esc</kbd> to close
+        </p>
       </div>
     </div>
   )

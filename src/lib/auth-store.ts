@@ -354,8 +354,24 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'skulhub-auth',
+      // Don't persist authView — visitors should always see the landing page
+      // first, not whatever auth screen they were on when they last closed the tab.
+      // Exception: if they were logged in, we want to keep them logged in.
+      partialize: (state) => ({
+        user: state.user,
+        serverToken: state.serverToken,
+        isSuperAdmin: state.isSuperAdmin,
+        // authView is intentionally excluded — reset to 'landing' on reload
+        // unless the user is logged in (in which case authView doesn't matter)
+        _hasHydrated: state._hasHydrated,
+      }),
       onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true)
+        // After rehydration, force authView back to 'landing' (or 'superadmin'
+        // if a flag was set by the Ctrl+Shift+A flow during this session).
+        if (state) {
+          state.authView = 'landing'
+          state.setHasHydrated(true)
+        }
       },
     }
   )

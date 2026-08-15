@@ -146,15 +146,16 @@ export function LoginForm() {
                     <Input
                       id="schoolCode"
                       value={schoolCode}
-                      onChange={e => setSchoolCode(e.target.value)}
+                      onChange={e => setSchoolCode(e.target.value.toUpperCase())}
                       placeholder="e.g. SKH-2024-001"
-                      className="pl-9"
+                      className="pl-9 uppercase tracking-wide font-mono"
                       autoComplete="off"
+                      autoFocus
                     />
                   </div>
                 </div>
                 <Button type="submit" className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700" disabled={loading}>
-                  {loading ? 'Checking...' : 'Continue'} <ChevronRight className="ml-1 h-4 w-4" />
+                  {loading ? 'Checking...' : 'Continue'} <ChevronRight className="ml-1 h-4 w-4 pointer-events-none" />
                 </Button>
               </form>
             )}
@@ -178,7 +179,7 @@ export function LoginForm() {
                   </div>
                 </div>
                 <Button type="submit" className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700" disabled={loading}>
-                  {loading ? 'Signing in...' : <><LogIn className="mr-2 h-4 w-4" /> Sign In</>}
+                  {loading ? 'Signing in...' : <><LogIn className="mr-2 h-4 w-4 pointer-events-none" /> Sign In</>}
                 </Button>
               </form>
             )}
