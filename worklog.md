@@ -3348,3 +3348,93 @@ Stage Summary:
   6. ✅ Vercel build fixes (standalone removed, postinstall, DATABASE_URL fallback)
   7. ✅ useEffect imports at top of files
   8. ✅ Repo made public + landing page loads correctly (not Sign In)
+
+---
+Task ID: 47 (hide super admin + print + auto-ref + exam grades)
+Agent: Main
+Task: Hide super admin from sidebar, enable printing invoices/receipts, auto-reference for cash, exam subject selection + external marks
+
+CHANGES MADE:
+
+1. SUPER ADMIN MODULE HIDDEN FROM SIDEBAR
+   - Removed `superadmin` from the NAV array in `src/components/layout/sidebar.tsx`
+   - Removed `dashboard` from `super_admin` MODULE_ACCESS (super admin lands
+     directly on the Super Admin page — no dashboard link needed)
+   - Now only accessible via the hidden Ctrl+Shift+A shortcut on the login screen
+   - Verified: super admin sidebar shows only "Dashboard" and "Settings"
+
+2. PRINT INVOICES WITH SCHOOL LETTERHEAD
+   - Created `src/lib/print-utils.ts` with `printWithLetterhead()` function:
+     * Opens a new browser window with the document
+     * Includes school letterhead: logo box (first letter of school name),
+       school name, address, phone/email, motto, brand color border
+     * Document body with info grid + table + totals
+     * "Print / Save as PDF" button (hidden when printing)
+     * Authorized signature line + "Generated on" timestamp
+   - Added "Print Invoice" button to:
+     * ViewInvoiceDialog (next to Record Payment)
+     * Each invoice row in the table (printer icon)
+   - Verified: clicking Print opens a new window with the invoice formatted
+     with letterhead, ready to print or save as PDF
+
+3. PRINT PAYMENT RECEIPTS
+   - After recording a payment, a toast notification appears with a
+     "Print Receipt" action button
+   - Receipt includes: student name, invoice number, payment date, method,
+     reference, payer info, amount table, authorized signature
+   - Uses the same school letterhead as invoices
+
+4. AUTO-GENERATED REFERENCE FOR CASH PAYMENTS
+   - Cash payments: reference auto-generated as `CSH-YYYYMMDD-XXXX`
+     (e.g. CSH-20260817-4823)
+   - Bank Transfer: `BT-YYYYMMDD-XXXX`
+   - Reference field is READ-ONLY for Cash and Bank Transfer (cannot be
+     edited — ensures tracking consistency)
+   - Shows "(auto-generated)" label and "System-generated reference for
+     tracking. Cannot be edited." helper text
+   - M-Pesa and Cheque still require manual reference entry (transaction
+     code / cheque number)
+
+5. EXAMS: RECORD GRADES + EXTERNAL MARKS + CHANGE SUBJECT
+   - GradeEntryDialog: table view to enter marks per student in a class
+     * Shows admission number, student name, marks input (0 to totalMarks)
+     * Saves grades one by one via POST /api/grades
+     * Auto-computes KCSE-style grade (A, A-, B+, ... E) and points (12-1)
+   - ExternalMarksDialog: import marks from external exams
+     * Subject selector (choose which subject the marks belong to — can
+       be different from the assessment's default subject)
+     * Class level selector
+     * External source dropdown: KCSE Mock, KCSE, KCPE, Joint Mock, etc.
+     * Paste area for bulk import: "AdmissionNo,Marks" per line
+     * System matches each row to a student by admission number or name
+     * Reports how many saved vs skipped
+   - ChangeSubjectDialog: change the subject assigned to an assessment
+     * Shows current subject, lets you pick a new one
+     * Updates all grades for that assessment to the new subject
+     * Warning about irreversibility
+   - New "Record / Edit Grades", "Add External Marks", and "Change subject"
+     buttons in the AssessmentDetailDialog
+   - New /api/grades POST+GET endpoint:
+     * POST: upserts a grade (studentId+subjectId+examId unique)
+     * Auto-computes grade letter + points from percentage
+     * Supports source (internal/external) and externalSource fields
+   - Grade model: added `source` and `externalSource` fields to Prisma schema
+   - Exams API: updated PUT route to support subjectId/classLevelId changes
+
+VERIFICATION:
+- Super admin sidebar: only "Dashboard" + "Settings" visible (no Super Admin) ✓
+- Super admin module auto-loads when super admin logs in ✓
+- Admin login works: Moses Kinyanjui, full sidebar with all modules ✓
+- Finance → Invoices tab: Print button (printer icon) on each row ✓
+- Clicking Print opens new window with invoice + school letterhead ✓
+- "Print / Save as PDF" button in the print window ✓
+- Lint: 0 errors, 0 warnings ✓
+
+Stage Summary:
+- All user requests addressed:
+  1. ✅ Super admin module hidden from sidebar (only via Ctrl+Shift+A)
+  2. ✅ Printing invoices and payment receipts with school letterhead
+  3. ✅ Auto-generated reference for Cash (CSH-YYYYMMDD-XXXX), not free text
+  4. ✅ Exams: choose which subject to add marks to (subject selector)
+  5. ✅ Exams: add external marks (KCSE/KCPE/Mock) not from the system
+  6. ✅ Exams: change wrongly chosen subject on an assessment
