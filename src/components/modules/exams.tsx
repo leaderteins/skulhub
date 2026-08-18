@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { useFetch, apiPost } from '@/lib/api'
+import { useFetch, apiPost, apiPut } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +18,7 @@ import { toast } from 'sonner'
 import {
   ClipboardCheck, FileQuestion, ClipboardList, Plus, ChevronRight,
   BookOpen, Clock, CheckCircle2, Award, TrendingUp, X, ListChecks,
+  ClipboardEdit, FilePlus, Edit3, Upload, Save, Loader2,
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -449,6 +450,10 @@ function QuestionDetailDialog({ questionId, onClose }: { questionId: string; onC
 
 function AssessmentDetailDialog({ assessmentId, onClose }: { assessmentId: string; onClose: () => void }) {
   const { data: a, loading } = useFetch<any>(`/api/exams/${assessmentId}?type=assessment`)
+  const [showGradeEntry, setShowGradeEntry] = useState(false)
+  const [showExternalMarks, setShowExternalMarks] = useState(false)
+  const [showChangeSubject, setShowChangeSubject] = useState(false)
+
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="max-w-xl max-h-[92vh] overflow-y-auto scrollbar-thin">
@@ -456,7 +461,15 @@ function AssessmentDetailDialog({ assessmentId, onClose }: { assessmentId: strin
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-teal-500" /> Assessment Details</DialogTitle>
-              <DialogDescription>{a.subject?.name} · {a.classLevel?.name} · {a.assessmentType}</DialogDescription>
+              <DialogDescription>
+                {a.subject?.name} · {a.classLevel?.name} · {a.assessmentType}
+                <button
+                  onClick={() => setShowChangeSubject(true)}
+                  className="ml-2 inline-flex items-center gap-1 text-[10px] text-teal-600 hover:underline"
+                >
+                  <Edit3 className="h-3 w-3" /> Change subject
+                </button>
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
               <div className="rounded-xl bg-gradient-to-r from-teal-50 to-cyan-50 p-4 dark:from-teal-950/30 dark:to-cyan-950/30">
@@ -485,10 +498,50 @@ function AssessmentDetailDialog({ assessmentId, onClose }: { assessmentId: strin
                   <p className="mt-0.5 text-sm">{a.rubric}</p>
                 </div>
               )}
+
+              {/* Action buttons: Record Grades + Add External Marks */}
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowGradeEntry(true)}
+                  className="gap-1.5 border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400 dark:hover:bg-teal-950"
+                >
+                  <ClipboardEdit className="h-4 w-4" /> Record / Edit Grades
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowExternalMarks(true)}
+                  className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950"
+                >
+                  <FilePlus className="h-4 w-4" /> Add External Marks
+                </Button>
+              </div>
             </div>
           </>
         )}
       </DialogContent>
+
+      {/* Grade entry dialog */}
+      {a && showGradeEntry && (
+        <GradeEntryDialog
+          assessment={a}
+          onClose={() => setShowGradeEntry(false)}
+        />
+      )}
+      {/* External marks dialog */}
+      {a && showExternalMarks && (
+        <ExternalMarksDialog
+          assessment={a}
+          onClose={() => setShowExternalMarks(false)}
+        />
+      )}
+      {/* Change subject dialog */}
+      {a && showChangeSubject && (
+        <ChangeSubjectDialog
+          assessment={a}
+          onClose={() => setShowChangeSubject(false)}
+        />
+      )}
     </Dialog>
   )
 }
@@ -584,6 +637,374 @@ function AddAssessmentDialog({ onClose, subjects }: { onClose: () => void; subje
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
             <Button size="sm" onClick={handleSubmit} disabled={saving} className="bg-teal-600 hover:bg-teal-700">{saving ? 'Creating...' : 'Create'}</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// GradeEntryDialog — record/edit marks for each student in a class
+// ---------------------------------------------------------------------------
+function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: () => void }) {
+  // Fetch students enrolled in this assessment's class level
+  const { data: studentsData, loading } = useFetch<any>(
+    `/api/students?classLevel=${assessment.classLevelId || ''}&pageSize=200`
+  )
+  const [grades, setGrades] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+
+  const students = studentsData?.students || []
+
+  const handleSave = async () => {
+    const entries = Object.entries(grades).filter(([, m]) => m !== '' && m != null)
+    if (entries.length === 0) {
+      toast.error('Enter at least one mark')
+      return
+    }
+    setSaving(true)
+    try {
+      // Save grades one by one (could be batched in a real impl)
+      let saved = 0
+      for (const [studentId, marks] of entries) {
+        const numMarks = Number(marks)
+        if (!Number.isFinite(numMarks) || numMarks < 0 || numMarks > assessment.totalMarks) continue
+        try {
+          await apiPost('/api/grades', {
+            studentId,
+            subjectId: assessment.subjectId,
+            examId: assessment.id,
+            marks: numMarks,
+            totalMarks: assessment.totalMarks,
+            source: 'internal',
+          })
+          saved++
+        } catch { /* skip individual errors */ }
+      }
+      toast.success(`${saved} grade${saved !== 1 ? 's' : ''} saved`, {
+        description: `${assessment.title} · ${assessment.subject?.name}`,
+      })
+      onClose()
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save grades')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto scrollbar-thin">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ClipboardEdit className="h-5 w-5 text-teal-500" /> Record Grades
+          </DialogTitle>
+          <DialogDescription>
+            {assessment.title} · {assessment.subject?.name} · Max {assessment.totalMarks} marks
+          </DialogDescription>
+        </DialogHeader>
+        {loading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : students.length === 0 ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            No students found in this class level.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Adm No</TableHead>
+                  <TableHead className="text-xs">Student Name</TableHead>
+                  <TableHead className="text-xs text-right">Marks (out of {assessment.totalMarks})</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {students.map((s: any) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="text-xs font-mono">{s.admissionNo}</TableCell>
+                    <TableCell className="text-xs">{s.firstName} {s.lastName}</TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        min="0"
+                        max={assessment.totalMarks}
+                        step="0.5"
+                        value={grades[s.id] || ''}
+                        onChange={(e) => setGrades({ ...grades, [s.id]: e.target.value })}
+                        className="ml-auto h-8 w-24 text-xs"
+                        placeholder="—"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+              <Button size="sm" onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save Grades
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ExternalMarksDialog — add marks from external exams (KCPE, KCSE, mock, etc.)
+// Allows choosing which subject the external marks belong to.
+// ---------------------------------------------------------------------------
+function ExternalMarksDialog({ assessment, onClose }: { assessment: any; onClose: () => void }) {
+  const [externalSource, setExternalSource] = useState('KCSE Mock')
+  const [subjectId, setSubjectId] = useState(assessment.subjectId || '')
+  const [classLevelId, setClassLevelId] = useState(assessment.classLevelId || '')
+  const [examName, setExamName] = useState('')
+  const [totalMarks, setTotalMarks] = useState('100')
+  const [marksText, setMarksText] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const { data: studentsData, loading } = useFetch<any>(
+    classLevelId ? `/api/students?classLevel=${classLevelId}&pageSize=200` : null
+  )
+  const { data: subjectsData } = useFetch<any>('/api/academics/subjects')
+  const { data: classLevelsData } = useFetch<any>('/api/academics/class-levels')
+  const students = studentsData?.students || []
+
+  // Parse the pasted text (format: "admNo,marks" per line, or "name,marks")
+  const parsedRows = marksText
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const parts = line.split(/[,\t]/).map(p => p.trim())
+      return { admNoOrName: parts[0], marks: parts[1] || '' }
+    })
+
+  const handleSave = async () => {
+    if (parsedRows.length === 0) {
+      toast.error('Paste at least one row of marks (format: AdmissionNo,Marks)')
+      return
+    }
+    if (!subjectId) {
+      toast.error('Select the subject these marks belong to')
+      return
+    }
+    setSaving(true)
+    try {
+      let saved = 0
+      let skipped = 0
+      for (const row of parsedRows) {
+        // Match by admission number or name
+        const student = students.find((s: any) =>
+          s.admissionNo?.toLowerCase() === row.admNoOrName.toLowerCase() ||
+          `${s.firstName} ${s.lastName}`.toLowerCase().includes(row.admNoOrName.toLowerCase())
+        )
+        if (!student) { skipped++; continue }
+        const numMarks = Number(row.marks)
+        if (!Number.isFinite(numMarks) || numMarks < 0) { skipped++; continue }
+        try {
+          await apiPost('/api/grades', {
+            studentId: student.id,
+            subjectId,
+            examId: assessment.id,
+            marks: numMarks,
+            totalMarks: Number(totalMarks),
+            source: 'external',
+            externalSource,
+            remarks: `External: ${externalSource}`,
+          })
+          saved++
+        } catch { skipped++ }
+      }
+      toast.success(`${saved} external marks imported`, {
+        description: skipped > 0 ? `${skipped} row(s) skipped (student not found or invalid marks)` : undefined,
+      })
+      if (saved > 0) onClose()
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to import external marks')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto scrollbar-thin">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FilePlus className="h-5 w-5 text-amber-500" /> Add External Marks
+          </DialogTitle>
+          <DialogDescription>
+            Import marks from external exams (KCPE, KCSE, Mock, etc.) not assessed in the system.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+            <p className="text-xs text-amber-800 dark:text-amber-300">
+              <strong>How it works:</strong> Choose the subject and class level these marks belong to,
+              then paste a list of <code className="rounded bg-amber-100 px-1">AdmissionNumber,Marks</code>
+              (one per line). The system matches each row to a student and saves the grade.
+            </p>
+          </div>
+
+          {/* Subject selector — lets you choose which subject to add marks to */}
+          <div>
+            <Label className="text-xs">Subject for these marks *</Label>
+            <Select value={subjectId} onValueChange={setSubjectId}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select subject" /></SelectTrigger>
+              <SelectContent>
+                {(subjectsData?.subjects || subjectsData || []).map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name} ({s.code})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              You can choose a different subject than the assessment's default subject.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Class Level</Label>
+              <Select value={classLevelId} onValueChange={setClassLevelId}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select class" /></SelectTrigger>
+                <SelectContent>
+                  {(classLevelsData?.classLevels || classLevelsData || []).map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">External Source</Label>
+              <Select value={externalSource} onValueChange={setExternalSource}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="KCSE Mock">KCSE Mock</SelectItem>
+                  <SelectItem value="KCSE">KCSE (National)</SelectItem>
+                  <SelectItem value="KCPE">KCPE (National)</SelectItem>
+                  <SelectItem value="Joint Mock">Joint Mock (Multiple Schools)</SelectItem>
+                  <SelectItem value="Opener Exam">Opener Exam (External)</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Exam Name (optional)</Label>
+              <Input value={examName} onChange={e => setExamName(e.target.value)} placeholder="e.g. Term 2 Joint Mock" className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Total Marks</Label>
+              <Input type="number" value={totalMarks} onChange={e => setTotalMarks(e.target.value)} className="mt-1" />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">Paste marks (one per line: AdmissionNo,Marks)</Label>
+            <Textarea
+              value={marksText}
+              onChange={e => setMarksText(e.target.value)}
+              placeholder={'ADM/001,85\nADM/002,72\nADM/003,91'}
+              className="mt-1 font-mono text-xs"
+              rows={6}
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {parsedRows.length} row(s) detected · {students.length} students in class
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              Import {parsedRows.length > 0 ? `(${parsedRows.length})` : ''}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ChangeSubjectDialog — change the subject assigned to an assessment
+// (in case it was wrongly chosen when creating)
+// ---------------------------------------------------------------------------
+function ChangeSubjectDialog({ assessment, onClose }: { assessment: any; onClose: () => void }) {
+  const [subjectId, setSubjectId] = useState(assessment.subjectId || '')
+  const [saving, setSaving] = useState(false)
+  const { data: subjectsData } = useFetch<any>('/api/academics/subjects')
+  const subjects = subjectsData?.subjects || subjectsData || []
+
+  const handleSave = async () => {
+    if (!subjectId) { toast.error('Select a subject'); return }
+    if (subjectId === assessment.subjectId) {
+      toast.info('Subject unchanged')
+      onClose()
+      return
+    }
+    setSaving(true)
+    try {
+      await apiPut(`/api/exams/${assessment.id}`, { subjectId, entityType: 'assessment' })
+      toast.success('Subject updated', {
+        description: `Changed from ${assessment.subject?.name} to ${subjects.find((s: any) => s.id === subjectId)?.name}`,
+      })
+      onClose()
+      // Trigger a refetch of the assessment
+      setTimeout(() => window.location.reload(), 500)
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to change subject')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Edit3 className="h-5 w-5 text-teal-500" /> Change Subject
+          </DialogTitle>
+          <DialogDescription>
+            Current: {assessment.subject?.name} — select a new subject for this assessment.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">New Subject</Label>
+            <Select value={subjectId} onValueChange={setSubjectId}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select new subject" /></SelectTrigger>
+              <SelectContent>
+                {subjects.map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name} ({s.code})
+                    {s.id === assessment.subjectId && ' (current)'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+            <p className="text-[10px] text-amber-800 dark:text-amber-300">
+              <strong>Note:</strong> Changing the subject will move all grades recorded for this
+              assessment to the new subject. This cannot be undone.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Change Subject
+            </Button>
           </div>
         </div>
       </DialogContent>

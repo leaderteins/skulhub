@@ -52,7 +52,9 @@ const NAV: NavItem[] = [
   { key: 'dataimport', label: 'Data Import', icon: Upload, group: 'Insights' },
   { key: 'invrequests', label: 'Inventory Requests', icon: PackagePlus, group: 'Administration' },
   { key: 'reports', label: 'Reports', icon: BarChart3, group: 'Insights' },
-  { key: 'superadmin', label: 'Super Admin', icon: Shield, group: 'Insights' },
+  // Super Admin module is intentionally NOT in the sidebar nav — it's only
+  // accessible to the platform owner via the hidden Ctrl+Shift+A shortcut on
+  // the login screen, and auto-loads when they log in.
   { key: 'settings', label: 'Settings', icon: Settings, group: 'Insights' },
 ]
 

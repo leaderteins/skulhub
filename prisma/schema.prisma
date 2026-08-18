@@ -329,6 +329,8 @@ model Grade {
   grade      String   // "A".."E" computed
   points     Int      // 12..1 (KCSE style) or 0-100
   remarks    String?
+  source     String   @default("internal") // "internal" | "external"
+  externalSource String? // "KCSE Mock" | "KCSE" | "KCPE" | "Joint Mock" etc.
   createdAt  DateTime @default(now())
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)

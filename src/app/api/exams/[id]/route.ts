@@ -39,6 +39,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.duration !== undefined) data.duration = body.duration ? Number(body.duration) : null
     if (body.rubric !== undefined) data.rubric = body.rubric
     if (body.instructions !== undefined) data.instructions = body.instructions
+    if (body.subjectId !== undefined) data.subjectId = body.subjectId || null
+    if (body.classLevelId !== undefined) data.classLevelId = body.classLevelId || null
     const a = await db.assessment.update({ where: { id }, data })
     return NextResponse.json(a)
   } else {

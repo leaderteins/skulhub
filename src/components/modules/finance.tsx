@@ -6,6 +6,7 @@ import {
   cn, formatKES, formatNumber, formatDate, formatDateTime, formatCompact,
   initials, avatarColor,
 } from '@/lib/format'
+import { printWithLetterhead, formatKESForPrint, generateCashReference, generateReceiptNumber } from '@/lib/print-utils'
 import { StatCard, SectionHeader, EmptyState } from '@/components/shared'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -36,7 +37,81 @@ import {
   CheckCircle2, Clock, ShieldCheck, GraduationCap, Landmark, Banknote,
   CreditCard, BadgeDollarSign, CircleDollarSign, AlertCircle, BanknoteIcon,
   Users, Zap, Wrench, Package, Bus, MoreHorizontal, Trash2, Target, Wallet2,
+  Printer, Download,
 } from 'lucide-react'
+
+// ---------------------------------------------------------------------------
+// Print helpers — payment receipt
+// ---------------------------------------------------------------------------
+function printPaymentReceipt(p: {
+  invoiceNo: string
+  studentName: string
+  admissionNo: string
+  classLevel: string
+  amount: number
+  method: string
+  reference: string
+  payerName: string
+  payerPhone: string
+  paymentDate: Date
+}) {
+  const bodyHtml = `
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="label">Receipt For</div>
+        <div class="value">${p.studentName}<br><span style="font-size:11px;color:#6b7280;font-weight:400">${p.admissionNo} · ${p.classLevel}</span></div>
+      </div>
+      <div class="info-card">
+        <div class="label">Invoice Number</div>
+        <div class="value">${p.invoiceNo}</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Payment Date</div>
+        <div class="value">${p.paymentDate.toLocaleString()}</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Payment Method</div>
+        <div class="value">${p.method}</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Reference</div>
+        <div class="value" style="font-family:monospace">${p.reference}</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Payer</div>
+        <div class="value">${p.payerName || '—'}<br><span style="font-size:11px;color:#6b7280;font-weight:400">${p.payerPhone || ''}</span></div>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th style="text-align:right">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Fee Payment — Invoice ${p.invoiceNo}</td>
+          <td style="text-align:right">${formatKESForPrint(p.amount)}</td>
+        </tr>
+        <tr class="total-row">
+          <td>Total Paid</td>
+          <td style="text-align:right">${formatKESForPrint(p.amount)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:24px;font-size:11px;color:#6b7280">
+      This is an official receipt for the payment recorded above. Please retain
+      for your records. For queries, contact the school finance office.
+    </p>
+  `
+  printWithLetterhead({
+    title: 'PAYMENT RECEIPT',
+    subtitle: p.reference,
+    school: null,
+    bodyHtml,
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -542,6 +617,16 @@ function RecordPaymentDialog({
     }
   }, [open, invoice])
 
+  // Auto-generate reference for Cash and Bank Transfer (not free text)
+  // For M-Pesa and Cheque, the user enters the actual transaction/cheque number.
+  useEffect(() => {
+    if (method === 'Cash') {
+      setReference(generateCashReference())
+    } else if (method === 'Bank Transfer') {
+      setReference('BT-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000))
+    }
+  }, [method])
+
   // Update default amount when selected invoice changes (if user clears amount)
   useEffect(() => {
     if (selectedInvoice && !amount) {
@@ -569,6 +654,23 @@ function RecordPaymentDialog({
       })
       toast.success(`Payment of ${formatKES(amt)} recorded`, {
         description: `${selectedInvoice.invoiceNo} → ${res.invoice.status}`,
+        action: {
+          label: 'Print Receipt',
+          onClick: () => {
+            printPaymentReceipt({
+              invoiceNo: selectedInvoice.invoiceNo,
+              studentName: selectedInvoice.studentName,
+              admissionNo: selectedInvoice.admissionNo,
+              classLevel: selectedInvoice.classLevel,
+              amount: amt,
+              method,
+              reference: reference.trim() || generateReceiptNumber(),
+              payerName: payerName.trim() || '',
+              payerPhone: payerPhone.trim() || '',
+              paymentDate: new Date(),
+            })
+          },
+        },
       })
       onOpenChange(false)
       onRecorded()
@@ -667,9 +769,25 @@ function RecordPaymentDialog({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="pay-ref">Reference</Label>
-                <Input id="pay-ref" value={reference} onChange={(e) => setReference(e.target.value)}
-                  placeholder={method === 'M-Pesa' ? 'e.g. QG7X9P2KM1' : method === 'Cheque' ? 'Cheque no.' : 'Reference'} />
+                <Label htmlFor="pay-ref">
+                  Reference
+                  {(method === 'Cash' || method === 'Bank Transfer') && (
+                    <span className="ml-1 text-[10px] text-emerald-600">(auto-generated)</span>
+                  )}
+                </Label>
+                <Input
+                  id="pay-ref"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  readOnly={method === 'Cash' || method === 'Bank Transfer'}
+                  className={(method === 'Cash' || method === 'Bank Transfer') ? 'bg-muted font-mono text-xs cursor-not-allowed' : ''}
+                  placeholder={method === 'M-Pesa' ? 'e.g. QG7X9P2KM1' : method === 'Cheque' ? 'Cheque no.' : 'Reference'}
+                />
+                {(method === 'Cash' || method === 'Bank Transfer') && (
+                  <p className="text-[10px] text-muted-foreground">
+                    System-generated reference for tracking. Cannot be edited.
+                  </p>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="pay-phone">Payer Phone</Label>
@@ -1551,6 +1669,76 @@ function ViewInvoiceDialog({
   if (!invoice) return null
   const pct = invoice.amount > 0 ? Math.min(100, Math.round((invoice.amountPaid / invoice.amount) * 100)) : 0
 
+  // Print invoice with school letterhead — opens a new window with the
+  // print dialog. User can save as PDF or send to a physical printer.
+  const printInvoice = (inv: InvoiceRow) => {
+    const statusClass = inv.status === 'Paid' ? 'badge-paid' : inv.status === 'Partially Paid' ? 'badge-partial' : inv.status === 'Cancelled' ? 'badge-cancelled' : 'badge-unpaid'
+    const bodyHtml = `
+      <div class="info-grid">
+        <div class="info-card">
+          <div class="label">Invoice Number</div>
+          <div class="value">${inv.invoiceNo}</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Status</div>
+          <div class="value"><span class="badge ${statusClass}">${inv.status}</span></div>
+        </div>
+        <div class="info-card">
+          <div class="label">Student</div>
+          <div class="value">${inv.studentName}<br><span style="font-size:11px;color:#6b7280;font-weight:400">${inv.admissionNo} · ${inv.classLevel}</span></div>
+        </div>
+        <div class="info-card">
+          <div class="label">Academic Period</div>
+          <div class="value">${inv.academicYear} · ${inv.term}</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Issue Date</div>
+          <div class="value">${formatDate(inv.issueDate)}</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Due Date</div>
+          <div class="value">${formatDate(inv.dueDate)}</div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th style="text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>School Fees — ${inv.term} ${inv.academicYear}<br><span style="font-size:11px;color:#6b7280">${inv.classLevel}</span></td>
+            <td style="text-align:right">${formatKESForPrint(inv.amount)}</td>
+          </tr>
+          <tr class="total-row">
+            <td>Total Billed</td>
+            <td style="text-align:right">${formatKESForPrint(inv.amount)}</td>
+          </tr>
+          <tr>
+            <td>Amount Paid</td>
+            <td style="text-align:right;color:#059669">${formatKESForPrint(inv.amountPaid)}</td>
+          </tr>
+          <tr>
+            <td>Balance Due</td>
+            <td style="text-align:right;color:#dc2626;font-weight:700">${formatKESForPrint(inv.balance)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="margin-top:24px;font-size:11px;color:#6b7280">
+        Please make payment via M-Pesa Paybill or at the school bursar's office before the due date.
+        Late payments may attract a surcharge. For queries, contact the finance office.
+      </p>
+    `
+    printWithLetterhead({
+      title: 'INVOICE',
+      subtitle: inv.invoiceNo,
+      school: null, // school info loaded from API in a real impl
+      bodyHtml,
+    })
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -1623,6 +1811,13 @@ function ViewInvoiceDialog({
 
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+          <Button
+            variant="outline"
+            onClick={() => printInvoice(invoice)}
+            className="gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-900 dark:text-violet-400 dark:hover:bg-violet-950"
+          >
+            <Printer className="h-4 w-4" /> Print Invoice
+          </Button>
           {invoice.status !== 'Paid' && invoice.status !== 'Cancelled' && (
             <>
               <Button
@@ -1697,6 +1892,36 @@ function InvoicesTab() {
   const handleView = (inv: InvoiceRow) => {
     setViewInvoice(inv)
     setViewOpen(true)
+  }
+
+  // Print invoice directly from the table row (without opening the view dialog)
+  const handlePrint = (inv: InvoiceRow) => {
+    const statusClass = inv.status === 'Paid' ? 'badge-paid' : inv.status === 'Partially Paid' ? 'badge-partial' : inv.status === 'Cancelled' ? 'badge-cancelled' : 'badge-unpaid'
+    printWithLetterhead({
+      title: 'INVOICE',
+      subtitle: inv.invoiceNo,
+      school: null,
+      bodyHtml: `
+        <div class="info-grid">
+          <div class="info-card"><div class="label">Invoice Number</div><div class="value">${inv.invoiceNo}</div></div>
+          <div class="info-card"><div class="label">Status</div><div class="value"><span class="badge ${statusClass}">${inv.status}</span></div></div>
+          <div class="info-card"><div class="label">Student</div><div class="value">${inv.studentName}<br><span style="font-size:11px;color:#6b7280;font-weight:400">${inv.admissionNo} · ${inv.classLevel}</span></div></div>
+          <div class="info-card"><div class="label">Academic Period</div><div class="value">${inv.academicYear} · ${inv.term}</div></div>
+          <div class="info-card"><div class="label">Issue Date</div><div class="value">${formatDate(inv.issueDate)}</div></div>
+          <div class="info-card"><div class="label">Due Date</div><div class="value">${formatDate(inv.dueDate)}</div></div>
+        </div>
+        <table>
+          <thead><tr><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody>
+            <tr><td>School Fees — ${inv.term} ${inv.academicYear}<br><span style="font-size:11px;color:#6b7280">${inv.classLevel}</span></td><td style="text-align:right">${formatKESForPrint(inv.amount)}</td></tr>
+            <tr class="total-row"><td>Total Billed</td><td style="text-align:right">${formatKESForPrint(inv.amount)}</td></tr>
+            <tr><td>Amount Paid</td><td style="text-align:right;color:#059669">${formatKESForPrint(inv.amountPaid)}</td></tr>
+            <tr><td>Balance Due</td><td style="text-align:right;color:#dc2626;font-weight:700">${formatKESForPrint(inv.balance)}</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:24px;font-size:11px;color:#6b7280">Please make payment via M-Pesa Paybill or at the school bursar's office before the due date.</p>
+      `,
+    })
   }
 
   return (
@@ -1828,8 +2053,11 @@ function InvoicesTab() {
                               <span className="hidden sm:inline ml-1">Pay</span>
                             </Button>
                           )}
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleView(inv)}>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleView(inv)} title="View invoice">
                             <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-violet-600 hover:text-violet-700" onClick={() => handlePrint(inv)} title="Print invoice">
+                            <Printer className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </TableCell>
