@@ -77,22 +77,33 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Update last login timestamp
-    await db.userAccount.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    })
+    // Update last login timestamp (optional — won't fail login if this fails)
+    try {
+      await db.userAccount.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      })
+    } catch (e) {
+      console.error('[login] could not update lastLoginAt:', e)
+    }
 
     // Fetch per-user module access overrides (if any)
-    const overrides = await db.userModuleAccess.findMany({
-      where: { userId: user.id },
-      select: { module: true, allowed: true },
-    })
-    // If the user has overrides, return ONLY the allowed modules.
-    // If no overrides exist (empty array), return null → frontend uses role defaults.
-    const allowedModules = overrides.length > 0
-      ? overrides.filter(o => o.allowed).map(o => o.module)
-      : null
+    // Wrapped in try/catch — if the table doesn't exist or Prisma client
+    // doesn't have this model, we just skip it and use role defaults.
+    let allowedModules: string[] | null = null
+    try {
+      if (db.userModuleAccess) {
+        const overrides = await db.userModuleAccess.findMany({
+          where: { userId: user.id },
+          select: { module: true, allowed: true },
+        })
+        allowedModules = overrides.length > 0
+          ? overrides.filter(o => o.allowed).map(o => o.module)
+          : null
+      }
+    } catch (e) {
+      console.error('[login] could not fetch module overrides:', e)
+    }
 
     const token = createSessionToken(user.id)
     const isSuperAdmin = user.role === 'super_admin'
