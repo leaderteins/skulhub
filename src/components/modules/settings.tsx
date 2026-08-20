@@ -399,6 +399,7 @@ export function SettingsModule() {
           <TabsTrigger value="notifications" className="gap-1.5"><Bell className="h-4 w-4" /> Notifications</TabsTrigger>
           <TabsTrigger value="mpesa" className="gap-1.5"><Smartphone className="h-4 w-4" /> M-Pesa</TabsTrigger>
           <TabsTrigger value="daraja-guide" className="gap-1.5"><BookOpen className="h-4 w-4" /> Daraja Guide</TabsTrigger>
+          <TabsTrigger value="setup" className="gap-1.5"><Database className="h-4 w-4" /> Setup</TabsTrigger>
           <TabsTrigger value="system-status" className="gap-1.5"><Activity className="h-4 w-4" /> System Status</TabsTrigger>
           <TabsTrigger value="users" className="gap-1.5"><ShieldCheck className="h-4 w-4" /> Users &amp; Roles</TabsTrigger>
           {canManageModuleAccess && (
@@ -1139,6 +1140,13 @@ export function SettingsModule() {
         </TabsContent>
 
         {/* ----------------------------------------------------------------- */}
+        {/* Database Setup Guide */}
+        {/* ----------------------------------------------------------------- */}
+        <TabsContent value="setup" className="space-y-4">
+          <DatabaseSetupTab />
+        </TabsContent>
+
+        {/* ----------------------------------------------------------------- */}
         {/* System Status (auto-refresh + error detection) */}
         {/* ----------------------------------------------------------------- */}
         <TabsContent value="system-status" className="space-y-4">
@@ -1817,5 +1825,184 @@ function HealthCheckCard({ icon: Icon, title, status, details }: { icon: any; ti
         {details && <p className="mt-1 text-[10px] text-muted-foreground">{details}</p>}
       </CardContent>
     </Card>
+  )
+}
+
+// ===========================================================================
+// DatabaseSetupTab — step-by-step guide to set up Postgres for production
+// ===========================================================================
+function DatabaseSetupTab() {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <Card className="overflow-hidden border-0 bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-xl">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-xl">
+              <Database className="h-7 w-7" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold">Database Setup Guide</h3>
+              <p className="mt-1 text-sm text-white/80">
+                Set up a free Postgres database so your data persists permanently.
+                Takes about 5 minutes. No technical skills required.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Current Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Activity className="h-5 w-5 text-emerald-600" /> Current Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+            <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Demo Mode Active</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Your website is running in demo mode. Data won't persist between sessions.
+                Follow the steps below to set up permanent data storage.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Step 1 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">1</span>
+            Create a Free Postgres Database
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <ol className="ml-4 list-decimal space-y-2">
+            <li>Go to <a href="https://neon.tech" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-emerald-600 hover:underline">neon.tech <ExternalLink className="h-3 w-3" /></a> (free, no credit card)</li>
+            <li>Click <strong>Sign Up</strong> → sign up with Google or email</li>
+            <li>Click <strong>New Project</strong></li>
+            <li>Name it: <code className="rounded bg-muted px-1.5 py-0.5">skulhub</code></li>
+            <li>Select region: <strong>Singapore (ap-southeast-1)</strong> (closest to Kenya)</li>
+            <li>Click <strong>Create Project</strong></li>
+            <li>Copy the connection string (looks like:<br />
+              <code className="mt-1 block rounded bg-muted px-2 py-1 text-[11px]">postgresql://user:pass@host/db?sslmode=require</code>)
+            </li>
+          </ol>
+        </CardContent>
+      </Card>
+
+      {/* Step 2 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">2</span>
+            Set Environment Variables on Vercel
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <ol className="ml-4 list-decimal space-y-2">
+            <li>Go to <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-emerald-600 hover:underline">vercel.com <ExternalLink className="h-3 w-3" /></a> → log in</li>
+            <li>Click your <strong>SkulHub</strong> project</li>
+            <li>Go to <strong>Settings → Environment Variables</strong></li>
+            <li>Add these two variables:</li>
+          </ol>
+          <div className="overflow-hidden rounded-lg border">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="p-2 text-left font-semibold">Key</th>
+                  <th className="p-2 text-left font-semibold">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t">
+                  <td className="p-2 font-mono">DATABASE_URL</td>
+                  <td className="p-2 font-mono text-[11px]">your Neon connection string</td>
+                </tr>
+                <tr className="border-t">
+                  <td className="p-2 font-mono">SESSION_SECRET</td>
+                  <td className="p-2 font-mono text-[11px]">skulhub-secret-2026</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground">After adding both, click <strong>Save</strong>, then go to <strong>Deployments</strong> → click <strong>...</strong> on the latest → <strong>Redeploy</strong>.</p>
+        </CardContent>
+      </Card>
+
+      {/* Step 3 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">3</span>
+            Create Tables & Load Demo Data
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <p>On your computer, open Terminal/Command Prompt and run:</p>
+          <div className="space-y-2">
+            <div className="rounded-lg bg-slate-900 p-3 font-mono text-xs text-emerald-400">
+              <div className="text-slate-500"># Clone your project (if not already done)</div>
+              <div>git clone https://github.com/leaderteins/skulhub.git</div>
+              <div className="mt-1">cd skulhub</div>
+              <div className="mt-1">bun install</div>
+            </div>
+            <div className="rounded-lg bg-slate-900 p-3 font-mono text-xs text-emerald-400">
+              <div className="text-slate-500"># Set your DATABASE_URL (paste your Neon connection string)</div>
+              <div>export DATABASE_URL="postgresql://user:pass@host/db?sslmode=require"</div>
+            </div>
+            <div className="rounded-lg bg-slate-900 p-3 font-mono text-xs text-emerald-400">
+              <div className="text-slate-500"># Run the one-click setup script</div>
+              <div>bun run db:setup</div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            This will create all tables and load demo data (426 students, 14 staff, invoices, etc.)
+            automatically. Takes about 1 minute.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Step 4 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">4</span>
+            Verify Everything Works
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <p>After redeploying on Vercel:</p>
+          <ul className="ml-4 list-disc space-y-1 text-muted-foreground">
+            <li>Go to <strong>skulhub.co.ke</strong></li>
+            <li>Login with <code className="rounded bg-muted px-1">admin@skulhub.ac.ke</code> / <code className="rounded bg-muted px-1">admin123</code></li>
+            <li>The dashboard should load with 426 students, 31 staff, and finance data</li>
+            <li>New schools that register will be saved permanently</li>
+          </ul>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-800 dark:bg-emerald-950/20">
+            <p className="flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300">
+              <CheckCircle2 className="h-4 w-4" />
+              <span><strong>Success!</strong> Your data now persists permanently. The system is production-ready.</span>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Help */}
+      <Card className="bg-muted/30">
+        <CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">
+            <strong className="text-foreground">Need help?</strong> If you get stuck on any step,
+            contact support at <a href="mailto:info@skulhub.co.ke" className="text-emerald-600 hover:underline">info@skulhub.co.ke</a>
+            or call <strong>0742 340 924</strong>. We'll walk you through it.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

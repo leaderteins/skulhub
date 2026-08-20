@@ -4,14 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
-    "build": "prisma generate && next build",
+    "prebuild": "bash scripts/switch-schema.sh && prisma generate",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "db:push": "prisma db push --accept-data-loss",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset",
-    "postinstall": "prisma generate || true"
+    "db:setup": "bash scripts/setup-db.sh",
+    "db:push": "bash scripts/switch-schema.sh && prisma db push --accept-data-loss",
+    "db:generate": "bash scripts/switch-schema.sh && prisma generate",
+    "db:migrate": "bash scripts/switch-schema.sh && prisma migrate dev",
+    "db:reset": "bash scripts/switch-schema.sh && prisma migrate reset",
+    "db:seed": "bun run prisma/seed-demo.ts",
+    "postinstall": "bash scripts/switch-schema.sh && prisma generate || true"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
