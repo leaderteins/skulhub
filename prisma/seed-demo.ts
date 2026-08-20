@@ -9,9 +9,22 @@ const randInt = (a: number, b: number) => Math.floor(Math.random() * (b - a + 1)
 async function main() {
   console.log('🌱 Seeding SkulHub demo data...')
 
-  // Create demo school
-  const school = await db.school.create({
-    data: {
+  // Create demo school (upsert — idempotent, safe to run multiple times)
+  const school = await db.school.upsert({
+    where: { slug: 'skulhub-academy' },
+    update: {
+      name: 'SkulHub Academy',
+      schoolCode: 'SKH-2024-001',
+      email: 'info@skulhub.ac.ke',
+      phone: '+254700123456',
+      address: 'Karen, Nairobi',
+      county: 'Nairobi',
+      level: 'Mixed',
+      plan: 'Premium',
+      status: 'Active',
+      maxStudents: 1000,
+    },
+    create: {
       name: 'SkulHub Academy',
       slug: 'skulhub-academy',
       schoolCode: 'SKH-2024-001',
@@ -27,50 +40,40 @@ async function main() {
   })
   console.log(`  ✓ School: ${school.name} (${school.schoolCode})`)
 
-  // Create admin user
+  // Create admin user (upsert — idempotent)
   const adminPass = await hashPassword('admin123')
-  await db.userAccount.create({
-    data: {
-      schoolId: school.id,
-      name: 'Moses Kinyanjui',
-      email: 'admin@skulhub.ac.ke',
-      passwordHash: adminPass,
-      role: 'admin',
-      phone: '+254700123456',
-      status: 'Active',
-    },
+  await db.userAccount.upsert({
+    where: { email: 'admin@skulhub.ac.ke' },
+    update: { schoolId: school.id, name: 'Moses Kinyanjui', passwordHash: adminPass, role: 'admin', phone: '+254700123456', status: 'Active' },
+    create: { schoolId: school.id, name: 'Moses Kinyanjui', email: 'admin@skulhub.ac.ke', passwordHash: adminPass, role: 'admin', phone: '+254700123456', status: 'Active' },
   })
   console.log('  ✓ Admin user: Moses Kinyanjui')
 
-  // Create super admin
+  // Create super admin (upsert — idempotent)
   const superPass = await hashPassword('superadmin123')
-  await db.userAccount.create({
-    data: {
-      schoolId: school.id,
-      name: 'Platform Super Admin',
-      email: 'superadmin@skulhub.ac.ke',
-      passwordHash: superPass,
-      role: 'super_admin',
-      status: 'Active',
-    },
+  await db.userAccount.upsert({
+    where: { email: 'superadmin@skulhub.ac.ke' },
+    update: { schoolId: school.id, name: 'Platform Super Admin', passwordHash: superPass, role: 'super_admin', status: 'Active' },
+    create: { schoolId: school.id, name: 'Platform Super Admin', email: 'superadmin@skulhub.ac.ke', passwordHash: superPass, role: 'super_admin', status: 'Active' },
   })
   console.log('  ✓ Super admin user')
 
-  // Seed Class Levels (Secondary: Form 1-4)
+  // Seed Class Levels (use upsert — idempotent)
   const secondaryLevels = ['Form 1', 'Form 2', 'Form 3', 'Form 4']
   for (const name of secondaryLevels) {
-    await db.classLevel.create({ data: { name, stage: 'Senior School', order: secondaryLevels.indexOf(name) + 1, capacity: 80 } })
+    await db.classLevel.upsert({ where: { name }, update: {}, create: { name, stage: 'Senior School', order: secondaryLevels.indexOf(name) + 1, capacity: 80 } })
   }
-  // Also add Primary levels for demo
   const primaryLevels = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8']
   for (const name of primaryLevels) {
-    await db.classLevel.create({ data: { name, stage: 'Primary', order: primaryLevels.indexOf(name) + 1, capacity: 40 } })
+    await db.classLevel.upsert({ where: { name }, update: {}, create: { name, stage: 'Primary', order: primaryLevels.indexOf(name) + 1, capacity: 40 } })
   }
   console.log(`  ✓ ${secondaryLevels.length + primaryLevels.length} class levels (Primary + Secondary)`)
 
-  // Seed Departments
+  // Seed Departments (upsert)
   const depts = ['Mathematics', 'Sciences', 'Languages', 'Humanities', 'Technical', 'Co-curricular']
-  for (const name of depts) await db.department.create({ data: { name } })
+  for (const name of depts) {
+    await db.department.upsert({ where: { name }, update: {}, create: { name } })
+  }
   console.log(`  ✓ ${depts.length} departments`)
 
   // Seed Subjects
@@ -103,7 +106,7 @@ async function main() {
       else if (s.name.includes('Computer') || s.name.includes('Agriculture')) deptName = 'Technical'
       else deptName = 'Business'
     }
-    await db.subject.create({ data: { name: s.name, code: s.code, category: s.category, departmentId: deptMap[deptName] || null } })
+    await db.subject.upsert({ where: { name: s.name }, update: {}, create: { name: s.name, code: s.code, category: s.category, departmentId: deptMap[deptName] || null } })
   }
   console.log(`  ✓ ${subjects.length} subjects`)
 
@@ -119,9 +122,11 @@ async function main() {
     const fn = isMale ? rand(FIRST_M) : rand(FIRST_F)
     const ln = rand(LAST)
     const role = rand(roles)
-    const s = await db.staff.create({
-      data: {
-        employeeNo: `EMP/${empNo++}`,
+    const s = await db.staff.upsert({
+      where: { employeeNo: `EMP/${empNo++}` },
+      update: {},
+      create: {
+        employeeNo: `EMP/${empNo}`,
         firstName: fn, lastName: ln,
         email: `${fn.toLowerCase()}.${ln.toLowerCase()}@skulhub.ac.ke`,
         phone: `+2547${randInt(10,29)}${randInt(100000,999999)}`,
