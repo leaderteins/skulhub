@@ -10,6 +10,7 @@ import {
   ChevronRight, ArrowLeft, ShieldCheck, Zap, Clock, Smartphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 const FEATURE_CARDS = [
   { icon: ShieldCheck, title: 'Role-Based Access', desc: '13 staff roles with granular permissions' },
@@ -70,11 +71,18 @@ export function LoginForm() {
   const back = () => { setStep(1); setSchool(null); setEmail(''); setPassword('') }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 p-4">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 p-4 dark:from-slate-900 dark:via-emerald-950 dark:to-slate-900">
       {/* Decorative elements */}
       <div className="absolute -left-20 -top-20 h-96 w-96 rounded-full bg-white/5 blur-3xl" />
       <div className="absolute -bottom-20 -right-20 h-96 w-96 rounded-full bg-amber-300/5 blur-3xl" />
       <div className="absolute left-1/2 top-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-emerald-300/5 blur-3xl" />
+
+      {/* Theme toggle — top right corner */}
+      <div className="absolute right-4 top-4 z-20">
+        <div className="rounded-full bg-white/15 backdrop-blur-xl">
+          <ThemeToggle />
+        </div>
+      </div>
 
       <div className="relative z-10 grid w-full max-w-5xl gap-6 lg:grid-cols-2">
         {/* Left: Branding */}
@@ -230,8 +238,9 @@ function SuperAdminAccess() {
   }, [])
 
   const handleSubmit = () => {
-    // Private super admin access code — change this to your own secret code
-    if (code === 'skulhub-super-2026') {
+    // Private super admin access code — trim whitespace and case-insensitive
+    const trimmedCode = code.trim().toLowerCase()
+    if (trimmedCode === 'skulhub-super-2026') {
       setAuthView('superadmin')
       setShowDialog(false)
       setCode('')

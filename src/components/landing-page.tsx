@@ -19,6 +19,7 @@ import {
   Play, X, Send, MessageSquare, TrendingUp, PieChart, Users2, DollarSign,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 const MODULES = [
   { name: 'Dashboard', icon: BarChart3, desc: 'Real-time school overview' },
@@ -92,8 +93,9 @@ export function LandingPage() {
             <a href="#pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground">Pricing</a>
             <a href="#contact" className="text-sm font-medium text-muted-foreground hover:text-foreground">Contact</a>
           </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setAuthView('login')}>Sign In</Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button variant="ghost" size="sm" onClick={() => setAuthView('login')} className="hidden sm:inline-flex">Sign In</Button>
             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setAuthView('register')}>Start Free Trial</Button>
           </div>
         </div>
