@@ -56,12 +56,20 @@ export default function Home() {
   const { user, hasAccess, _hasHydrated, authView, isSuperAdmin } = useAuthStore()
 
   // Super admins always land on the Super Admin module — they have no school
-  // dashboard of their own. Switch automatically if they're still on 'dashboard'.
+  // dashboard of their own. Switch automatically if they're still on 'dashboard'
+  // or any module they don't have access to.
   useEffect(() => {
-    if (isSuperAdmin && activeModule === 'dashboard') {
-      setActiveModule('superadmin')
+    if (isSuperAdmin) {
+      // If super admin is on 'dashboard' (the default), switch to 'superadmin'
+      if (activeModule === 'dashboard') {
+        setActiveModule('superadmin')
+      }
+      // If super admin is on a module they don't have access to, switch to 'superadmin'
+      else if (activeModule !== 'superadmin' && activeModule !== 'settings' && !hasAccess(activeModule)) {
+        setActiveModule('superadmin')
+      }
     }
-  }, [isSuperAdmin, activeModule, setActiveModule])
+  }, [isSuperAdmin, activeModule, setActiveModule, hasAccess])
 
   // Show loading skeleton while waiting for hydration from localStorage
   // This prevents the "losing user" flash where the login page appears briefly
@@ -109,13 +117,15 @@ export default function Home() {
     return <LandingPage />
   }
 
-  // Check if user has access to the active module
-  const canAccess = hasAccess(activeModule)
+  // For super admins, force the effective module to 'superadmin' if they're
+  // on 'dashboard' (the default). This prevents the school dashboard from
+  // flashing before the useEffect switches them.
+  const effectiveModule = isSuperAdmin && activeModule === 'dashboard' ? 'superadmin' : activeModule
 
-  // effectiveModule is normally just activeModule. The useEffect above will
-  // already switch super_admin to 'superadmin' on first render, so this is
-  // just a fallback during the first paint.
-  const effectiveModule = activeModule
+  // Check if user has access to the effective module
+  const canAccess = isSuperAdmin
+    ? ['superadmin', 'settings'].includes(effectiveModule)
+    : hasAccess(effectiveModule)
 
   return (
     <div className="flex min-h-screen bg-background">
