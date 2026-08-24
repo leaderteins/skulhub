@@ -10,7 +10,7 @@ import {
   NotebookPen, PencilRuler,
   MessageSquare, IdCard,
   LogOut, Upload, PackagePlus,
-  Shield, UserCheck,
+  Shield, UserCheck, CalendarClock,
 } from 'lucide-react'
 
 interface NavItem {
@@ -33,6 +33,7 @@ const NAV: NavItem[] = [
   { key: 'reportcards', label: 'Report Cards', icon: FileText, group: 'Academic' },
   { key: 'lessonplans', label: 'Lesson Plans', icon: NotebookPen, group: 'Academic' },
   { key: 'homework', label: 'Homework & Assignments', icon: PencilRuler, group: 'Academic' },
+  { key: 'timetable', label: 'Timetable', icon: CalendarClock, group: 'Academic' },
   { key: 'health', label: 'Health & Wellness', icon: HeartPulse, group: 'Academic' },
   { key: 'events', label: 'Events & Activities', icon: CalendarDays, group: 'Academic' },
   { key: 'discipline', label: 'Discipline', icon: Scale, group: 'Academic' },

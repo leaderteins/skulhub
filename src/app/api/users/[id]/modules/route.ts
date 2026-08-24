@@ -24,7 +24,7 @@ const MANAGER_ROLES = new Set(['admin', 'principal', 'super_admin'])
 // Canonical full list of modules (mirrors `ALL_MODULES` in auth-store.ts).
 const ALL_MODULES: string[] = [
   'dashboard', 'admissions', 'students', 'staff', 'staffapprovals', 'alumni', 'academics',
-  'attendance', 'exams', 'reportcards', 'lessonplans', 'homework',
+  'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'timetable',
   'health', 'events', 'discipline',
   'hostel', 'finance', 'communications', 'library', 'transport', 'inventory',
   'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom',

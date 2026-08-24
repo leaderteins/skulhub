@@ -134,7 +134,7 @@ const MODULE_GROUPS: { group: string; modules: string[] }[] = [
   },
   {
     group: 'Academic',
-    modules: ['academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'health', 'events', 'discipline', 'hostel'],
+    modules: ['academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'timetable', 'health', 'events', 'discipline', 'hostel'],
   },
   {
     group: 'Administration',

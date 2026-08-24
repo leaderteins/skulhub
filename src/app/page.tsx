@@ -24,6 +24,7 @@ import { ExamsModule } from '@/components/modules/exams'
 import { ReportCardsModule } from '@/components/modules/reportcards'
 import { LessonPlansModule } from '@/components/modules/lessonplans'
 import { HomeworkModule } from '@/components/modules/homework'
+import { TimetableModule } from '@/components/modules/timetable'
 import { FinanceModule } from '@/components/modules/finance'
 import { CommunicationsModule } from '@/components/modules/communications'
 import { LibraryModule } from '@/components/modules/library'
@@ -162,6 +163,7 @@ export default function Home() {
               {effectiveModule === 'reportcards' && <ReportCardsModule />}
               {effectiveModule === 'lessonplans' && <LessonPlansModule />}
               {effectiveModule === 'homework' && <HomeworkModule />}
+              {effectiveModule === 'timetable' && <TimetableModule />}
               {effectiveModule === 'finance' && <FinanceModule />}
               {effectiveModule === 'communications' && <CommunicationsModule />}
               {effectiveModule === 'library' && <LibraryModule />}

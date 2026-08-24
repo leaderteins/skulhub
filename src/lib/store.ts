@@ -26,6 +26,7 @@ export type ModuleKey =
   | 'reportcards'
   | 'lessonplans'
   | 'homework'
+  | 'timetable'
   | 'payroll'
   | 'appraisals'
   | 'feedback'
