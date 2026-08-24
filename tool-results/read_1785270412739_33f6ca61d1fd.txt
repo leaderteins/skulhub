@@ -1,0 +1,506 @@
+     1→'use client'
+     2→import { useState } from 'react'
+     3→import { useFetch } from '@/lib/api'
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     5→import { Button } from '@/components/ui/button'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Skeleton } from '@/components/ui/skeleton'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Label } from '@/components/ui/label'
+    10→import { Textarea } from '@/components/ui/textarea'
+    11→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    12→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+    13→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    14→import { cn } from '@/lib/utils'
+    15→import { formatDate, formatDateTime, timeAgo, statusColor } from '@/lib/format'
+    16→import { toast } from 'sonner'
+    17→import {
+    18→  UtensilsCrossed, Coffee, Sun, Moon, Cookie, Plus, ChevronRight,
+    19→  Users, ChefHat, CheckCircle2, Clock, X, CalendarDays,
+    20→} from 'lucide-react'
+    21→import {
+    22→  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+    23→} from 'recharts'
+    24→
+    25→interface CafeteriaData {
+    26→  stats: {
+    27→    totalMenus: number; servedMenus: number; plannedMenus: number
+    28→    totalAttendance: number; totalServed: number; todayMeals: number
+    29→  }
+    30→  menus: Array<{
+    31→    id: string; date: string; mealType: string; item: string; accompaniment: string | null
+    32→    beverage: string | null; notes: string | null; servingsPlanned: number; servingsServed: number
+    33→    status: string; cook: string | null
+    34→    totalAttendance: number; studentAttendance: number; staffAttendance: number
+    35→    attendances: Array<{ id: string; personType: string; headcount: number; notes: string | null }>
+    36→  }>
+    37→  byMealType: Array<{ name: string; count: number }>
+    38→  byStatus: Array<{ name: string; count: number }>
+    39→  todayMeals: Array<{ id: string; date: string; mealType: string; item: string; accompaniment: string | null; beverage: string | null; status: string }>
+    40→}
+    41→
+    42→const MEAL_META: Record<string, { icon: any; color: string; bg: string; text: string; dot: string }> = {
+    43→  Breakfast: { icon: Coffee, color: 'amber', bg: 'bg-amber-500/10', text: 'text-amber-600', dot: '#f59e0b' },
+    44→  Lunch: { icon: Sun, color: 'emerald', bg: 'bg-emerald-500/10', text: 'text-emerald-600', dot: '#10b981' },
+    45→  'Tea Break': { icon: Cookie, color: 'violet', bg: 'bg-violet-500/10', text: 'text-violet-600', dot: '#8b5cf6' },
+    46→  Supper: { icon: Moon, color: 'indigo', bg: 'bg-indigo-500/10', text: 'text-indigo-600', dot: '#6366f1' },
+    47→}
+    48→
+    49→const STATUS_BADGE: Record<string, string> = {
+    50→  Served: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400',
+    51→  Planned: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400',
+    52→  Cancelled: 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-400',
+    53→}
+    54→
+    55→export function CafeteriaModule() {
+    56→  const { data, loading } = useFetch<CafeteriaData>('/api/cafeteria')
+    57→  const [mealTypeFilter, setMealTypeFilter] = useState('all')
+    58→  const [statusFilter, setStatusFilter] = useState('all')
+    59→  const [selectedMenu, setSelectedMenu] = useState<string | null>(null)
+    60→  const [showAddDialog, setShowAddDialog] = useState(false)
+    61→
+    62→  const params = new URLSearchParams()
+    63→  if (mealTypeFilter !== 'all') params.set('mealType', mealTypeFilter)
+    64→  if (statusFilter !== 'all') params.set('status', statusFilter)
+    65→  const { data: filtered } = useFetch<CafeteriaData>(`/api/cafeteria?${params.toString()}`, [mealTypeFilter, statusFilter])
+    66→
+    67→  if (loading && !data) {
+    68→    return (
+    69→      <div className="space-y-6">
+    70→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    71→          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
+    72→        </div>
+    73→        <Skeleton className="h-96 w-full rounded-xl" />
+    74→      </div>
+    75→    )
+    76→  }
+    77→
+    78→  const display = filtered || data!
+    79→  const stats = display.stats
+    80→
+    81→  return (
+    82→    <div className="space-y-6">
+    83→      {/* Header banner */}
+    84→      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 p-6 text-white shadow-xl">
+    85→        <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+    86→        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    87→          <div>
+    88→            <div className="mb-1 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+    89→              <UtensilsCrossed className="h-3 w-3" /> {stats.todayMeals} meals today · {stats.servedMenus} served · {stats.totalAttendance} diners total
+    90→            </div>
+    91→            <h2 className="text-2xl font-bold tracking-tight">Cafeteria & Meals</h2>
+    92→            <p className="mt-1 max-w-xl text-sm text-white/80">
+    93→              Manage daily menus, track dining attendance, and plan nutritious meals for students and staff.
+    94→            </p>
+    95→          </div>
+    96→          <Button variant="secondary" size="sm" className="bg-white text-orange-600 hover:bg-white/90" onClick={() => setShowAddDialog(true)}>
+    97→            <Plus className="mr-1.5 h-4 w-4" /> New Menu
+    98→          </Button>
+    99→        </div>
+   100→      </div>
+   101→
+   102→      {/* Stat cards */}
+   103→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   104→        <Card className="stat-card">
+   105→          <CardContent className="flex items-center gap-3 p-5">
+   106→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20">
+   107→              <CalendarDays className="h-5 w-5" />
+   108→            </div>
+   109→            <div>
+   110→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Menus</p>
+   111→              <p className="text-2xl font-bold">{stats.totalMenus}</p>
+   112→            </div>
+   113→          </CardContent>
+   114→        </Card>
+   115→        <Card className="stat-card">
+   116→          <CardContent className="flex items-center gap-3 p-5">
+   117→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20">
+   118→              <CheckCircle2 className="h-5 w-5" />
+   119→            </div>
+   120→            <div>
+   121→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Meals Served</p>
+   122→              <p className="text-2xl font-bold">{stats.servedMenus}</p>
+   123→            </div>
+   124→          </CardContent>
+   125→        </Card>
+   126→        <Card className="stat-card">
+   127→          <CardContent className="flex items-center gap-3 p-5">
+   128→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 ring-1 ring-violet-500/20">
+   129→              <Users className="h-5 w-5" />
+   130→            </div>
+   131→            <div>
+   132→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Diners</p>
+   133→              <p className="text-2xl font-bold">{stats.totalAttendance}</p>
+   134→            </div>
+   135→          </CardContent>
+   136→        </Card>
+   137→        <Card className="stat-card">
+   138→          <CardContent className="flex items-center gap-3 p-5">
+   139→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 ring-1 ring-teal-500/20">
+   140→              <UtensilsCrossed className="h-5 w-5" />
+   141→            </div>
+   142→            <div>
+   143→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Servings Served</p>
+   144→              <p className="text-2xl font-bold">{stats.totalServed}</p>
+   145→            </div>
+   146→          </CardContent>
+   147→        </Card>
+   148→      </div>
+   149→
+   150→      {/* Today's meals */}
+   151→      <Card>
+   152→        <CardHeader className="pb-3">
+   153→          <div className="flex items-center gap-2">
+   154→            <ChefHat className="h-4 w-4 text-amber-500" />
+   155→            <CardTitle className="text-base">Today's Menu</CardTitle>
+   156→          </div>
+   157→          <CardDescription className="text-xs">{display.todayMeals.length} meals scheduled for today</CardDescription>
+   158→        </CardHeader>
+   159→        <CardContent>
+   160→          {display.todayMeals.length > 0 ? (
+   161→            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+   162→              {display.todayMeals.map(m => {
+   163→                const meta = MEAL_META[m.mealType] || MEAL_META.Breakfast
+   164→                const Icon = meta.icon
+   165→                return (
+   166→                  <div key={m.id} className="rounded-xl border p-3 transition-colors hover:bg-muted/40">
+   167→                    <div className="flex items-center gap-2">
+   168→                      <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', meta.bg, meta.text)}>
+   169→                        <Icon className="h-4.5 w-4.5" />
+   170→                      </div>
+   171→                      <div className="min-w-0 flex-1">
+   172→                        <p className="text-xs font-semibold">{m.mealType}</p>
+   173→                        <p className="text-[10px] text-muted-foreground">{new Date(m.date).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}</p>
+   174→                      </div>
+   175→                      <Badge variant="outline" className={cn('text-[10px]', STATUS_BADGE[m.status])}>{m.status}</Badge>
+   176→                    </div>
+   177→                    <div className="mt-2 space-y-0.5">
+   178→                      <p className="text-sm font-medium">{m.item}</p>
+   179→                      {m.accompaniment && <p className="text-[10px] text-muted-foreground">with {m.accompaniment}</p>}
+   180→                      {m.beverage && <p className="text-[10px] text-muted-foreground">{m.beverage}</p>}
+   181→                    </div>
+   182→                  </div>
+   183→                )
+   184→              })}
+   185→            </div>
+   186→          ) : <p className="py-4 text-center text-xs text-muted-foreground">No meals scheduled for today.</p>}
+   187→        </CardContent>
+   188→      </Card>
+   189→
+   190→      {/* Charts */}
+   191→      <div className="grid gap-4 lg:grid-cols-2">
+   192→        <Card>
+   193→          <CardHeader className="pb-2">
+   194→            <CardTitle className="text-base">Menus by Meal Type</CardTitle>
+   195→            <CardDescription className="text-xs">Distribution across meal times</CardDescription>
+   196→          </CardHeader>
+   197→          <CardContent>
+   198→            <ResponsiveContainer width="100%" height={180}>
+   199→              <PieChart>
+   200→                <Pie data={display.byMealType} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3}>
+   201→                  {display.byMealType.map(m => <Cell key={m.name} fill={MEAL_META[m.name]?.dot || '#94a3b8'} />)}
+   202→                </Pie>
+   203→                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} />
+   204→              </PieChart>
+   205→            </ResponsiveContainer>
+   206→            <div className="mt-2 flex flex-wrap justify-center gap-2 text-[10px]">
+   207→              {display.byMealType.map(m => {
+   208→                const Icon = MEAL_META[m.name]?.icon || Coffee
+   209→                return (
+   210→                  <div key={m.name} className="flex items-center gap-1">
+   211→                    <Icon className="h-2.5 w-2.5" style={{ color: MEAL_META[m.name]?.dot }} />
+   212→                    <span className="font-medium">{m.name}</span><span className="text-muted-foreground">{m.count}</span>
+   213→                  </div>
+   214→                )
+   215→              })}
+   216→            </div>
+   217→          </CardContent>
+   218→        </Card>
+   219→        <Card>
+   220→          <CardHeader className="pb-2">
+   221→            <CardTitle className="text-base">Menu Status</CardTitle>
+   222→            <CardDescription className="text-xs">Planned vs served</CardDescription>
+   223→          </CardHeader>
+   224→          <CardContent>
+   225→            <ResponsiveContainer width="100%" height={180}>
+   226→              <BarChart data={display.byStatus} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+   227→                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.01 150)" vertical={false} />
+   228→                <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" />
+   229→                <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" />
+   230→                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} cursor={{ fill: 'oklch(0.96 0.01 150)' }} />
+   231→                <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={50}>
+   232→                  {display.byStatus.map(s => <Cell key={s.name} fill={s.name === 'Served' ? '#10b981' : s.name === 'Planned' ? '#f59e0b' : '#ef4444'} />)}
+   233→                </Bar>
+   234→              </BarChart>
+   235→            </ResponsiveContainer>
+   236→          </CardContent>
+   237→        </Card>
+   238→      </div>
+   239→
+   240→      {/* Filters */}
+   241→      <Card>
+   242→        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
+   243→          <Select value={mealTypeFilter} onValueChange={setMealTypeFilter}>
+   244→            <SelectTrigger className="w-full md:w-40"><SelectValue placeholder="Meal Type" /></SelectTrigger>
+   245→            <SelectContent>
+   246→              <SelectItem value="all">All Meals</SelectItem>
+   247→              {Object.keys(MEAL_META).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+   248→            </SelectContent>
+   249→          </Select>
+   250→          <Select value={statusFilter} onValueChange={setStatusFilter}>
+   251→            <SelectTrigger className="w-full md:w-36"><SelectValue placeholder="Status" /></SelectTrigger>
+   252→            <SelectContent>
+   253→              <SelectItem value="all">All Statuses</SelectItem>
+   254→              <SelectItem value="Planned">Planned</SelectItem>
+   255→              <SelectItem value="Served">Served</SelectItem>
+   256→              <SelectItem value="Cancelled">Cancelled</SelectItem>
+   257→            </SelectContent>
+   258→          </Select>
+   259→        </CardContent>
+   260→      </Card>
+   261→
+   262→      {/* Menu table */}
+   263→      <Card>
+   264→        <CardHeader className="pb-3">
+   265→          <CardTitle className="text-base">Menu History</CardTitle>
+   266→          <CardDescription className="text-xs">{display.menus.length} records · latest first</CardDescription>
+   267→        </CardHeader>
+   268→        <CardContent className="p-0">
+   269→          <div className="overflow-x-auto">
+   270→            <Table>
+   271→              <TableHeader>
+   272→                <TableRow className="bg-muted/40">
+   273→                  <TableHead className="text-xs">Meal</TableHead>
+   274→                  <TableHead className="text-xs">Main Dish</TableHead>
+   275→                  <TableHead className="text-xs">Accompaniment</TableHead>
+   276→                  <TableHead className="text-xs">Beverage</TableHead>
+   277→                  <TableHead className="text-right text-xs">Planned</TableHead>
+   278→                  <TableHead className="text-right text-xs">Served</TableHead>
+   279→                  <TableHead className="text-right text-xs">Diners</TableHead>
+   280→                  <TableHead className="text-center text-xs">Status</TableHead>
+   281→                  <TableHead className="text-xs">Date</TableHead>
+   282→                  <TableHead className="text-right text-xs">Action</TableHead>
+   283→                </TableRow>
+   284→              </TableHeader>
+   285→              <TableBody>
+   286→                {display.menus.map(m => {
+   287→                  const meta = MEAL_META[m.mealType] || MEAL_META.Breakfast
+   288→                  const Icon = meta.icon
+   289→                  return (
+   290→                    <TableRow key={m.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedMenu(m.id)}>
+   291→                      <TableCell>
+   292→                        <div className="flex items-center gap-2">
+   293→                          <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', meta.bg, meta.text)}>
+   294→                            <Icon className="h-4 w-4" />
+   295→                          </div>
+   296→                          <span className="text-xs font-medium">{m.mealType}</span>
+   297→                        </div>
+   298→                      </TableCell>
+   299→                      <TableCell className="text-xs font-medium">{m.item}</TableCell>
+   300→                      <TableCell className="text-xs text-muted-foreground">{m.accompaniment || '—'}</TableCell>
+   301→                      <TableCell className="text-xs text-muted-foreground">{m.beverage || '—'}</TableCell>
+   302→                      <TableCell className="text-right text-xs tabular-nums">{m.servingsPlanned}</TableCell>
+   303→                      <TableCell className="text-right text-xs tabular-nums">{m.servingsServed}</TableCell>
+   304→                      <TableCell className="text-right text-xs tabular-nums font-semibold">{m.totalAttendance}</TableCell>
+   305→                      <TableCell className="text-center">
+   306→                        <Badge variant="outline" className={cn('text-[10px]', STATUS_BADGE[m.status])}>{m.status}</Badge>
+   307→                      </TableCell>
+   308→                      <TableCell className="text-[10px] text-muted-foreground">{formatDate(m.date)}</TableCell>
+   309→                      <TableCell className="text-right">
+   310→                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); setSelectedMenu(m.id) }}>
+   311→                          View <ChevronRight className="ml-0.5 h-3 w-3" />
+   312→                        </Button>
+   313→                      </TableCell>
+   314→                    </TableRow>
+   315→                  )
+   316→                })}
+   317→              </TableBody>
+   318→            </Table>
+   319→          </div>
+   320→          {display.menus.length === 0 && (
+   321→            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-sm text-muted-foreground">
+   322→              <UtensilsCrossed className="h-8 w-8" />
+   323→              <p>No menus match your filters.</p>
+   324→            </div>
+   325→          )}
+   326→        </CardContent>
+   327→      </Card>
+   328→
+   329→      {/* Detail dialog */}
+   330→      {selectedMenu && <MenuDetailDialog menuId={selectedMenu} onClose={() => setSelectedMenu(null)} />}
+   331→      {/* Add dialog */}
+   332→      {showAddDialog && <AddMenuDialog onClose={() => setShowAddDialog(false)} />}
+   333→    </div>
+   334→  )
+   335→}
+   336→
+   337→// ---------------------------------------------------------------------------
+   338→// Menu Detail Dialog
+   339→// ---------------------------------------------------------------------------
+   340→function MenuDetailDialog({ menuId, onClose }: { menuId: string; onClose: () => void }) {
+   341→  const { data: menu, loading } = useFetch<any>(`/api/cafeteria/${menuId}`)
+   342→
+   343→  return (
+   344→    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+   345→      <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto scrollbar-thin">
+   346→        {loading || !menu ? (
+   347→          <div className="p-6 space-y-3">
+   348→            <Skeleton className="h-12 w-full" />
+   349→            <Skeleton className="h-32 w-full" />
+   350→            <Skeleton className="h-24 w-full" />
+   351→          </div>
+   352→        ) : (
+   353→          <>
+   354→            <DialogHeader>
+   355→              <DialogTitle className="flex items-center gap-2">
+   356→                <UtensilsCrossed className="h-5 w-5 text-amber-500" /> Menu Details
+   357→              </DialogTitle>
+   358→              <DialogDescription>{menu.mealType} · {formatDateTime(menu.date)}</DialogDescription>
+   359→            </DialogHeader>
+   360→
+   361→            {/* Menu header */}
+   362→            {(() => {
+   363→              const meta = MEAL_META[menu.mealType] || MEAL_META.Breakfast
+   364→              const Icon = meta.icon
+   365→              return (
+   366→                <div className="flex items-start gap-3 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 p-4 dark:from-amber-950/30 dark:to-orange-950/30">
+   367→                  <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-xl', meta.bg, meta.text)}>
+   368→                    <Icon className="h-6 w-6" />
+   369→                  </div>
+   370→                  <div className="min-w-0 flex-1">
+   371→                    <p className="text-base font-bold">{menu.item}</p>
+   372→                    <p className="text-xs text-muted-foreground">{menu.mealType} · {menu.cook ? `Cook: ${menu.cook}` : 'No cook assigned'}</p>
+   373→                    <div className="mt-1">
+   374→                      <Badge variant="outline" className={cn('text-[10px]', STATUS_BADGE[menu.status])}>{menu.status}</Badge>
+   375→                    </div>
+   376→                  </div>
+   377→                </div>
+   378→              )
+   379→            })()}
+   380→
+   381→            {/* Meal details */}
+   382→            <div className="grid grid-cols-2 gap-3">
+   383→              <div className="rounded-xl border p-3">
+   384→                <p className="text-[10px] uppercase text-muted-foreground">Accompaniment</p>
+   385→                <p className="text-sm font-medium">{menu.accompaniment || '—'}</p>
+   386→              </div>
+   387→              <div className="rounded-xl border p-3">
+   388→                <p className="text-[10px] uppercase text-muted-foreground">Beverage</p>
+   389→                <p className="text-sm font-medium">{menu.beverage || '—'}</p>
+   390→              </div>
+   391→            </div>
+   392→
+   393→            {/* Servings grid */}
+   394→            <div className="grid grid-cols-3 gap-3">
+   395→              <div className="rounded-xl border bg-muted/30 p-3 text-center">
+   396→                <p className="text-[10px] uppercase text-muted-foreground">Planned</p>
+   397→                <p className="text-lg font-bold">{menu.servingsPlanned}</p>
+   398→              </div>
+   399→              <div className="rounded-xl border bg-emerald-50/40 p-3 text-center dark:bg-emerald-950/20">
+   400→                <p className="text-[10px] uppercase text-emerald-700 dark:text-emerald-400">Served</p>
+   401→                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{menu.servingsServed}</p>
+   402→              </div>
+   403→              <div className="rounded-xl border bg-amber-50/40 p-3 text-center dark:bg-amber-950/20">
+   404→                <p className="text-[10px] uppercase text-amber-700 dark:text-amber-400">Diners</p>
+   405→                <p className="text-lg font-bold text-amber-700 dark:text-amber-400">{menu.attendances.reduce((s: number, a: any) => s + a.headcount, 0)}</p>
+   406→              </div>
+   407→            </div>
+   408→
+   409→            {menu.notes && (
+   410→              <div className="rounded-lg bg-muted/40 p-3 text-xs">
+   411→                <span className="font-semibold">Notes: </span>{menu.notes}
+   412→              </div>
+   413→            )}
+   414→
+   415→            {/* Attendance breakdown */}
+   416→            {menu.attendances.length > 0 && (
+   417→              <div>
+   418→                <p className="mb-2 text-sm font-semibold">Attendance Breakdown</p>
+   419→                <div className="space-y-1.5">
+   420→                  {menu.attendances.map((a: any) => (
+   421→                    <div key={a.id} className="flex items-center justify-between rounded-lg border p-2.5">
+   422→                      <div className="flex items-center gap-2">
+   423→                        <Badge variant="outline" className="text-[10px]">{a.personType}</Badge>
+   424→                        {a.notes && <span className="text-[10px] text-muted-foreground">{a.notes}</span>}
+   425→                      </div>
+   426→                      <span className="text-sm font-bold">{a.headcount} diners</span>
+   427→                    </div>
+   428→                  ))}
+   429→                </div>
+   430→              </div>
+   431→            )}
+   432→          </>
+   433→        )}
+   434→      </DialogContent>
+   435→    </Dialog>
+   436→  )
+   437→}
+   438→
+   439→// ---------------------------------------------------------------------------
+   440→// Add Menu Dialog
+   441→// ---------------------------------------------------------------------------
+   442→function AddMenuDialog({ onClose }: { onClose: () => void }) {
+   443→  const [form, setForm] = useState({
+   444→    mealType: 'Breakfast', item: '', accompaniment: '', beverage: '', notes: '',
+   445→    servingsPlanned: '200', date: '', cook: '',
+   446→  })
+   447→  const [saving, setSaving] = useState(false)
+   448→
+   449→  const handleSubmit = async () => {
+   450→    if (!form.item || !form.date) { toast.error('Main dish and date are required'); return }
+   451→    setSaving(true)
+   452→    try {
+   453→      const res = await fetch('/api/cafeteria', {
+   454→        method: 'POST', headers: { 'Content-Type': 'application/json' },
+   455→        body: JSON.stringify({ ...form, status: 'Planned' }),
+   456→      })
+   457→      if (!res.ok) throw new Error('Failed to create menu')
+   458→      toast.success('Menu created successfully')
+   459→      onClose()
+   460→    } catch (e: any) { toast.error(e?.message || 'Failed to create menu') }
+   461→    finally { setSaving(false) }
+   462→  }
+   463→
+   464→  return (
+   465→    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+   466→      <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto scrollbar-thin">
+   467→        <DialogHeader>
+   468→          <DialogTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-amber-500" /> New Meal Menu</DialogTitle>
+   469→          <DialogDescription>Plan a meal for the cafeteria</DialogDescription>
+   470→        </DialogHeader>
+   471→        <div className="space-y-3">
+   472→          <div className="grid grid-cols-2 gap-3">
+   473→            <div>
+   474→              <Label className="text-xs">Meal Type *</Label>
+   475→              <Select value={form.mealType} onValueChange={v => setForm({ ...form, mealType: v })}>
+   476→                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+   477→                <SelectContent>
+   478→                  {Object.keys(MEAL_META).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+   479→                </SelectContent>
+   480→              </Select>
+   481→            </div>
+   482→            <div>
+   483→              <Label className="text-xs">Date & Time *</Label>
+   484→              <Input type="datetime-local" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="mt-1" />
+   485→            </div>
+   486→          </div>
+   487→          <div><Label className="text-xs">Main Dish *</Label><Input value={form.item} onChange={e => setForm({ ...form, item: e.target.value })} placeholder="e.g. Ugali & Sukuma Wiki" className="mt-1" /></div>
+   488→          <div className="grid grid-cols-2 gap-3">
+   489→            <div><Label className="text-xs">Accompaniment</Label><Input value={form.accompaniment} onChange={e => setForm({ ...form, accompaniment: e.target.value })} placeholder="e.g. Beef Stew" className="mt-1" /></div>
+   490→            <div><Label className="text-xs">Beverage</Label><Input value={form.beverage} onChange={e => setForm({ ...form, beverage: e.target.value })} placeholder="e.g. Tea" className="mt-1" /></div>
+   491→          </div>
+   492→          <div className="grid grid-cols-2 gap-3">
+   493→            <div><Label className="text-xs">Servings Planned</Label><Input type="number" value={form.servingsPlanned} onChange={e => setForm({ ...form, servingsPlanned: e.target.value })} className="mt-1" /></div>
+   494→            <div><Label className="text-xs">Cook</Label><Input value={form.cook} onChange={e => setForm({ ...form, cook: e.target.value })} placeholder="Chef name" className="mt-1" /></div>
+   495→          </div>
+   496→          <div><Label className="text-xs">Notes</Label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className="mt-1" rows={2} /></div>
+   497→          <div className="flex justify-end gap-2 pt-2">
+   498→            <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+   499→            <Button size="sm" onClick={handleSubmit} disabled={saving} className="bg-amber-600 hover:bg-amber-700">{saving ? 'Creating...' : 'Create Menu'}</Button>
+   500→          </div>
+   501→        </div>
+   502→      </DialogContent>
+   503→    </Dialog>
+   504→  )
+   505→}
+   506→
