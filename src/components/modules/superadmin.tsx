@@ -746,7 +746,7 @@ function SchoolDetailDialog({ school, onOpenChange, onMutated }: {
 
   return (
     <Dialog open={!!school} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
+      <DialogContent className="max-h-[95vh] max-w-4xl overflow-y-auto scrollbar-thin">
         {loading || !data || !school ? (
           <div className="space-y-4 py-8">
             <Skeleton className="h-28 w-full rounded-xl" />
@@ -864,7 +864,7 @@ function SchoolDetailDialog({ school, onOpenChange, onMutated }: {
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm">Recent Payments</CardTitle></CardHeader>
                 <CardContent>
-                  <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                  <div className="space-y-2 pr-1">
                     {data.recentPayments.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No payments yet.</p>}
                     {data.recentPayments.map(p => (
                       <div key={p.id} className="flex items-center gap-3 rounded-lg border p-2">
@@ -886,7 +886,7 @@ function SchoolDetailDialog({ school, onOpenChange, onMutated }: {
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm">User Accounts ({data.users.length})</CardTitle></CardHeader>
                 <CardContent>
-                  <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                  <div className="space-y-2 pr-1">
                     {data.users.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No user accounts.</p>}
                     {data.users.map(u => (
                       <div key={u.id} className="flex items-center gap-3 rounded-lg border p-2">
