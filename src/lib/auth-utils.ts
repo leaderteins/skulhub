@@ -129,6 +129,24 @@ export async function getUserFromRequest(req: Request) {
 }
 
 /**
+ * Check if a user has permission to DELETE records in a given module.
+ * Only admin, principal, and super_admin can delete by default.
+ * Deputy principals can delete in limited modules (attendance, discipline, events, homework, lessonplans).
+ * All other roles (teacher, bursar, librarian, etc.) CANNOT delete anything.
+ *
+ * Use this in API DELETE routes to enforce permission on the backend.
+ *
+ * Returns true if the user can delete, false otherwise.
+ */
+export function canUserDelete(userRole: string, module: string): boolean {
+  if (userRole === 'admin' || userRole === 'principal' || userRole === 'super_admin') return true
+  if (userRole === 'deputy_principal') {
+    return ['attendance', 'discipline', 'events', 'homework', 'lessonplans'].includes(module)
+  }
+  return false
+}
+
+/**
  * Ensure the platform super-admin exists. Auto-provisions a system school
  * ("SkulHub Platform") and a super_admin user with default credentials.
  * Idempotent — safe to call on every login.

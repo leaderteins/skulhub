@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getUserFromRequest, canUserDelete } from '@/lib/auth-utils'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -128,8 +129,13 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 }
 
 // DELETE /api/staff/[id]
-export async function DELETE(_req: NextRequest, { params }: Ctx) {
+export async function DELETE(req: NextRequest, { params }: Ctx) {
   const { id } = await params
+  const authUser = await getUserFromRequest(req)
+  if (!authUser) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  if (!canUserDelete(authUser.role, 'staff')) {
+    return NextResponse.json({ error: 'You do not have permission to delete staff records. Only admin and principal can delete.' }, { status: 403 })
+  }
   const existing = await db.staff.findUnique({ where: { id } })
   if (!existing) {
     return NextResponse.json({ error: 'Staff not found' }, { status: 404 })

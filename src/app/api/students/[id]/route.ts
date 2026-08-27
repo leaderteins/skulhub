@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getUserFromRequest, canUserDelete } from '@/lib/auth-utils'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -138,9 +139,15 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 }
 
 // DELETE /api/students/[id]
-export async function DELETE(_req: NextRequest, { params }: Ctx) {
+export async function DELETE(req: NextRequest, { params }: Ctx) {
   const { id } = await params
   try {
+    const user = await getUserFromRequest(req)
+    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    if (!canUserDelete(user.role, 'students')) {
+      return NextResponse.json({ error: 'You do not have permission to delete student records. Only admin and principal can delete.' }, { status: 403 })
+    }
+
     const existing = await db.student.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 })

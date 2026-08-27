@@ -175,6 +175,7 @@ interface AuthState {
   logout: () => void
   hasAccess: (module: string) => boolean
   canEdit: (module: string) => boolean
+  canDelete: (module: string) => boolean
   canViewFinance: () => boolean
 }
 
@@ -345,6 +346,20 @@ export const useAuthStore = create<AuthState>()(
           invrequests: ['admin', 'principal', 'deputy_principal', 'cook', 'teacher', 'librarian', 'nurse', 'matron', 'secretary'],
         }
         return (editMap[module] || ['admin', 'principal']).includes(user.role)
+      },
+      // Only admin and principal can DELETE anything — protects sensitive data
+      // from being removed by teachers, bursars, librarians, etc.
+      canDelete: (module: string) => {
+        const user = get().user
+        if (!user) return false
+        // Only admin, principal, and super_admin can delete
+        if (user.role === 'admin' || user.role === 'principal' || user.role === 'super_admin') return true
+        // Deputy principal can delete in limited modules
+        if (user.role === 'deputy_principal') {
+          return ['attendance', 'discipline', 'events', 'homework', 'lessonplans'].includes(module)
+        }
+        // All other roles: NO delete permissions
+        return false
       },
       canViewFinance: () => {
         const user = get().user

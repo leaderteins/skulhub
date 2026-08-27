@@ -134,7 +134,7 @@ const INITIAL_USERS: MockUser[] = [
 // ---------------------------------------------------------------------------
 export function SettingsModule() {
   const [tab, setTab] = useState('general')
-  const { user } = useAuthStore()
+  const { user, canDelete } = useAuthStore()
 
   // Only admin / principal / super_admin may see the per-user Module Access tab.
   const canManageModuleAccess =
@@ -380,6 +380,11 @@ export function SettingsModule() {
 
   function handleDeleteUser(id: string) {
     const u = users.find((x) => x.id === id)
+    // Prevent deletion of admin or principal accounts (these are critical)
+    if (u && (u.role === 'admin' || u.role === 'principal')) {
+      toast.error('Cannot delete admin or principal accounts', { description: 'These are critical system accounts. Transfer ownership first.' })
+      return
+    }
     setUsers(users.filter((x) => x.id !== id))
     toast.success('User removed', { description: u ? `${u.name} has been removed` : '' })
   }
@@ -399,7 +404,6 @@ export function SettingsModule() {
           <TabsTrigger value="notifications" className="gap-1.5"><Bell className="h-4 w-4" /> Notifications</TabsTrigger>
           <TabsTrigger value="mpesa" className="gap-1.5"><Smartphone className="h-4 w-4" /> M-Pesa</TabsTrigger>
           <TabsTrigger value="daraja-guide" className="gap-1.5"><BookOpen className="h-4 w-4" /> Daraja Guide</TabsTrigger>
-          <TabsTrigger value="setup" className="gap-1.5"><Database className="h-4 w-4" /> Setup</TabsTrigger>
           <TabsTrigger value="system-status" className="gap-1.5"><Activity className="h-4 w-4" /> System Status</TabsTrigger>
           <TabsTrigger value="users" className="gap-1.5"><ShieldCheck className="h-4 w-4" /> Users &amp; Roles</TabsTrigger>
           {canManageModuleAccess && (
@@ -1140,13 +1144,6 @@ export function SettingsModule() {
         </TabsContent>
 
         {/* ----------------------------------------------------------------- */}
-        {/* Database Setup Guide */}
-        {/* ----------------------------------------------------------------- */}
-        <TabsContent value="setup" className="space-y-4">
-          <DatabaseSetupTab />
-        </TabsContent>
-
-        {/* ----------------------------------------------------------------- */}
         {/* System Status (auto-refresh + error detection) */}
         {/* ----------------------------------------------------------------- */}
         <TabsContent value="system-status" className="space-y-4">
@@ -1212,14 +1209,16 @@ export function SettingsModule() {
                         </TableCell>
                         <TableCell className="hidden text-xs text-muted-foreground md:table-cell">{u.lastLogin}</TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                            onClick={() => handleDeleteUser(u.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {canDelete('settings') && u.role !== 'admin' && u.role !== 'principal' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                              onClick={() => handleDeleteUser(u.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

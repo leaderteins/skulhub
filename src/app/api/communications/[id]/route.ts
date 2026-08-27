@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getUserFromRequest, canUserDelete } from '@/lib/auth-utils'
 
 // PUT /api/communications/[id]
 // Update an announcement (e.g. toggle pin, edit fields).
@@ -39,8 +40,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // DELETE /api/communications/[id]
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const user = await getUserFromRequest(req)
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  if (!canUserDelete(user.role, 'communications')) {
+    return NextResponse.json({ error: 'You do not have permission to delete announcements. Only admin and principal can delete.' }, { status: 403 })
+  }
   const existing = await db.announcement.findUnique({ where: { id } })
   if (!existing) {
     return NextResponse.json({ error: 'Announcement not found' }, { status: 404 })
