@@ -28,27 +28,50 @@ export async function GET(req: NextRequest) {
     // School admins see only their own school.
     const where = user.role === 'super_admin' ? {} : { schoolId: user.schoolId }
 
-    const users = await db.userAccount.findMany({
-      where,
-      orderBy: [{ role: 'asc' }, { name: 'asc' }],
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        avatar: true,
-        status: true,
-        phone: true,
-        schoolId: true,
-        lastLoginAt: true,
-        createdAt: true,
-        school: { select: { id: true, name: true, slug: true } },
-        _count: { select: { moduleAccessOverrides: true } },
-      },
-    })
+    // Fetch users — wrap _count in try/catch in case moduleAccessOverrides table doesn't exist
+    let users
+    try {
+      users = await db.userAccount.findMany({
+        where,
+        orderBy: [{ role: 'asc' }, { name: 'asc' }],
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          avatar: true,
+          status: true,
+          phone: true,
+          schoolId: true,
+          lastLoginAt: true,
+          createdAt: true,
+          school: { select: { id: true, name: true, slug: true } },
+          _count: { select: { moduleAccessOverrides: true } },
+        },
+      })
+    } catch (e) {
+      // Fallback: query without _count if moduleAccessOverrides relation doesn't exist
+      users = await db.userAccount.findMany({
+        where,
+        orderBy: [{ role: 'asc' }, { name: 'asc' }],
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          avatar: true,
+          status: true,
+          phone: true,
+          schoolId: true,
+          lastLoginAt: true,
+          createdAt: true,
+          school: { select: { id: true, name: true, slug: true } },
+        },
+      })
+    }
 
     return NextResponse.json({
-      users: users.map((u) => ({
+      users: users.map((u: any) => ({
         id: u.id,
         name: u.name,
         email: u.email,
@@ -61,7 +84,7 @@ export async function GET(req: NextRequest) {
         schoolSlug: u.school?.slug ?? null,
         lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
         createdAt: u.createdAt.toISOString(),
-        overrideCount: u._count.moduleAccessOverrides,
+        overrideCount: u._count?.moduleAccessOverrides ?? 0,
       })),
       total: users.length,
     })
