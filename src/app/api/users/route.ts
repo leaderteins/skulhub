@@ -67,8 +67,9 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     console.error('[users GET] error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
-      { error: 'Failed to load users' },
+      { error: 'Failed to load users', details: msg.slice(0, 300) },
       { status: 500 }
     )
   }
