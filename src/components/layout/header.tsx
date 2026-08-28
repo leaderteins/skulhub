@@ -92,7 +92,12 @@ export function Header() {
       </Button>
 
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-lg font-bold tracking-tight md:text-xl">{meta.title}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="truncate text-lg font-bold tracking-tight md:text-xl">{meta.title}</h1>
+          <Badge variant="outline" className="hidden shrink-0 border-emerald-300 bg-emerald-50/50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400 sm:inline-flex">
+            <Calendar className="mr-1 h-3 w-3" /> Term 1, 2025
+          </Badge>
+        </div>
         <p className="hidden truncate text-xs text-muted-foreground sm:block">{meta.subtitle}</p>
       </div>
 
