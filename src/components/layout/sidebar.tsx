@@ -60,7 +60,7 @@ const NAV: NavItem[] = [
 ]
 
 export function Sidebar() {
-  const { activeModule, setActiveModule, sidebarOpen, setSidebarOpen } = useAppStore()
+  const { activeModule, setActiveModule, sidebarOpen, setSidebarOpen, academic } = useAppStore()
   const { user, hasAccess, logout } = useAuthStore()
 
   // Filter nav items by user role
@@ -143,7 +143,7 @@ export function Sidebar() {
                 <GraduationCap className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-semibold text-white">Term 1, 2025</div>
+                <div className="truncate text-xs font-semibold text-white">{academic.currentTerm}, {academic.academicYear}</div>
                 <div className="truncate text-[10px] text-sidebar-foreground/50">In Session · 252 learners</div>
               </div>
             </div>

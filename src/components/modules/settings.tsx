@@ -242,18 +242,50 @@ export function SettingsModule() {
   function handleSave(section: string) {
     // When saving Academic settings, update the global store so the
     // header badge and footer term/year update immediately everywhere.
+    // Persisted to localStorage by the store's persist middleware —
+    // survives page reloads. `auto: false` means the admin has manually
+    // overridden the auto-derived value; future boot-time re-derivation
+    // is skipped until they click "Reset to auto".
     if (section === 'Academic') {
       setAcademic({
         currentTerm,
         academicYear,
         termStart,
         termEnd,
+        auto: false,
       })
     }
     toast.success(`${section} settings saved`, {
       description: section === 'Academic'
         ? `Active term updated to ${currentTerm}, ${academicYear}. Changes are now reflected across the system.`
         : 'Changes have been applied to your local configuration.',
+    })
+  }
+
+  // Reset the academic calendar back to auto-derived (today's date decides the term)
+  function handleResetAcademicToAuto() {
+    // Clear the persisted override
+    setAcademic({ auto: true })
+    // Re-derive from today immediately so the form fields update
+    const now = new Date()
+    const month = now.getMonth()
+    const day = now.getDate()
+    let term = 'Term 1'
+    if ((month === 3 && day >= 22) || (month >= 4 && month <= 6) || (month === 7 && day <= 25)) term = 'Term 2'
+    else if ((month === 7 && day >= 26) || (month >= 8 && month <= 10)) term = 'Term 3'
+    else if (month === 11) term = 'Holiday'
+    const year = month === 11 ? String(now.getFullYear() + 1) : String(now.getFullYear())
+    let tStart = `${year}-01-06`, tEnd = `${year}-04-04`
+    if (term === 'Term 2') { tStart = `${year}-05-06`; tEnd = `${year}-08-08` }
+    if (term === 'Term 3') { tStart = `${year}-08-26`; tEnd = `${year}-11-04` }
+    if (term === 'Holiday') { tStart = `${year}-12-01`; tEnd = `${year}-12-31` }
+    setCurrentTerm(term)
+    setAcademicYear(year)
+    setTermStart(tStart)
+    setTermEnd(tEnd)
+    setAcademic({ currentTerm: term, academicYear: year, termStart: tStart, termEnd: tEnd, auto: true })
+    toast.success('Academic calendar reset to auto', {
+      description: `Now showing ${term}, ${year} based on today's date.`,
     })
   }
 
@@ -526,6 +558,23 @@ export function SettingsModule() {
                   <p className="mt-0.5">
                     {currentTerm}, {academicYear} · {termStart} → {termEnd}
                   </p>
+                  <p className="mt-1.5 flex items-center gap-1 text-[10px] text-emerald-600/80 dark:text-emerald-400/80">
+                    {academic.auto
+                      ? <>🟢 Auto-derived from today's date — updates automatically</>
+                      : <>🔒 Manually overridden — click "Reset to auto" to re-enable</>}
+                  </p>
+                </div>
+                <div className="flex items-center justify-end pt-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground hover:text-emerald-600"
+                    onClick={handleResetAcademicToAuto}
+                    disabled={academic.auto}
+                  >
+                    <RefreshCw className="mr-1.5 h-3 w-3" /> Reset to auto (today)
+                  </Button>
                 </div>
               </CardContent>
             </Card>

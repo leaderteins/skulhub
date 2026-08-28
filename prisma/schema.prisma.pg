@@ -35,6 +35,14 @@ model School {
   status        String   @default("Trial") // "Trial" | "Active" | "Suspended" | "Expired"
   trialEndsAt   DateTime?
   maxStudents   Int      @default(200)
+  // --- Safaricom Daraja M-Pesa STK Push credentials -------------------------
+  mpesaConsumerKey    String?  // Daraja app Consumer Key
+  mpesaConsumerSecret String?  // Daraja app Consumer Secret
+  mpesaPasskey        String?  // Daraja Lipa Na M-Pesa Online Passkey
+  mpesaShortcode      String?  // Paybill or Till number (Business Shortcode)
+  mpesaEnv            String   @default("sandbox") // "sandbox" | "production"
+  mpesaCallbackUrl    String?  // Publicly reachable URL Daraja will POST callbacks to
+  mpesaAccountRef     String   @default("Admission No.") // Account reference type
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

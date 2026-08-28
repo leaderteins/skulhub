@@ -53,8 +53,18 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Lock } from 'lucide-react'
 
 export default function Home() {
-  const { activeModule, setActiveModule } = useAppStore()
+  const { activeModule, setActiveModule, refreshAcademicFromToday } = useAppStore()
   const { user, hasAccess, _hasHydrated, authView, isSuperAdmin } = useAuthStore()
+
+  // Boot-time: re-derive the academic term/year from today's date — so the
+  // header/footer/dashboard badge always reflects the CURRENT period (not a
+  // stale hardcoded value). Respects manual overrides saved in Settings.
+  useEffect(() => {
+    refreshAcademicFromToday()
+    // Re-check every 10 minutes (in case the user keeps the tab open across midnight)
+    const id = setInterval(refreshAcademicFromToday, 10 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [refreshAcademicFromToday])
 
   // Super admins always land on the Super Admin module — they have no school
   // dashboard of their own. Switch automatically if they're still on 'dashboard'
