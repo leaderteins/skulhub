@@ -44,10 +44,10 @@ export async function GET(req: NextRequest) {
           },
         ],
         grades: [
-          { id: 'demo-g1', subject: { name: 'Mathematics', code: 'MAT' }, exam: { name: 'Term 1 Opener', examType: 'Opener' }, marks: 78, grade: 'B+', points: 10, remarks: 'Good work on algebra. Needs improvement in geometry.', cbcLevel: null, teacherComment: 'Shows good understanding of basic concepts. Practice more on problem-solving.' },
-          { id: 'demo-g2', subject: { name: 'English', code: 'ENG' }, exam: { name: 'Term 1 Opener', examType: 'Opener' }, marks: 85, grade: 'A', points: 12, remarks: 'Excellent essay writing skills. Very creative.', cbcLevel: null, teacherComment: 'Outstanding performance. Keep up the good work!' },
-          { id: 'demo-g3', subject: { name: 'Biology', code: 'BIO' }, exam: { name: 'Term 1 Opener', examType: 'Opener' }, marks: 72, grade: 'B', points: 9, remarks: 'Good understanding of cell biology.', cbcLevel: null, teacherComment: 'Solid grasp of concepts. Focus on diagrams.' },
-          { id: 'demo-g4', subject: { name: 'Kiswahili', code: 'KIS' }, exam: { name: 'Term 1 Opener', examType: 'Opener' }, marks: 68, grade: 'B-', points: 8, remarks: 'Good effort in grammar. Practice more on composition.', cbcLevel: null, teacherComment: 'Making good progress. Read more Kiswahili literature.' },
+          { id: 'demo-g1', subject: { name: 'Mathematics', code: 'MAT' }, exam: { name: 'Term 1 Opener', examType: 'Opener' }, marks: 78, grade: 'B+', points: 10, cbeAchievementLevel: 6, cbeDescriptor: 'ME1', cbeDescriptorName: 'Meeting Expectations', remarks: 'Good work on algebra. Needs improvement in geometry.', teacherComment: 'Shows good understanding of basic concepts. Practice more on problem-solving.' },
+          { id: 'demo-g2', subject: { name: 'English', code: 'ENG' }, exam: { name: 'Term 1 Opener', examType: 'Opener' }, marks: 85, grade: 'A', points: 12, cbeAchievementLevel: 7, cbeDescriptor: 'EE2', cbeDescriptorName: 'Exceeding Expectations', remarks: 'Excellent essay writing skills. Very creative.', teacherComment: 'Outstanding performance. Keep up the good work!' },
+          { id: 'demo-g3', subject: { name: 'Biology', code: 'BIO' }, exam: { name: 'Term 1 Opener', examType: 'Opener' }, marks: 72, grade: 'B', points: 9, cbeAchievementLevel: 6, cbeDescriptor: 'ME1', cbeDescriptorName: 'Meeting Expectations', remarks: 'Good understanding of cell biology.', teacherComment: 'Solid grasp of concepts. Focus on diagrams.' },
+          { id: 'demo-g4', subject: { name: 'Kiswahili', code: 'KIS' }, exam: { name: 'Term 1 Opener', examType: 'Opener' }, marks: 68, grade: 'B-', points: 8, cbeAchievementLevel: 5, cbeDescriptor: 'ME2', cbeDescriptorName: 'Meeting Expectations', remarks: 'Good effort in grammar. Practice more on composition.', teacherComment: 'Making good progress. Read more Kiswahili literature.' },
         ],
       })
     }
@@ -105,9 +105,11 @@ export async function GET(req: NextRequest) {
         grade: g.grade,
         points: g.points,
         remarks: g.remarks,
-        cbcLevel: g.cbcLevel,
-        cbcStrand: g.cbcStrand,
-        cbcSubStrand: g.cbcSubStrand,
+        cbeAchievementLevel: g.cbeAchievementLevel,
+        cbeDescriptor: g.cbeDescriptor,
+        cbeDescriptorName: g.cbeDescriptorName,
+        cbeStrand: g.cbeStrand,
+        cbeSubStrand: g.cbeSubStrand,
         teacherComment: g.teacherComment,
       })),
     })
