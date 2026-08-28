@@ -315,9 +315,14 @@ model Grade {
   subjectId  String
   examId     String
   marks      Float    // 0-100
-  grade      String   // "A".."E" computed
+  grade      String   // "A".."E" computed (KCSE style)
   points     Int      // 12..1 (KCSE style) or 0-100
-  remarks    String?
+  remarks    String?  // teacher's remarks on this student's performance
+  // CBC-specific fields
+  cbcLevel    String?  // CBC performance level: "1".."4" (Below Expectations, Approaching, Meeting, Exceeding)
+  cbcStrand   String?  // CBC strand/topic assessed (e.g., "Number Operations")
+  cbcSubStrand String? // CBC sub-strand (e.g., "Addition of fractions")
+  teacherComment String? // teacher's comment shown on report card
   createdAt  DateTime @default(now())
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -1104,6 +1109,22 @@ model Homework {
   maxMarks    Int      @default(100)
   status      String   @default("Active") // "Active" | "Closed" | "Graded"
   createdBy   String?
+  createdAt   DateTime @default(now())
+
+  comments HomeworkComment[]
+}
+
+// ---------------------------------------------------------------------------
+// Homework Comments (teacher-parent communication diary)
+// ---------------------------------------------------------------------------
+
+model HomeworkComment {
+  id          String   @id @default(cuid())
+  homeworkId  String
+  homework    Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  authorName  String
+  authorRole  String   @default("teacher") // "teacher" | "parent" | "student"
+  message     String
   createdAt   DateTime @default(now())
 }
 

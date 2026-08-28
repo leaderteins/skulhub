@@ -653,6 +653,8 @@ function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: (
     `/api/students?classLevel=${assessment.classLevelId || ''}&pageSize=200`
   )
   const [grades, setGrades] = useState<Record<string, string>>({})
+  const [comments, setComments] = useState<Record<string, string>>({})
+  const [selectedStudent, setSelectedStudent] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const students = studentsData?.students || []
@@ -665,7 +667,6 @@ function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: (
     }
     setSaving(true)
     try {
-      // Save grades one by one (could be batched in a real impl)
       let saved = 0
       for (const [studentId, marks] of entries) {
         const numMarks = Number(marks)
@@ -678,6 +679,8 @@ function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: (
             marks: numMarks,
             totalMarks: assessment.totalMarks,
             source: 'internal',
+            teacherComment: comments[studentId]?.trim() || null,
+            remarks: comments[studentId]?.trim() || null,
           })
           saved++
         } catch { /* skip individual errors */ }
@@ -695,10 +698,10 @@ function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: (
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto scrollbar-thin">
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ClipboardEdit className="h-5 w-5 text-teal-500" /> Record Grades
+            <ClipboardEdit className="h-5 w-5 text-teal-500" /> Record Grades & Remarks
           </DialogTitle>
           <DialogDescription>
             {assessment.title} · {assessment.subject?.name} · Max {assessment.totalMarks} marks
@@ -717,35 +720,63 @@ function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: (
                 <TableRow>
                   <TableHead className="text-xs">Adm No</TableHead>
                   <TableHead className="text-xs">Student Name</TableHead>
-                  <TableHead className="text-xs text-right">Marks (out of {assessment.totalMarks})</TableHead>
+                  <TableHead className="text-xs text-right">Marks / {assessment.totalMarks}</TableHead>
+                  <TableHead className="text-xs">CBC Level</TableHead>
+                  <TableHead className="text-xs">Teacher Comment</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {students.map((s: any) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="text-xs font-mono">{s.admissionNo}</TableCell>
-                    <TableCell className="text-xs">{s.firstName} {s.lastName}</TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        min="0"
-                        max={assessment.totalMarks}
-                        step="0.5"
-                        value={grades[s.id] || ''}
-                        onChange={(e) => setGrades({ ...grades, [s.id]: e.target.value })}
-                        className="ml-auto h-8 w-24 text-xs"
-                        placeholder="—"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {students.map((s: any) => {
+                  const marks = grades[s.id]
+                  const pct = marks ? (Number(marks) / assessment.totalMarks) * 100 : 0
+                  const cbcLevel = marks ? (pct >= 80 ? '4 (Exceeding)' : pct >= 50 ? '3 (Meeting)' : pct >= 30 ? '2 (Approaching)' : '1 (Below)') : '—'
+                  return (
+                    <TableRow key={s.id}>
+                      <TableCell className="text-xs font-mono">{s.admissionNo}</TableCell>
+                      <TableCell className="text-xs">{s.firstName} {s.lastName}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          min="0"
+                          max={assessment.totalMarks}
+                          step="0.5"
+                          value={grades[s.id] || ''}
+                          onChange={(e) => setGrades({ ...grades, [s.id]: e.target.value })}
+                          className="ml-auto h-8 w-24 text-xs"
+                          placeholder="—"
+                        />
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <Badge variant="outline" className={`text-[9px] ${pct >= 80 ? 'border-emerald-300 text-emerald-700' : pct >= 50 ? 'border-teal-300 text-teal-700' : pct >= 30 ? 'border-amber-300 text-amber-700' : 'border-rose-300 text-rose-700'}`}>
+                          {cbcLevel}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <Input
+                          value={comments[s.id] || ''}
+                          onChange={(e) => setComments({ ...comments, [s.id]: e.target.value })}
+                          placeholder="e.g. Good work, needs improvement in..."
+                          className="h-8 text-xs"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
+            <div className="rounded-lg border border-teal-200 bg-teal-50/50 p-3 dark:border-teal-800 dark:bg-teal-950/20">
+              <p className="text-[10px] text-teal-700 dark:text-teal-400">
+                <strong>CBC Levels:</strong> 4 = Exceeding Expectations (80%+) · 3 = Meeting Expectations (50%+) · 2 = Approaching Expectations (30%+) · 1 = Below Expectations (&lt;30%)
+              </p>
+              <p className="mt-1 text-[10px] text-teal-700 dark:text-teal-400">
+                Teacher comments will appear on the student's report card and parent portal.
+              </p>
+            </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
               <Button size="sm" onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Save Grades
+                Save Grades & Remarks
               </Button>
             </div>
           </div>

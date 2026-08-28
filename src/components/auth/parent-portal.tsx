@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   School,
   ArrowLeft,
@@ -29,6 +30,8 @@ import {
   LogOut,
   Sparkles,
   GraduationCap,
+  FileText,
+  Send,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth-store'
@@ -456,11 +459,11 @@ export function ParentPortal() {
               </div>
 
               <div className="grid gap-6 lg:grid-cols-2">
-                {/* Recent grades */}
+                {/* Recent grades with teacher remarks */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base">
-                      <BookOpen className="h-4 w-4 text-emerald-600" /> Recent Grades
+                      <BookOpen className="h-4 w-4 text-emerald-600" /> Recent Grades & Remarks
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -469,36 +472,45 @@ export function ParentPortal() {
                         No grades published yet.
                       </p>
                     ) : (
-                      <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                      <div className="space-y-3">
                         {dashboard.grades.map(g => (
-                          <div
-                            key={g.id}
-                            className="flex items-center justify-between gap-2 rounded-lg border p-2.5"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">{g.subject}</p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {g.exam} · {g.term}
-                              </p>
+                          <div key={g.id} className="rounded-lg border p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">{g.subject}</p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {g.exam} · {g.term}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-foreground">
+                                  {g.marks}
+                                </span>
+                                <span
+                                  className={`rounded border px-2 py-0.5 text-xs font-bold ${gradeColor(
+                                    g.grade
+                                  )}`}
+                                >
+                                  {g.grade}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-foreground">
-                                {g.marks}
-                              </span>
-                              <span
-                                className={`rounded border px-2 py-0.5 text-xs font-bold ${gradeColor(
-                                  g.grade
-                                )}`}
-                              >
-                                {g.grade}
-                              </span>
-                            </div>
+                            {g.remarks && (
+                              <div className="mt-2 rounded bg-muted/50 p-2">
+                                <p className="text-[10px] font-semibold uppercase text-muted-foreground">Teacher's Remark</p>
+                                <p className="text-xs text-foreground">{g.remarks}</p>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Homework + Comments Diary */}
+                <ParentHomeworkSection admissionNo={lookup?.student.admissionNo || ''} />
+
 
                 {/* Timetable */}
                 <Card>
@@ -796,5 +808,192 @@ export function ParentPortal() {
         </Card>
       </div>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ParentHomeworkSection — shows homework assignments + comment diary
+// ---------------------------------------------------------------------------
+function ParentHomeworkSection({ admissionNo }: { admissionNo: string }) {
+  const [data, setData] = useState<{ homework: any[]; grades: any[] } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [expandedHw, setExpandedHw] = useState<string | null>(null)
+  const [commentText, setCommentText] = useState('')
+  const [posting, setPosting] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const raf = requestAnimationFrame(() => {
+      if (!admissionNo) {
+        setLoading(false)
+        return
+      }
+      fetch(`/api/parent/homework?admissionNo=${encodeURIComponent(admissionNo)}`)
+        .then(r => r.json())
+        .then(d => { if (!cancelled) { setData(d); setLoading(false) } })
+        .catch(() => { if (!cancelled) { setData({ homework: [], grades: [] }); setLoading(false) } })
+    })
+    return () => { cancelled = true; cancelAnimationFrame(raf) }
+  }, [admissionNo])
+
+  const handlePostComment = async (hwId: string) => {
+    if (!commentText.trim()) return
+    setPosting(true)
+    try {
+      const res = await fetch(`/api/homework/${hwId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authorName: 'Guardian', authorRole: 'parent', message: commentText.trim() }),
+      })
+      if (res.ok) {
+        setCommentText('')
+        // Refresh data
+        fetch(`/api/parent/homework?admissionNo=${encodeURIComponent(admissionNo)}`)
+          .then(r => r.json())
+          .then(d => setData(d))
+      }
+    } catch {}
+    setPosting(false)
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FileText className="h-4 w-4 text-amber-600" /> Homework & Diary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-24 w-full" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const homework = data?.homework || []
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <FileText className="h-4 w-4 text-amber-600" /> Homework & Communication Diary
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {homework.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No homework assigned currently.</p>
+        ) : (
+          <div className="space-y-3">
+            {homework.map(hw => (
+              <div key={hw.id} className="rounded-lg border p-3">
+                {/* Homework header */}
+                <button
+                  onClick={() => setExpandedHw(expandedHw === hw.id ? null : hw.id)}
+                  className="flex w-full items-start justify-between gap-2 text-left"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{hw.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {hw.subject?.name || 'General'} · Due {new Date(hw.dueDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className={`shrink-0 text-[9px] ${hw.status === 'Active' ? 'border-emerald-300 text-emerald-700' : 'text-muted-foreground'}`}>
+                    {hw.status}
+                  </Badge>
+                </button>
+
+                {/* Expanded content */}
+                {expandedHw === hw.id && (
+                  <div className="mt-3 space-y-3 border-t pt-3">
+                    {/* Description */}
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Description</p>
+                      <p className="text-sm">{hw.description}</p>
+                    </div>
+
+                    {/* Comments diary */}
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                        Communication ({hw.comments?.length || 0})
+                      </p>
+                      {hw.comments && hw.comments.length > 0 ? (
+                        <div className="mt-1 space-y-2">
+                          {hw.comments.map((c: any) => (
+                            <div key={c.id} className={`rounded-lg p-2 text-xs ${c.authorRole === 'teacher' ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'bg-blue-50 dark:bg-blue-950/20'}`}>
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold">
+                                  {c.authorRole === 'teacher' ? '👨‍🏫 ' : '👤 '}
+                                  {c.authorName}
+                                </span>
+                                <span className="text-[9px] text-muted-foreground">
+                                  {new Date(c.createdAt).toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="mt-1">{c.message}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-xs text-muted-foreground">No messages yet.</p>
+                      )}
+
+                      {/* Add comment */}
+                      <div className="mt-2 flex gap-2">
+                        <Input
+                          value={expandedHw === hw.id ? commentText : ''}
+                          onChange={e => setCommentText(e.target.value)}
+                          placeholder="Write a message to the teacher..."
+                          className="h-8 text-xs"
+                          onKeyDown={e => { if (e.key === 'Enter') handlePostComment(hw.id) }}
+                        />
+                        <Button size="sm" className="h-8 shrink-0 bg-emerald-600 hover:bg-emerald-700" onClick={() => handlePostComment(hw.id)} disabled={posting || !commentText.trim()}>
+                          <Send className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Grades with teacher remarks */}
+        {data?.grades && data.grades.length > 0 && (
+          <div className="mt-4 border-t pt-3">
+            <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+              <GraduationCap className="h-4 w-4 text-emerald-600" /> Exam Marks & Teacher Remarks
+            </p>
+            <div className="space-y-2">
+              {data.grades.map((g: any) => (
+                <div key={g.id} className="rounded-lg border p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{g.subject?.name || 'Subject'}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">{g.exam?.name || ''} · {g.exam?.examType || ''}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold">{g.marks}</span>
+                      <Badge variant="outline" className={`text-[9px] font-bold ${gradeColor(g.grade)}`}>{g.grade}</Badge>
+                    </div>
+                  </div>
+                  {(g.remarks || g.teacherComment) && (
+                    <div className="mt-2 rounded bg-muted/50 p-2">
+                      {g.teacherComment && (
+                        <p className="text-xs"><span className="font-semibold">Teacher Comment:</span> {g.teacherComment}</p>
+                      )}
+                      {g.remarks && !g.teacherComment && (
+                        <p className="text-xs"><span className="font-semibold">Remark:</span> {g.remarks}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

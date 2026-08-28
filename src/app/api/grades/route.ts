@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     const {
       studentId, subjectId, examId, marks, totalMarks = 100,
       source = 'internal', externalSource = null, remarks = null,
+      teacherComment = null, cbcLevel = null, cbcStrand = null, cbcSubStrand = null,
     } = body
 
     if (!studentId || !subjectId || !examId || marks == null) {
@@ -36,7 +37,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Compute KCSE-style grade and points
-    // Standard 12-point scale: A=12, A-=11, B+=10, B=9, B-=8, C+=7, C=6, C-=5, D+=4, D=3, D-=2, E=1
     const percentage = (numMarks / Number(totalMarks)) * 100
     let grade: string, points: number
     if (percentage >= 80) { grade = 'A'; points = 12 }
@@ -52,6 +52,15 @@ export async function POST(req: NextRequest) {
     else if (percentage >= 30) { grade = 'D-'; points = 2 }
     else { grade = 'E'; points = 1 }
 
+    // Compute CBC level if not provided
+    let computedCbcLevel = cbcLevel
+    if (!computedCbcLevel) {
+      if (percentage >= 80) computedCbcLevel = '4' // Exceeding Expectations
+      else if (percentage >= 50) computedCbcLevel = '3' // Meeting Expectations
+      else if (percentage >= 30) computedCbcLevel = '2' // Approaching Expectations
+      else computedCbcLevel = '1' // Below Expectations
+    }
+
     const record = await db.grade.upsert({
       where: {
         studentId_subjectId_examId: { studentId, subjectId, examId },
@@ -61,6 +70,10 @@ export async function POST(req: NextRequest) {
         marks: numMarks,
         grade, points,
         remarks,
+        teacherComment,
+        cbcLevel: computedCbcLevel,
+        cbcStrand,
+        cbcSubStrand,
         source,
         externalSource,
       },
@@ -68,6 +81,10 @@ export async function POST(req: NextRequest) {
         marks: numMarks,
         grade, points,
         remarks,
+        teacherComment,
+        cbcLevel: computedCbcLevel,
+        cbcStrand,
+        cbcSubStrand,
         source,
         externalSource,
       },
