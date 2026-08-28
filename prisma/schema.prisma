@@ -314,15 +314,22 @@ model Grade {
   studentId  String
   subjectId  String
   examId     String
-  marks      Float    // 0-100
-  grade      String   // "A".."E" computed (KCSE style)
-  points     Int      // 12..1 (KCSE style) or 0-100
+  marks      Float    // 0-100 (raw percentage)
+  grade      String   // KCSE-style "A".."E" (for 8-4-4 backwards compat)
+  points     Int      // KCSE 12..1 (for 8-4-4 backwards compat)
   remarks    String?  // teacher's remarks on this student's performance
-  // CBC-specific fields
-  cbcLevel    String?  // CBC performance level: "1".."4" (Below Expectations, Approaching, Meeting, Exceeding)
-  cbcStrand   String?  // CBC strand/topic assessed (e.g., "Number Operations")
-  cbcSubStrand String? // CBC sub-strand (e.g., "Addition of fractions")
-  teacherComment String? // teacher's comment shown on report card
+  // CBE (Competency-Based Education) official grading — Kenya 2025+
+  cbeAchievementLevel Int?    // AL 1-8 (8=highest). Official CBE scale.
+  cbeDescriptor        String? // "EE1","EE2","ME1","ME2","AE1","AE2","BE1","BE2"
+  cbeDescriptorName    String? // "Exceeding Expectations","Meeting Expectations","Approaching Expectations","Below Expectations"
+  cbeStrand            String? // CBE strand assessed
+  cbeSubStrand         String? // CBE sub-strand
+  teacherComment       String? // teacher's comment shown on report card + parent portal
+  // KJSEA placement (Grade 9 → Grade 10 transition)
+  kjseaWeight          Float?  // KJSEA component score (60% weight)
+  sbaWeight            Float?  // School-Based Assessment score (20% weight)
+  kpseaWeight          Float?  // KPSEA score (20% weight)
+  placementScore       Float?  // Final cumulative placement score
   createdAt  DateTime @default(now())
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)

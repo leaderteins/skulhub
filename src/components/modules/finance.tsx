@@ -1848,6 +1848,7 @@ function InvoicesTab() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [classLevel, setClassLevel] = useState<string>('')
   const [generateOpen, setGenerateOpen] = useState(false)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [viewInvoice, setViewInvoice] = useState<InvoiceRow | null>(null)
   const [viewOpen, setViewOpen] = useState(false)
   const [payInvoice, setPayInvoice] = useState<PickedInvoice | null>(null)
@@ -1962,6 +1963,9 @@ function InvoicesTab() {
               </Select>
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setGenerateOpen(true)}>
                 <Plus className="h-4 w-4" /> Generate Invoice
+              </Button>
+              <Button variant="outline" className="border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400 dark:hover:bg-teal-950" onClick={() => setBulkOpen(true)}>
+                <Users className="h-4 w-4" /> Bulk Bill by Class
               </Button>
             </div>
           </div>
@@ -2095,6 +2099,15 @@ function InvoicesTab() {
         feeStructures={data?.feeStructures || []}
         onCreated={() => { refetch(); toast.success('Invoice list refreshed') }}
       />
+
+      {/* Bulk Invoice Dialog */}
+      {bulkOpen && (
+        <BulkInvoiceDialog
+          classLevels={data?.classLevels || []}
+          onClose={() => setBulkOpen(false)}
+          onCreated={() => { refetch() }}
+        />
+      )}
       <ViewInvoiceDialog
         open={viewOpen}
         onOpenChange={setViewOpen}
@@ -3102,5 +3115,131 @@ export function FinanceModule() {
         <TabsContent value="scholarships" className="mt-4"><ScholarshipsTab /></TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// BulkInvoiceDialog — generate invoices for all students in a class level
+// ---------------------------------------------------------------------------
+function BulkInvoiceDialog({ classLevels, onClose, onCreated }: {
+  classLevels: any[]
+  onClose: () => void
+  onCreated: () => void
+}) {
+  const [classLevelId, setClassLevelId] = useState('')
+  const [amount, setAmount] = useState('')
+  const [term, setTerm] = useState('Term 1')
+  const [academicYear, setAcademicYear] = useState(String(new Date().getFullYear()))
+  const [dueDate, setDueDate] = useState('')
+  const [description, setDescription] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async () => {
+    if (!classLevelId) { toast.error('Please select a class/grade'); return }
+    if (!amount || parseFloat(amount) <= 0) { toast.error('Please enter a valid amount'); return }
+    if (!dueDate) { toast.error('Please select a due date'); return }
+
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/finance/invoices/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classLevelId,
+          amount: parseFloat(amount),
+          term,
+          academicYear,
+          dueDate,
+          description: description.trim() || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(`${data.count} invoices generated!`, {
+          description: `Total: KES ${data.totalAmount.toLocaleString()} for ${term} ${academicYear}`,
+        })
+        onClose()
+        onCreated()
+      } else {
+        toast.error(data?.error || 'Failed to generate invoices')
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Network error')
+    }
+    setSubmitting(false)
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-teal-600" /> Bulk Invoice Generation
+          </DialogTitle>
+          <DialogDescription>
+            Generate invoices for ALL students in a specific class/grade at once.
+            Each student gets their own individual invoice.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label className="text-xs">Class / Grade Level *</Label>
+            <Select value={classLevelId} onValueChange={setClassLevelId}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select class (e.g. Grade 10, Form 2)" /></SelectTrigger>
+              <SelectContent>
+                {classLevels.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name} ({c.stage})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Amount per Student (KES) *</Label>
+              <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="e.g. 35000" className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Due Date *</Label>
+              <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="mt-1" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Term *</Label>
+              <Select value={term} onValueChange={setTerm}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Term 1">Term 1</SelectItem>
+                  <SelectItem value="Term 2">Term 2</SelectItem>
+                  <SelectItem value="Term 3">Term 3</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Academic Year *</Label>
+              <Input value={academicYear} onChange={e => setAcademicYear(e.target.value)} className="mt-1" />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Description (optional)</Label>
+            <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Term 1 Tuition + Boarding" className="mt-1" />
+          </div>
+          <div className="rounded-lg border border-teal-200 bg-teal-50/50 p-3 dark:border-teal-800 dark:bg-teal-950/20">
+            <p className="text-xs text-teal-700 dark:text-teal-400">
+              <strong>How it works:</strong> The system will find all active students in the selected class,
+              create an individual invoice for each one with the specified amount, term, and due date.
+              Invoices can then be paid individually via M-Pesa, cash, or bank transfer.
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={submitting} className="bg-teal-600 hover:bg-teal-700">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+            {submitting ? 'Generating...' : 'Generate Invoices'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

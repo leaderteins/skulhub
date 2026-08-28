@@ -721,7 +721,8 @@ function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: (
                   <TableHead className="text-xs">Adm No</TableHead>
                   <TableHead className="text-xs">Student Name</TableHead>
                   <TableHead className="text-xs text-right">Marks / {assessment.totalMarks}</TableHead>
-                  <TableHead className="text-xs">CBE Level</TableHead>
+                  <TableHead className="text-xs">CBE AL</TableHead>
+                  <TableHead className="text-xs">Descriptor</TableHead>
                   <TableHead className="text-xs">Teacher Comment</TableHead>
                 </TableRow>
               </TableHeader>
@@ -729,7 +730,20 @@ function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: (
                 {students.map((s: any) => {
                   const marks = grades[s.id]
                   const pct = marks ? (Number(marks) / assessment.totalMarks) * 100 : 0
-                  const cbcLevel = marks ? (pct >= 80 ? '4 (Exceeding)' : pct >= 50 ? '3 (Meeting)' : pct >= 30 ? '2 (Approaching)' : '1 (Below)') : '—'
+                  // Official CBE 8-Level Achievement Level scale
+                  let alLevel = '—'
+                  let descriptor = '—'
+                  let badgeColor = 'border-slate-300 text-slate-600'
+                  if (marks) {
+                    if (pct >= 90) { alLevel = 'AL 8'; descriptor = 'EE1'; badgeColor = 'border-emerald-400 text-emerald-700 bg-emerald-50' }
+                    else if (pct >= 75) { alLevel = 'AL 7'; descriptor = 'EE2'; badgeColor = 'border-emerald-300 text-emerald-700 bg-emerald-50' }
+                    else if (pct >= 58) { alLevel = 'AL 6'; descriptor = 'ME1'; badgeColor = 'border-teal-300 text-teal-700 bg-teal-50' }
+                    else if (pct >= 41) { alLevel = 'AL 5'; descriptor = 'ME2'; badgeColor = 'border-cyan-300 text-cyan-700 bg-cyan-50' }
+                    else if (pct >= 31) { alLevel = 'AL 4'; descriptor = 'AE1'; badgeColor = 'border-amber-300 text-amber-700 bg-amber-50' }
+                    else if (pct >= 21) { alLevel = 'AL 3'; descriptor = 'AE2'; badgeColor = 'border-orange-300 text-orange-700 bg-orange-50' }
+                    else if (pct >= 11) { alLevel = 'AL 2'; descriptor = 'BE1'; badgeColor = 'border-rose-300 text-rose-700 bg-rose-50' }
+                    else { alLevel = 'AL 1'; descriptor = 'BE2'; badgeColor = 'border-rose-500 text-rose-800 bg-rose-100' }
+                  }
                   return (
                     <TableRow key={s.id}>
                       <TableCell className="text-xs font-mono">{s.admissionNo}</TableCell>
@@ -747,9 +761,12 @@ function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: (
                         />
                       </TableCell>
                       <TableCell className="text-xs">
-                        <Badge variant="outline" className={`text-[9px] ${pct >= 80 ? 'border-emerald-300 text-emerald-700' : pct >= 50 ? 'border-teal-300 text-teal-700' : pct >= 30 ? 'border-amber-300 text-amber-700' : 'border-rose-300 text-rose-700'}`}>
-                          {cbcLevel}
+                        <Badge variant="outline" className={`text-[9px] font-bold ${badgeColor}`}>
+                          {alLevel}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs font-semibold">
+                        {descriptor}
                       </TableCell>
                       <TableCell className="text-xs">
                         <Input
@@ -765,8 +782,21 @@ function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: (
               </TableBody>
             </Table>
             <div className="rounded-lg border border-teal-200 bg-teal-50/50 p-3 dark:border-teal-800 dark:bg-teal-950/20">
-              <p className="text-[10px] text-teal-700 dark:text-teal-400">
-                <strong>CBE Levels:</strong> 4 = Exceeding Expectations (80%+) · 3 = Meeting Expectations (50%+) · 2 = Approaching Expectations (30%+) · 1 = Below Expectations (&lt;30%)
+              <p className="text-[10px] font-semibold text-teal-700 dark:text-teal-400">
+                CBE Official 8-Level Achievement Scale (Kenya 2025+):
+              </p>
+              <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-teal-700 dark:text-teal-400 sm:grid-cols-4">
+                <span><strong>AL 8</strong> (90-100%): EE1 — Exceeding Expectations</span>
+                <span><strong>AL 7</strong> (75-89%): EE2 — Exceeding Expectations</span>
+                <span><strong>AL 6</strong> (58-74%): ME1 — Meeting Expectations</span>
+                <span><strong>AL 5</strong> (41-57%): ME2 — Meeting Expectations</span>
+                <span><strong>AL 4</strong> (31-40%): AE1 — Approaching Expectations</span>
+                <span><strong>AL 3</strong> (21-30%): AE2 — Approaching Expectations</span>
+                <span><strong>AL 2</strong> (11-20%): BE1 — Below Expectations</span>
+                <span><strong>AL 1</strong> (1-10%): BE2 — Below Expectations</span>
+              </div>
+              <p className="mt-2 text-[10px] text-teal-700 dark:text-teal-400">
+                <strong>KJSEA Placement:</strong> Final score = KJSEA (60%) + School-Based Assessment (20%) + KPSEA (20%)
               </p>
               <p className="mt-1 text-[10px] text-teal-700 dark:text-teal-400">
                 Teacher comments will appear on the student's report card and parent portal.
