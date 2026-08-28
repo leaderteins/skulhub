@@ -521,7 +521,7 @@ async function main() {
     { title: 'Mid-Term Break', body: 'Mid-term break begins on 24th February and ends on 28th February 2025.', audience: 'Students', priority: 'Normal' },
     { title: 'Science Congress', body: 'The Kenya Science and Engineering Fair regional competitions will be held on 8th March 2025. Interested students should register with the Science HOD.', audience: 'Students', priority: 'Normal' },
     { title: 'Fee Payment Deadline', body: 'All school fees for Term 1 must be cleared by 28th February 2025. M-Pesa Paybill 522522, Account: Admission Number.', audience: 'Parents', priority: 'Urgent', pinned: true },
-    { title: 'Staff Development Workshop', body: 'All teaching staff to attend CBC pedagogy workshop on Saturday 1st March 2025.', audience: 'Staff', priority: 'Normal' },
+    { title: 'Staff Development Workshop', body: 'All teaching staff to attend CBE pedagogy workshop on Saturday 1st March 2025.', audience: 'Staff', priority: 'Normal' },
     { title: 'Annual Sports Day', body: 'Inter-stream athletics competition on 14th March 2025 at the school grounds.', audience: 'All', priority: 'Normal' },
     { title: 'End Term Examinations', body: 'Term 1 End Examinations begin 7th April 2025. Students should prepare adequately.', audience: 'Students', priority: 'High' },
   ]

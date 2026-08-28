@@ -721,7 +721,7 @@ function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: (
                   <TableHead className="text-xs">Adm No</TableHead>
                   <TableHead className="text-xs">Student Name</TableHead>
                   <TableHead className="text-xs text-right">Marks / {assessment.totalMarks}</TableHead>
-                  <TableHead className="text-xs">CBC Level</TableHead>
+                  <TableHead className="text-xs">CBE Level</TableHead>
                   <TableHead className="text-xs">Teacher Comment</TableHead>
                 </TableRow>
               </TableHeader>
@@ -766,7 +766,7 @@ function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: (
             </Table>
             <div className="rounded-lg border border-teal-200 bg-teal-50/50 p-3 dark:border-teal-800 dark:bg-teal-950/20">
               <p className="text-[10px] text-teal-700 dark:text-teal-400">
-                <strong>CBC Levels:</strong> 4 = Exceeding Expectations (80%+) · 3 = Meeting Expectations (50%+) · 2 = Approaching Expectations (30%+) · 1 = Below Expectations (&lt;30%)
+                <strong>CBE Levels:</strong> 4 = Exceeding Expectations (80%+) · 3 = Meeting Expectations (50%+) · 2 = Approaching Expectations (30%+) · 1 = Below Expectations (&lt;30%)
               </p>
               <p className="mt-1 text-[10px] text-teal-700 dark:text-teal-400">
                 Teacher comments will appear on the student's report card and parent portal.

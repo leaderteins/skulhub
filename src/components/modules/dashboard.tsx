@@ -354,7 +354,7 @@ export function DashboardModule() {
             {[
               { date: 'Feb 15', day: 'Sat', title: 'Parent-Teacher Conference', time: '9:00 AM — 1:00 PM', icon: Users, color: 'emerald' },
               { date: 'Feb 24', day: 'Mon', title: 'Mid-Term Break Begins', time: 'All day · resumes Feb 28', icon: CalendarCheck, color: 'amber' },
-              { date: 'Mar 01', day: 'Sat', title: 'Staff CBC Workshop', time: '8:00 AM — Teaching staff', icon: GraduationCap, color: 'teal' },
+              { date: 'Mar 01', day: 'Sat', title: 'Staff CBE Workshop', time: '8:00 AM — Teaching staff', icon: GraduationCap, color: 'teal' },
               { date: 'Mar 08', day: 'Sat', title: 'Kenya Science & Engineering Fair', time: 'Regional competitions', icon: Trophy, color: 'violet' },
               { date: 'Mar 14', day: 'Fri', title: 'Annual Sports Day', time: 'Inter-stream athletics', icon: Activity, color: 'cyan' },
               { date: 'Apr 07', day: 'Mon', title: 'End Term 1 Examinations', time: 'Begins — all forms', icon: FileText, color: 'rose' },

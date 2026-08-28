@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     else if (percentage >= 30) { grade = 'D-'; points = 2 }
     else { grade = 'E'; points = 1 }
 
-    // Compute CBC level if not provided
+    // Compute CBE level if not provided
     let computedCbcLevel = cbcLevel
     if (!computedCbcLevel) {
       if (percentage >= 80) computedCbcLevel = '4' // Exceeding Expectations

@@ -72,11 +72,13 @@ const SCHOOL_CATEGORIES = [
 ]
 
 const EDUCATION_LEVELS = [
-  { value: 'Primary', label: 'Primary', desc: 'Grade 1 – 8 (CBC)' },
-  { value: 'Junior Secondary', label: 'Junior Secondary', desc: 'Grade 7 – 9 (JSS)' },
-  { value: 'Secondary', label: 'Secondary', desc: 'Form 1 – 4 (8-4-4 / CBC)' },
+  { value: 'Pre-Primary', label: 'Pre-Primary', desc: 'PP1 – PP2 (CBE)' },
+  { value: 'Primary', label: 'Primary', desc: 'Grade 1 – 6 (CBE)' },
+  { value: 'Junior School', label: 'Junior School', desc: 'Grade 7 – 9 (CBE JSS)' },
+  { value: 'Senior School', label: 'Senior School', desc: 'Grade 10 – 12 (CBE Pathways)' },
+  { value: 'Secondary', label: 'Secondary (8-4-4)', desc: 'Form 1 – 4 (8-4-4)' },
   { value: 'University', label: 'University', desc: 'Higher education' },
-  { value: 'Mixed', label: 'Mixed (Primary + Secondary)', desc: 'Both primary and secondary' },
+  { value: 'Mixed', label: 'Mixed (Primary + Senior)', desc: 'Both primary and senior school' },
 ]
 
 const GENDER_OPTIONS: { value: string; label: string; desc: string; icon: LucideIcon; tint: string }[] = [
@@ -891,11 +893,13 @@ function Step2({ form, set, touch, touched, errors }: StepProps) {
             <span>
               We&apos;ll auto-create class levels for{' '}
               <span className="font-semibold">{form.level}</span> — e.g.{' '}
-              {form.level === 'Primary' && 'Grade 1 through Grade 8'}
-              {form.level === 'Junior Secondary' && 'Grade 7 through Grade 9'}
+              {form.level === 'Pre-Primary' && 'PP1 and PP2'}
+              {form.level === 'Primary' && 'Grade 1 through Grade 6'}
+              {form.level === 'Junior School' && 'Grade 7 through Grade 9'}
+              {form.level === 'Senior School' && 'Grade 10 through Grade 12'}
               {form.level === 'Secondary' && 'Form 1 through Form 4'}
               {form.level === 'University' && 'default year-of-study streams'}
-              {form.level === 'Mixed' && 'Grade 1 – 8 + Form 1 – 4'}
+              {form.level === 'Mixed' && 'Grade 1 – 12 (CBE full pathway)'}
               . You can customize them later.
             </span>
           </p>

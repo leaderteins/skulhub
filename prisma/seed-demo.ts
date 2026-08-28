@@ -58,16 +58,38 @@ async function main() {
   })
   console.log('  ✓ Super admin user')
 
-  // Seed Class Levels (use upsert — idempotent)
-  const secondaryLevels = ['Form 1', 'Form 2', 'Form 3', 'Form 4']
-  for (const name of secondaryLevels) {
-    await db.classLevel.upsert({ where: { name }, update: {}, create: { name, stage: 'Senior School', order: secondaryLevels.indexOf(name) + 1, capacity: 80 } })
+  // Seed Class Levels — CBE 2-6-3-3 structure (use upsert — idempotent)
+  // Pre-Primary
+  const prePrimaryLevels = ['PP1', 'PP2']
+  for (const name of prePrimaryLevels) {
+    await db.classLevel.upsert({ where: { name }, update: {}, create: { name, stage: 'Pre-Primary', order: prePrimaryLevels.indexOf(name) + 1, capacity: 30 } })
   }
-  const primaryLevels = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8']
-  for (const name of primaryLevels) {
-    await db.classLevel.upsert({ where: { name }, update: {}, create: { name, stage: 'Primary', order: primaryLevels.indexOf(name) + 1, capacity: 40 } })
+  // Lower Primary (Grade 1-3)
+  const lowerPrimary = ['Grade 1', 'Grade 2', 'Grade 3']
+  for (const name of lowerPrimary) {
+    await db.classLevel.upsert({ where: { name }, update: {}, create: { name, stage: 'Lower Primary', order: 3 + lowerPrimary.indexOf(name) + 1, capacity: 40 } })
   }
-  console.log(`  ✓ ${secondaryLevels.length + primaryLevels.length} class levels (Primary + Secondary)`)
+  // Upper Primary (Grade 4-6)
+  const upperPrimary = ['Grade 4', 'Grade 5', 'Grade 6']
+  for (const name of upperPrimary) {
+    await db.classLevel.upsert({ where: { name }, update: {}, create: { name, stage: 'Upper Primary', order: 6 + upperPrimary.indexOf(name) + 1, capacity: 40 } })
+  }
+  // Junior School (Grade 7-9) — formerly Junior Secondary
+  const juniorSchool = ['Grade 7', 'Grade 8', 'Grade 9']
+  for (const name of juniorSchool) {
+    await db.classLevel.upsert({ where: { name }, update: {}, create: { name, stage: 'Junior School', order: 9 + juniorSchool.indexOf(name) + 1, capacity: 60 } })
+  }
+  // Senior School (Grade 10-12) — formerly Senior Secondary / Form 1-4
+  const seniorSchool = ['Grade 10', 'Grade 11', 'Grade 12']
+  for (const name of seniorSchool) {
+    await db.classLevel.upsert({ where: { name }, update: {}, create: { name, stage: 'Senior School', order: 12 + seniorSchool.indexOf(name) + 1, capacity: 80 } })
+  }
+  // Keep Form 1-4 for schools still on 8-4-4 (backwards compatibility)
+  const formLevels = ['Form 1', 'Form 2', 'Form 3', 'Form 4']
+  for (const name of formLevels) {
+    await db.classLevel.upsert({ where: { name }, update: {}, create: { name, stage: 'Senior School (8-4-4)', order: 15 + formLevels.indexOf(name) + 1, capacity: 80 } })
+  }
+  console.log(`  ✓ ${prePrimaryLevels.length + lowerPrimary.length + upperPrimary.length + juniorSchool.length + seniorSchool.length + formLevels.length} class levels (CBE 2-6-3-3 + 8-4-4)`)
 
   // Seed Departments (upsert)
   const depts = ['Mathematics', 'Sciences', 'Languages', 'Humanities', 'Technical', 'Co-curricular']

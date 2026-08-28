@@ -62,7 +62,7 @@ const FEATURES = [
   { icon: Zap, title: 'M-Pesa Ready', desc: 'Record payments via M-Pesa Paybill 522522. Invoices auto-update.' },
   { icon: Clock, title: 'Live Dashboard', desc: 'Real-time clock, attendance trends, fee collection rates, and announcements.' },
   { icon: Building2, title: 'Multi-School', desc: 'Each school gets isolated data. Register unlimited schools on one platform.' },
-  { icon: FileText, title: 'CBC & 8-4-4', desc: 'Supports Kenya\'s Competency-Based Curriculum (Grade 1-8) and 8-4-4 (Form 1-4).' },
+  { icon: FileText, title: 'CBE Compliant', desc: 'Full support for Kenya\'s Competency-Based Education (Grade 1-12) and 8-4-4 (Form 1-4).' },
 ]
 
 const PLANS = [
@@ -108,7 +108,7 @@ export function LandingPage() {
         <div className="relative mx-auto max-w-7xl px-4 py-20 md:px-6 md:py-32">
           <div className="mx-auto max-w-3xl text-center">
             <Badge variant="outline" className="mb-4 border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-              <Zap className="mr-1.5 h-3 w-3" /> 33+ Modules · CBC & 8-4-4 · M-Pesa Ready
+              <Zap className="mr-1.5 h-3 w-3" /> 33+ Modules · CBE (Grade 1-12) · M-Pesa Ready
             </Badge>
             <h1 className="text-4xl font-bold tracking-tight md:text-6xl">
               The complete school management system for{' '}
@@ -472,7 +472,7 @@ function DemoVideoModal({ onClose }: { onClose: () => void }) {
     { title: 'Dashboard Overview', desc: 'Real-time stats: student counts, fee collection, attendance trends', icon: BarChart3, color: 'from-emerald-600 to-teal-700' },
     { title: 'Student Management', desc: 'Admissions, profiles, guardians, enrollment history', icon: Users, color: 'from-cyan-600 to-emerald-700' },
     { title: 'Finance & Fees', desc: 'Invoices, M-Pesa payments, receipts, outstanding balances', icon: Wallet, color: 'from-amber-600 to-emerald-700' },
-    { title: 'Academics & Exams', desc: 'CBC & 8-4-4 subjects, CATs, report cards, grade analytics', icon: ClipboardCheck, color: 'from-teal-600 to-cyan-700' },
+    { title: 'Academics & Exams', desc: 'CBE (Grade 1-12) + 8-4-4 subjects, CATs, report cards, grade analytics', icon: ClipboardCheck, color: 'from-teal-600 to-cyan-700' },
     { title: 'Parent Portal', desc: 'Parents check fees, grades, attendance from their phone', icon: Smartphone, color: 'from-violet-600 to-emerald-700' },
   ]
   const SCENE_DURATION = 3500 // ms per scene

@@ -141,7 +141,7 @@ export function LessonPlansModule() {
             </div>
             <h2 className="text-2xl font-bold tracking-tight">Lesson Plans & Schemes of Work</h2>
             <p className="mt-1 max-w-xl text-sm text-white/80">
-              Plan weekly lessons by subject & class. Track objectives, activities, resources, assessment & notes — aligned to the CBC curriculum.
+              Plan weekly lessons by subject & class. Track objectives, activities, resources, assessment & notes — aligned to the CBE curriculum.
             </p>
           </div>
           <Button variant="secondary" size="sm" className="bg-white text-emerald-700 hover:bg-white/90" onClick={() => setShowAddDialog(true)}>

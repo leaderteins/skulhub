@@ -196,24 +196,40 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // --- Seed class levels based on school level ---------------------------
-      const schoolLevel = level || 'Secondary'
+      // --- Seed class levels based on school level (CBE 2-6-3-3) -----------
+      const schoolLevel = level || 'Senior School'
       let classLevelsToSeed = DEFAULT_CLASS_LEVELS
-      if (schoolLevel === 'Primary') {
+      if (schoolLevel === 'Pre-Primary') {
         classLevelsToSeed = [
-          { name: 'Grade 1', stage: 'Primary', order: 1, capacity: 40 },
-          { name: 'Grade 2', stage: 'Primary', order: 2, capacity: 40 },
-          { name: 'Grade 3', stage: 'Primary', order: 3, capacity: 40 },
-          { name: 'Grade 4', stage: 'Primary', order: 4, capacity: 40 },
-          { name: 'Grade 5', stage: 'Primary', order: 5, capacity: 40 },
-          { name: 'Grade 6', stage: 'Primary', order: 6, capacity: 40 },
-          { name: 'Grade 7', stage: 'Junior Secondary', order: 7, capacity: 40 },
-          { name: 'Grade 8', stage: 'Junior Secondary', order: 8, capacity: 40 },
+          { name: 'PP1', stage: 'Pre-Primary', order: 1, capacity: 30 },
+          { name: 'PP2', stage: 'Pre-Primary', order: 2, capacity: 30 },
+        ]
+      } else if (schoolLevel === 'Primary') {
+        classLevelsToSeed = [
+          { name: 'Grade 1', stage: 'Lower Primary', order: 1, capacity: 40 },
+          { name: 'Grade 2', stage: 'Lower Primary', order: 2, capacity: 40 },
+          { name: 'Grade 3', stage: 'Lower Primary', order: 3, capacity: 40 },
+          { name: 'Grade 4', stage: 'Upper Primary', order: 4, capacity: 40 },
+          { name: 'Grade 5', stage: 'Upper Primary', order: 5, capacity: 40 },
+          { name: 'Grade 6', stage: 'Upper Primary', order: 6, capacity: 40 },
+        ]
+      } else if (schoolLevel === 'Junior School') {
+        classLevelsToSeed = [
+          { name: 'Grade 7', stage: 'Junior School', order: 1, capacity: 60 },
+          { name: 'Grade 8', stage: 'Junior School', order: 2, capacity: 60 },
+          { name: 'Grade 9', stage: 'Junior School', order: 3, capacity: 60 },
+        ]
+      } else if (schoolLevel === 'Senior School') {
+        classLevelsToSeed = [
+          { name: 'Grade 10', stage: 'Senior School', order: 1, capacity: 80 },
+          { name: 'Grade 11', stage: 'Senior School', order: 2, capacity: 80 },
+          { name: 'Grade 12', stage: 'Senior School', order: 3, capacity: 80 },
         ]
       } else if (schoolLevel === 'Mixed') {
         classLevelsToSeed = [
-          ...['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8'].map((n, i) => ({ name: n, stage: i < 6 ? 'Primary' : 'Junior Secondary', order: i + 1, capacity: 40 })),
-          ...DEFAULT_CLASS_LEVELS.map((cl, i) => ({ ...cl, order: i + 9 })),
+          ...['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6'].map((n, i) => ({ name: n, stage: i < 3 ? 'Lower Primary' : 'Upper Primary', order: i + 1, capacity: 40 })),
+          ...['Grade 7','Grade 8','Grade 9'].map((n, i) => ({ name: n, stage: 'Junior School', order: i + 7, capacity: 60 })),
+          ...['Grade 10','Grade 11','Grade 12'].map((n, i) => ({ name: n, stage: 'Senior School', order: i + 10, capacity: 80 })),
         ]
       }
       for (const cl of classLevelsToSeed) {

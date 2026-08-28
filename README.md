@@ -1,7 +1,7 @@
 # SkulHub — Professional School Management System
 
 > The complete school management system for Kenyan schools and institutions worldwide.
-> 33+ modules, multi-tenancy, parent portal, staff signup, CBC support, M-Pesa Daraja integration.
+> 33+ modules, multi-tenancy, parent portal, staff signup, CBE support, M-Pesa Daraja integration.
 
 **Live Website:** [https://skulhub.vercel.app](https://skulhub.vercel.app)
 
@@ -17,7 +17,7 @@
   with granular per-user module permissions.
 - **Parent Portal**: Parents check fees, grades, attendance from their phone.
 - **Staff Self-Signup**: Staff request to join a school; principal approves/rejects.
-- **CBC & 8-4-4**: Supports Kenya's Competency-Based Curriculum and 8-4-4 system.
+- **CBE (Grade 1-12) & 8-4-4**: Full support for Kenya's Competency-Based Education (2-6-3-3 structure) and 8-4-4 system.
 - **M-Pesa Daraja STK Push**: Real Safaricom Daraja API integration for fee payments.
 - **Super Admin Console**: Platform owner dashboard for managing all schools.
 

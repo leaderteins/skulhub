@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SkulHub — School Management System",
   description: "Professional school, college & university management system. Built for Kenyan institutions, scalable worldwide.",
-  keywords: ["school management", "Kenya education", "CBC", "university management", "fee management", "attendance"],
+  keywords: ["school management", "Kenya education", "CBE", "university management", "fee management", "attendance"],
   authors: [{ name: "SkulHub" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
