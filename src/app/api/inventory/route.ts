@@ -91,44 +91,47 @@ export async function GET(req: NextRequest) {
 
 // POST /api/inventory — create a new asset / inventory item
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null)
-  if (!body || !body.name) {
-    return NextResponse.json({ error: 'name is required' }, { status: 400 })
+  try {
+    const body = await req.json().catch(() => null)
+    if (!body || !body.name) {
+      return NextResponse.json({ error: 'name is required' }, { status: 400 })
+    }
+    const count = await db.asset.count()
+    const assetTag = `AST-${String(count + 1).padStart(3, '0')}`
+
+    const asset = await db.asset.create({
+      data: {
+        assetTag,
+        name: String(body.name).trim(),
+        category: String(body.category || 'Other'),
+        description: body.description ? String(body.description) : null,
+        serialNumber: body.serialNumber ? String(body.serialNumber) : null,
+        purchaseDate: body.purchaseDate ? new Date(body.purchaseDate) : null,
+        purchaseCost: Number(body.purchaseCost) || 0,
+        currentValue: Number(body.currentValue) || Number(body.purchaseCost) || 0,
+        condition: String(body.condition || 'Good'),
+        status: String(body.status || 'In Use'),
+        location: body.location ? String(body.location) : null,
+        assignedTo: body.assignedTo ? String(body.assignedTo) : null,
+        quantity: Number(body.quantity) || 1,
+        quantityInStock: Number(body.quantityInStock) || 0,
+        reorderLevel: Number(body.reorderLevel) || 0,
+        unitPrice: Number(body.unitPrice) || 0,
+        unit: String(body.unit || 'pcs'),
+        supplierName: body.supplierName ? String(body.supplierName) : null,
+        notes: body.notes ? String(body.notes) : null,
+      },
+    })
+    await db.activityLog.create({
+      data: { action: 'CREATE', entity: 'Asset', entityId: asset.id, user: 'Admin', details: `Registered asset ${assetTag}: ${asset.name}` },
+    }).catch(() => {})
+    return NextResponse.json(asset, { status: 201 })
+  } catch (error) {
+    console.error('[inventory POST] error:', error)
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json(
+      { error: 'Failed to create inventory item', details: msg.slice(0, 300) },
+      { status: 500 }
+    )
   }
-  const count = await db.asset.count()
-  const assetTag = `AST-${String(count + 1).padStart(3, '0')}`
-
-  const quantity = Number(body.quantity) || 1
-  const quantityInStockRaw = body.quantityInStock !== undefined ? Number(body.quantityInStock) : 0
-  const quantityInStock = Number.isFinite(quantityInStockRaw) ? quantityInStockRaw : 0
-  const reorderLevel = Math.max(0, Number(body.reorderLevel) || 0)
-  const unitPrice = Math.max(0, Number(body.unitPrice) || 0)
-
-  const asset = await db.asset.create({
-    data: {
-      assetTag,
-      name: body.name,
-      category: body.category || 'Other',
-      description: body.description || null,
-      serialNumber: body.serialNumber || null,
-      purchaseDate: body.purchaseDate ? new Date(body.purchaseDate) : null,
-      purchaseCost: Number(body.purchaseCost) || 0,
-      currentValue: Number(body.currentValue) || Number(body.purchaseCost) || 0,
-      condition: body.condition || 'Good',
-      status: body.status || 'In Use',
-      location: body.location || null,
-      assignedTo: body.assignedTo || null,
-      quantity,
-      quantityInStock,
-      reorderLevel,
-      unitPrice,
-      unit: body.unit || 'pcs',
-      supplierName: body.supplierName || null,
-      notes: body.notes || null,
-    },
-  })
-  await db.activityLog.create({
-    data: { action: 'CREATE', entity: 'Asset', entityId: asset.id, user: 'Admin', details: `Registered asset ${assetTag}: ${asset.name}` },
-  })
-  return NextResponse.json(asset, { status: 201 })
 }

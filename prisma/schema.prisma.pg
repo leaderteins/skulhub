@@ -847,11 +847,16 @@ model Asset {
   location      String?  // building/room
   assignedTo    String?  // department or person
   quantity      Int      @default(1)
+  quantityInStock Int    @default(0) // live stock level (for consumables/reorderable items)
+  reorderLevel  Int      @default(0) // low-stock threshold (0 = not tracked)
+  unitPrice     Float    @default(0) // cost per unit (for restock cost estimation)
+  unit          String   @default("pcs") // "pcs" | "kg" | "litres" | "boxes" | "packs"
+  supplierName  String?  // preferred supplier name (free text)
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  maintenances  AssetMaintenance[]
+  maintenances    AssetMaintenance[]
 }
 
 model AssetMaintenance {

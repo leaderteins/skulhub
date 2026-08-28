@@ -390,10 +390,28 @@ function ItemNameCombobox({ value, onChange, placeholder = 'Select or type a new
   if (query) params.set('q', query)
   const { data } = useFetch<{ items: Array<{ name: string; category: string }>; count: number }>(`/api/inventory/items?${params.toString()}`, [query, category, open])
 
+  // Category-based suggestions — shown when no existing items match
+  const CATEGORY_SUGGESTIONS: Record<string, string[]> = {
+    'Furniture': ['Desks', 'Chairs', 'Tables', 'Cupboards', 'Shelves', 'Benches', 'Whiteboards', 'Bookshelves'],
+    'Electronics': ['Projectors', 'Computers', 'Printers', 'Scanners', 'Speakers', 'Extension Cables', 'UPS Units', 'Routers'],
+    'Lab Equipment': ['Microscopes', 'Beakers', 'Test Tubes', 'Bunsen Burners', 'Tripod Stands', 'Pipettes', 'Graduated Cylinders', 'Lab Coats'],
+    'Sports': ['Footballs', 'Basketballs', 'Volleyballs', 'Rackets', 'Skipping Ropes', 'Javelins', 'Shot Put', 'Hurdles', 'Cones'],
+    'Kitchen': ['Rice (50kg)', 'Cooking Oil (20L)', 'Beans (90kg)', 'Maize Flour (90kg)', 'Sugar (50kg)', 'Salt (10kg)', 'Cooking Pots', 'Serving Spoons', 'Tea Leaves (5kg)', 'Detergent (10L)'],
+    'Stationery': ['Exercise Books (48pg)', 'Pens (Blue)', 'Pens (Black)', 'Pencils', 'Rulers', 'Erasers', 'A4 Reams', 'Chalk (White)', 'Markers', 'Files', 'Staples', 'Paper Clips'],
+    'Vehicle': ['School Bus', 'Van', 'Saloon Car', 'Spare Tyres', 'Engine Oil (5L)', 'Brake Fluid (1L)'],
+    'Other': ['First Aid Kit', 'Fire Extinguisher', 'Wall Clock', 'Dustbins', 'Mops', 'Brooms'],
+  }
+
+  const suggestions = category ? (CATEGORY_SUGGESTIONS[category] || []) : []
   const items = data?.items || []
   const exactMatch = items.some(i => i.name.toLowerCase() === value.toLowerCase())
   const canCreateNew = (value.trim().length > 0 || query.trim().length > 0) && !exactMatch
   const previewName = value.trim() || query.trim()
+
+  // Filter suggestions by query
+  const filteredSuggestions = query
+    ? suggestions.filter(s => s.toLowerCase().includes(query.toLowerCase()))
+    : suggestions
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -430,6 +448,20 @@ function ItemNameCombobox({ value, onChange, placeholder = 'Select or type a new
                 >
                   <Plus className="h-4 w-4" /> &ldquo;{previewName}&rdquo; (new item)
                 </CommandItem>
+              </CommandGroup>
+            )}
+            {filteredSuggestions.length > 0 && (
+              <CommandGroup heading={`Suggested for ${category}`}>
+                {filteredSuggestions.map(s => (
+                  <CommandItem
+                    key={s}
+                    value={s}
+                    onSelect={() => { onChange(s); setOpen(false) }}
+                  >
+                    <Check className={cn('h-4 w-4', value === s ? 'opacity-100' : 'opacity-0')} />
+                    <span className="flex-1 truncate">{s}</span>
+                  </CommandItem>
+                ))}
               </CommandGroup>
             )}
             {items.length > 0 && (
