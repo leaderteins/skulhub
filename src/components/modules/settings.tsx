@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth-store'
+import { useAppStore } from '@/lib/store'
 import { ModuleAccessTab } from '@/components/modules/settings-module-access'
 import {
   Settings as SettingsIcon,
@@ -135,6 +136,7 @@ const INITIAL_USERS: MockUser[] = [
 export function SettingsModule() {
   const [tab, setTab] = useState('general')
   const { user, canDelete } = useAuthStore()
+  const { academic, setAcademic } = useAppStore()
 
   // Only admin / principal / super_admin may see the per-user Module Access tab.
   const canManageModuleAccess =
@@ -146,10 +148,10 @@ export function SettingsModule() {
   const [address, setAddress] = useState('P.O. Box 12345-00100, Nairobi, Kenya')
   const [phone, setPhone] = useState('+254 700 000 000')
   const [email, setEmail] = useState('info@skulhub.ac.ke')
-  const [academicYear, setAcademicYear] = useState('2025')
-  const [currentTerm, setCurrentTerm] = useState('Term 1')
-  const [termStart, setTermStart] = useState('2025-01-06')
-  const [termEnd, setTermEnd] = useState('2025-04-04')
+  const [academicYear, setAcademicYear] = useState(academic.academicYear)
+  const [currentTerm, setCurrentTerm] = useState(academic.currentTerm)
+  const [termStart, setTermStart] = useState(academic.termStart)
+  const [termEnd, setTermEnd] = useState(academic.termEnd)
   const [currency, setCurrency] = useState('KES')
   const [timezone, setTimezone] = useState('Africa/Nairobi')
   const [language, setLanguage] = useState<'English' | 'Swahili'>('English')
@@ -238,8 +240,20 @@ export function SettingsModule() {
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Teacher' })
 
   function handleSave(section: string) {
+    // When saving Academic settings, update the global store so the
+    // header badge and footer term/year update immediately everywhere.
+    if (section === 'Academic') {
+      setAcademic({
+        currentTerm,
+        academicYear,
+        termStart,
+        termEnd,
+      })
+    }
     toast.success(`${section} settings saved`, {
-      description: 'Changes have been applied to your local configuration.',
+      description: section === 'Academic'
+        ? `Active term updated to ${currentTerm}, ${academicYear}. Changes are now reflected across the system.`
+        : 'Changes have been applied to your local configuration.',
     })
   }
 

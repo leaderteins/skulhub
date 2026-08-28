@@ -56,7 +56,7 @@ const ACTION_ICON: Record<string, any> = {
 
 export function DashboardModule() {
   const { data, loading } = useFetch<DashboardData>('/api/dashboard')
-  const { setActiveModule, setCommandPaletteOpen } = useAppStore()
+  const { setActiveModule, setCommandPaletteOpen, academic } = useAppStore()
   const { user, canViewFinance } = useAuthStore()
   const showFinance = canViewFinance()
 
@@ -87,7 +87,7 @@ export function DashboardModule() {
         <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="max-w-xl">
             <div className="mb-1 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
-              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-300" /> Term 1, 2025 · In Session
+              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-300" /> {academic.currentTerm}, {academic.academicYear} · In Session
             </div>
             <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Karibu, {user?.name?.split(' ')[0] || 'there'} 👋</h2>
             <p className="mt-1 text-sm text-white/80">
@@ -216,7 +216,7 @@ export function DashboardModule() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Fee Collection Status</CardTitle>
-            <CardDescription className="text-xs">Term 1, 2025</CardDescription>
+            <CardDescription className="text-xs">{academic.currentTerm}, {academic.academicYear}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {finance.feeStats.map(f => {
@@ -343,7 +343,7 @@ export function DashboardModule() {
               </div>
               <div>
                 <CardTitle className="text-base">Term Calendar & Upcoming Events</CardTitle>
-                <CardDescription className="text-xs">Term 1, 2025 — key dates & deadlines</CardDescription>
+                <CardDescription className="text-xs">{academic.currentTerm}, {academic.academicYear} — key dates & deadlines</CardDescription>
               </div>
             </div>
             <Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">

@@ -1,9 +1,11 @@
 'use client'
 import { School, Heart, Calendar } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth-store'
+import { useAppStore } from '@/lib/store'
 
 export function Footer() {
   const { user } = useAuthStore()
+  const { academic } = useAppStore()
   const schoolName = user?.schoolName || 'SkulHub'
 
   return (
@@ -18,7 +20,7 @@ export function Footer() {
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5">
             <Calendar className="h-3 w-3 text-emerald-600" />
-            <span>Term 1, 2025</span>
+            <span>{academic.currentTerm}, {academic.academicYear}</span>
           </span>
           <span className="hidden sm:inline">·</span>
           <span className="flex items-center gap-1.5">
