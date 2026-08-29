@@ -3537,3 +3537,60 @@ Stage Summary:
 - ✅ Schema switch script handles both directions
 - ⚠️ GitHub repo public status: API call needs valid token (currently broken)
 - ⚠️ Commit 9315409 is LOCAL — needs `git push origin main` to deploy
+
+---
+Task ID: 49 (server-side academic calendar + deploy script)
+Agent: Main
+Task: User frustrated that academic calendar badge still shows wrong term/year — make fix bulletproof with server-side derivation + provide deploy mechanism
+
+ROOT CAUSE OF PERSISTENCE:
+- Commit 9315409 (the fix) has been sitting LOCAL for hours
+- The GitHub token was stripped from the git remote URL between sessions
+- Without the token, `git push` fails → Vercel never sees the fix → live site stays broken
+- The user correctly identified this as a critical operational issue
+
+WHAT I DID THIS ROUND:
+
+1. NEW SERVER-SIDE ENDPOINT: /api/academic-calendar
+   - Returns authoritative term/year derived from the SERVER's clock
+   - This is MORE accurate than client-side derivation — if a parent's
+     phone has the wrong date, the badge is still correct (server time)
+   - Uses Kenya school calendar rules:
+       Term 1: Jan 1  – Apr 21
+       Term 2: Apr 22 – Aug 25
+       Term 3: Aug 26 – Nov 30
+       Holiday: Dec (prep for next year's Term 1)
+
+2. UPDATED ZUSTAND STORE:
+   - fetchAcademicFromServer() — calls /api/academic-calendar on app boot
+   - Falls back to client-side derivation if API is unreachable
+   - Persists to localStorage (survives reloads)
+   - Re-fetches every 10 minutes (survives term boundaries)
+   - Respects manual overrides (auto: false skips the fetch)
+
+3. NEW DEPLOY SCRIPT: scripts/deploy.sh
+   - One command: GH_TOKEN=ghp_xxx bash scripts/deploy.sh
+   - Pushes to GitHub → Vercel auto-deploys
+   - Optional --private / --public flags to toggle visibility
+   - Cleans up token from git config afterward
+
+LOCAL VERIFICATION (all passing):
+- /api/academic-calendar → { currentTerm: "Term 3", academicYear: "2026" } ✓
+- Header badge → "Term 3, 2026" ✓
+- Sidebar footer → "Term 3, 2026" ✓
+- Footer → "Term 3, 2026" ✓
+- Live clock → ticking every second ✓
+- Settings → Academic Calendar → "🟢 Auto-derived from today's date" ✓
+- Lint → clean ✓
+
+PENDING (requires user action):
+- User must run: GH_TOKEN=<their-token> bash scripts/deploy.sh --private
+- This will push commits 9315409 + 3ebbd72 + 3898baa + eba10f1 to GitHub
+- Vercel auto-deploys in ~2 minutes after push
+- Live site will then show "Term 3, 2026" (correct for Aug 29, 2026)
+
+Stage Summary:
+- ✅ Fix is now BULLETPROOF — uses server clock, not client clock
+- ✅ Deploy script ready — one command with token
+- ✅ All 4 unpushed commits ready to go
+- ⚠️ Still BLOCKED on user providing GitHub token (stripped from env)
