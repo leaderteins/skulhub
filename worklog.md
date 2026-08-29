@@ -3640,3 +3640,51 @@ Stage Summary:
 - ✅ "Reset to auto" button re-enables server-derived mode
 - ✅ Vercel build pipeline restored — future pushes will auto-deploy
 - ✅ Commits authored as leaderteins@users.noreply.github.com (passes Vercel check)
+
+---
+Task ID: 51 (auto-scroll-to-top + dialog overflow fix system-wide)
+Agent: Main
+Task: User reported two issues: (1) clicking modules opens "blank" page needing manual scroll up, (2) dialogs cut off at bottom hiding action buttons (e.g. Record Payment)
+
+INVESTIGATION:
+- Analyzed screenshot showing invoice dialog truncated — "Record Payment"
+  button was below the viewport, completely inaccessible
+- Confirmed module clicks preserve previous scroll position (no scroll-to-top)
+
+FIX 1: AUTO-SCROLL TO TOP ON MODULE CHANGE (src/app/page.tsx)
+- Added useEffect that listens to activeModule changes
+- Uses requestAnimationFrame to wait for new module render
+- Scrolls <main>.scrollTop to 0 + window.scrollTo(0,0)
+- Also added overflow-y-auto to <main> element
+
+FIX 2: DIALOG OVERFLOW SYSTEM-WIDE (src/components/ui/dialog.tsx + alert-dialog.tsx)
+- Added 'max-h-[90vh] overflow-y-auto' to DialogContent class
+- Added same to AlertDialogContent class
+- ONE change in shared UI layer → fixes ALL dialogs/alerts across 33+ modules
+- Invoice viewer, student detail, staff detail, finance records, library
+  loans, health records, hostel inspections, etc. — ALL now constrained
+  to 90% viewport height and scroll internally when content is tall
+
+VERIFICATION (live site https://www.skulhub.co.ke):
+1. Auto-scroll: scrolled down on Dashboard → clicked Settings → opened at top ✓
+   (scroll position: 0, visible: "Settings / System configuration")
+2. Module navigation: Dashboard → Students → opened at top showing stats ✓
+3. Dialog overflow: opened Invoice INV/10137 dialog → fits in viewport ✓
+   - dialog height: 519px / viewport: 577px (within viewport ✓)
+   - overflow-y: auto ✓
+   - All action buttons reachable (Record Payment, M-Pesa, Print, Close) ✓
+4. Internal scroll: scrolled dialog → Record Payment button visible at y=487 ✓
+5. Header badge: "Term 3, 2026" still correct ✓
+6. Live clock: "09:52:54 am" still ticking ✓
+
+PUSH METHOD:
+- Commit 20d3479 pushed via bun run scripts/ssh-push.ts (SSH deploy key)
+- Vercel auto-deployed within 60s (build hash changed: rovZXRyLMqLfIt_H → i9FECaVTQN01ZZ_C)
+- Author: leaderteins@users.noreply.github.com (passes Vercel committer check)
+
+Stage Summary:
+- ✅ Module clicks now auto-scroll to top (no more "blank page" issue)
+- ✅ All dialogs across the entire system now fit within viewport
+- ✅ Action buttons at dialog bottoms are always reachable
+- ✅ Internal scroll works when dialog content is taller than viewport
+- ✅ Deployed to live site via SSH push (Vercel built successfully)
