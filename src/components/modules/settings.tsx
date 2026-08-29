@@ -240,13 +240,15 @@ export function SettingsModule() {
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'Teacher' })
 
   function handleSave(section: string) {
-    // When saving Academic settings, update the global store so the
-    // header badge and footer term/year update immediately everywhere.
-    // Persisted to localStorage by the store's persist middleware —
-    // survives page reloads. `auto: false` means the admin has manually
-    // overridden the auto-derived value; future boot-time re-derivation
-    // is skipped until they click "Reset to auto".
-    if (section === 'Academic') {
+    // The Academic Calendar card lives on the General tab — so whenever
+    // the user saves General OR Academic settings, sync the academic
+    // calendar to the global Zustand store. This makes the header badge,
+    // sidebar footer, dashboard banner, and page footer ALL update
+    // instantly when an admin changes the term/year in Settings.
+    // `auto: false` means the admin has manually overridden the
+    // auto-derived value; boot-time server fetch is skipped until they
+    // click "Reset to auto".
+    if (section === 'Academic' || section === 'General') {
       setAcademic({
         currentTerm,
         academicYear,
@@ -256,7 +258,7 @@ export function SettingsModule() {
       })
     }
     toast.success(`${section} settings saved`, {
-      description: section === 'Academic'
+      description: section === 'Academic' || section === 'General'
         ? `Active term updated to ${currentTerm}, ${academicYear}. Changes are now reflected across the system.`
         : 'Changes have been applied to your local configuration.',
     })
@@ -576,6 +578,16 @@ export function SettingsModule() {
                     <RefreshCw className="mr-1.5 h-3 w-3" /> Reset to auto (today)
                   </Button>
                 </div>
+                {/* Dedicated Save button — updates the global store instantly
+                    so header, sidebar, footer, and dashboard all reflect the
+                    new term/year the moment an admin clicks it. */}
+                <Button
+                  type="button"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  onClick={() => handleSave('Academic')}
+                >
+                  <Save className="mr-1.5 h-4 w-4" /> Save Academic Calendar
+                </Button>
               </CardContent>
             </Card>
 
