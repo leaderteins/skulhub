@@ -40,8 +40,10 @@ try {
   const refLine = `${oldSha} ${headSha} refs/heads/main\x00 report-status side-band-64k object-format=sha1 agent=git/2.0`
   
   // Generate the pack data: all objects in HEAD not in origin/main
+  // Use --revs mode: feed commit SHAs only (rev-list without --objects),
+  // and pack-objects --revs will walk trees/blobs automatically.
   const packResult = execSync(
-    `cd ${PROJECT_DIR} && git rev-list --objects ${oldSha}..${headSha} | git pack-objects --stdout --revs --thin`,
+    `cd ${PROJECT_DIR} && git rev-list ${oldSha}..${headSha} | git pack-objects --stdout --revs --thin`,
     { maxBuffer: 100 * 1024 * 1024 }
   )
   console.log(`Pack file size: ${(packResult.length / 1024).toFixed(1)} KB`)
