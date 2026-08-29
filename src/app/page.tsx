@@ -67,6 +67,22 @@ export default function Home() {
     return () => clearInterval(id)
   }, [fetchAcademicFromServer])
 
+  // Auto-scroll to top whenever the active module changes.
+  // Without this, switching modules keeps the previous scroll position,
+  // so the user sees a "blank" page and has to scroll up to find content.
+  // Uses requestAnimationFrame to ensure the new module has rendered.
+  useEffect(() => {
+    const scrollTarget = document.querySelector('main')
+    const id = requestAnimationFrame(() => {
+      if (scrollTarget) {
+        scrollTarget.scrollTop = 0
+      }
+      // Also scroll the window itself (some layouts use body scroll)
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [activeModule])
+
   // Super admins always land on the Super Admin module — they have no school
   // dashboard of their own. Switch automatically if they're still on 'dashboard'
   // or any module they don't have access to.
@@ -144,7 +160,7 @@ export default function Home() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <main className="flex-1 overflow-x-hidden p-4 md:p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
           {!canAccess ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
