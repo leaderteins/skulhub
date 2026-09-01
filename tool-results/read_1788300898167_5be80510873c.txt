@@ -1,0 +1,964 @@
+     1→'use client'
+     2→import { useState } from 'react'
+     3→import { useFetch, apiPut, apiDelete } from '@/lib/api'
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     5→import { Badge } from '@/components/ui/badge'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Skeleton } from '@/components/ui/skeleton'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    10→import {
+    11→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
+    12→} from '@/components/ui/dialog'
+    13→import {
+    14→  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    15→  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+    16→} from '@/components/ui/alert-dialog'
+    17→import {
+    18→  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+    19→  DropdownMenuSeparator, DropdownMenuTrigger,
+    20→} from '@/components/ui/dropdown-menu'
+    21→import {
+    22→  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+    23→} from '@/components/ui/tooltip'
+    24→import {
+    25→  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
+    26→  Tooltip as RTooltip, ResponsiveContainer, Legend, LineChart, Line,
+    27→} from 'recharts'
+    28→import {
+    29→  Shield, Building2, CheckCircle2, Clock, Users, Wallet, TrendingUp,
+    30→  MoreVertical, Trash2, ArrowUpCircle, PauseCircle, PlayCircle,
+    31→  Crown, Sparkles, Eye, Search, MapPin, Mail, Phone, CalendarDays,
+    32→  GraduationCap, UserCog, Banknote, FileText, AlertTriangle, ChevronRight,
+    33→  Server, Activity, Rocket,
+    34→} from 'lucide-react'
+    35→import { formatKES, formatNumber, formatDate, timeAgo, cn } from '@/lib/format'
+    36→import { toast } from 'sonner'
+    37→
+    38→// ---------------------------------------------------------------------------
+    39→// Types
+    40→// ---------------------------------------------------------------------------
+    41→interface SchoolListItem {
+    42→  id: string
+    43→  name: string
+    44→  slug: string
+    45→  email: string | null
+    46→  phone: string | null
+    47→  address: string | null
+    48→  county: string | null
+    49→  plan: string
+    50→  status: string
+    51→  trialEndsAt: string | null
+    52→  maxStudents: number
+    53→  createdAt: string
+    54→  userCount: number
+    55→  studentCount: number
+    56→  staffCount: number
+    57→  invoiceCount: number
+    58→  paymentCount: number
+    59→  revenue: number
+    60→  lastLoginAt: string | null
+    61→  users: Array<{ id: string; name: string; email: string; role: string; status: string; lastLoginAt: string | null }>
+    62→}
+    63→
+    64→interface DashboardData {
+    65→  summary: {
+    66→    totalSchools: number
+    67→    activeSchools: number
+    68→    trialSchools: number
+    69→    suspendedSchools: number
+    70→    expiredSchools: number
+    71→    totalUsers: number
+    72→    totalStudents: number
+    73→    totalStaff: number
+    74→    totalInvoices: number
+    75→    totalPayments: number
+    76→    totalRevenue: number
+    77→  }
+    78→  revenueByPlan: Array<{ plan: string; amount: number }>
+    79→  schoolsByPlan: Array<{ plan: string; count: number }>
+    80→  schoolsByStatus: Array<{ name: string; value: number; color: string }>
+    81→  monthlyGrowth: Array<{ label: string; count: number }>
+    82→  recentRegistrations: Array<{
+    83→    id: string; name: string; slug: string; plan: string; status: string
+    84→    county: string | null; createdAt: string; trialEndsAt: string | null
+    85→    userCount: number; studentCount: number
+    86→  }>
+    87→  schools: SchoolListItem[]
+    88→}
+    89→
+    90→interface SchoolDetail {
+    91→  school: {
+    92→    id: string; name: string; slug: string; email: string | null; phone: string | null
+    93→    address: string | null; county: string | null; logo: string | null
+    94→    plan: string; status: string; trialEndsAt: string | null; maxStudents: number
+    95→    createdAt: string; updatedAt: string
+    96→  }
+    97→  users: Array<{
+    98→    id: string; name: string; email: string; role: string; status: string
+    99→    phone: string | null; lastLoginAt: string | null; createdAt: string
+   100→  }>
+   101→  stats: {
+   102→    userCount: number; studentCount: number; staffCount: number
+   103→    invoiceCount: number; paymentCount: number
+   104→    totalRevenue: number; totalBilled: number; totalCollected: number; totalOutstanding: number
+   105→  }
+   106→  studentsByStatus: Array<{ status: string; count: number }>
+   107→  staffByRole: Array<{ role: string; count: number }>
+   108→  revenueTrend: Array<{ label: string; amount: number }>
+   109→  recentPayments: Array<{
+   110→    id: string; amount: number; method: string; reference: string | null
+   111→    payerName: string | null; payerPhone: string | null; receivedBy: string | null; receivedAt: string
+   112→  }>
+   113→  recentInvoices: Array<{
+   114→    id: string; invoiceNo: string; amount: number; amountPaid: number
+   115→    balance: number; status: string; issueDate: string; dueDate: string
+   116→  }>
+   117→}
+   118→
+   119→// ---------------------------------------------------------------------------
+   120→// Helpers
+   121→// ---------------------------------------------------------------------------
+   122→const PLAN_COLOR: Record<string, string> = {
+   123→  Starter: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+   124→  Standard: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300',
+   125→  Premium: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+   126→  Enterprise: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+   127→}
+   128→
+   129→const PLAN_BAR_COLOR: Record<string, string> = {
+   130→  Starter: '#64748b', Standard: '#14b8a6', Premium: '#059669', Enterprise: '#f59e0b',
+   131→}
+   132→
+   133→function StatusBadge({ status }: { status: string }) {
+   134→  const s = status.toLowerCase()
+   135→  const styles: Record<string, string> = {
+   136→    active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+   137→    trial: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+   138→    suspended: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
+   139→    expired: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+   140→  }
+   141→  return (
+   142→    <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold', styles[s] || styles.expired)}>
+   143→      <span className={cn('h-1.5 w-1.5 rounded-full', s === 'active' ? 'bg-emerald-500' : s === 'trial' ? 'bg-amber-500' : s === 'suspended' ? 'bg-rose-500' : 'bg-slate-400')} />
+   144→      {status}
+   145→    </span>
+   146→  )
+   147→}
+   148→
+   149→function PlanBadge({ plan }: { plan: string }) {
+   150→  return (
+   151→    <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold', PLAN_COLOR[plan] || PLAN_COLOR.Starter)}>
+   152→      {plan === 'Enterprise' && <Crown className="h-3 w-3" />}
+   153→      {plan === 'Premium' && <Sparkles className="h-3 w-3" />}
+   154→      {plan}
+   155→    </span>
+   156→  )
+   157→}
+   158→
+   159→// ---------------------------------------------------------------------------
+   160→// Main module
+   161→// ---------------------------------------------------------------------------
+   162→export function SuperAdminModule() {
+   163→  const { data, loading, refetch } = useFetch<DashboardData>('/api/superadmin')
+   164→  const [search, setSearch] = useState('')
+   165→  const [statusFilter, setStatusFilter] = useState<string>('')
+   166→  const [planFilter, setPlanFilter] = useState<string>('')
+   167→  const [detailSchool, setDetailSchool] = useState<SchoolListItem | null>(null)
+   168→  const [deleteSchool, setDeleteSchool] = useState<SchoolListItem | null>(null)
+   169→  const [busy, setBusy] = useState(false)
+   170→
+   171→  const updateSchool = async (id: string, body: Record<string, unknown>, msg: string) => {
+   172→    setBusy(true)
+   173→    try {
+   174→      await apiPut(`/api/superadmin/${id}`, body)
+   175→      toast.success(msg)
+   176→      refetch()
+   177→    } catch (e: unknown) {
+   178→      toast.error(e instanceof Error ? e.message : 'Update failed')
+   179→    } finally {
+   180→      setBusy(false)
+   181→    }
+   182→  }
+   183→
+   184→  const handleDelete = async () => {
+   185→    if (!deleteSchool) return
+   186→    setBusy(true)
+   187→    try {
+   188→      await apiDelete(`/api/superadmin/${deleteSchool.id}`)
+   189→      toast.success(`${deleteSchool.name} deleted`)
+   190→      setDeleteSchool(null)
+   191→      refetch()
+   192→    } catch (e: unknown) {
+   193→      toast.error(e instanceof Error ? e.message : 'Delete failed')
+   194→    } finally {
+   195→      setBusy(false)
+   196→    }
+   197→  }
+   198→
+   199→  if (loading || !data) {
+   200→    return (
+   201→      <div className="space-y-6">
+   202→        <Skeleton className="h-44 w-full rounded-2xl" />
+   203→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+   204→          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+   205→        </div>
+   206→        <div className="grid gap-4 lg:grid-cols-3">
+   207→          <Skeleton className="h-72 rounded-xl lg:col-span-2" />
+   208→          <Skeleton className="h-72 rounded-xl" />
+   209→        </div>
+   210→        <Skeleton className="h-96 rounded-xl" />
+   211→      </div>
+   212→    )
+   213→  }
+   214→
+   215→  const { summary, revenueByPlan, schoolsByStatus, monthlyGrowth, recentRegistrations, schools } = data
+   216→
+   217→  const filtered = schools.filter(s => {
+   218→    if (search) {
+   219→      const q = search.toLowerCase()
+   220→      if (!s.name.toLowerCase().includes(q) && !s.slug.toLowerCase().includes(q) && !s.county?.toLowerCase().includes(q) && !s.email?.toLowerCase().includes(q)) return false
+   221→    }
+   222→    if (statusFilter && s.status !== statusFilter) return false
+   223→    if (planFilter && s.plan !== planFilter) return false
+   224→    return true
+   225→  })
+   226→
+   227→  return (
+   228→    <div className="space-y-6">
+   229→      {/* DARK PREMIUM HEADER */}
+   230→      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-rose-950 p-6 text-white shadow-xl md:p-8">
+   231→        {/* Decorative grid */}
+   232→        <div className="pointer-events-none absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+   233→        {/* Glow */}
+   234→        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-rose-500/20 blur-3xl" />
+   235→        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-64 w-64 rounded-full bg-emerald-500/20 blur-3xl" />
+   236→
+   237→        <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+   238→          <div>
+   239→            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-300 ring-1 ring-white/10 backdrop-blur">
+   240→              <Shield className="h-3.5 w-3.5" />
+   241→              Platform Owner
+   242→            </div>
+   243→            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Platform Administration</h1>
+   244→            <p className="mt-1 max-w-2xl text-sm text-slate-300">
+   245→              Manage every school on SkulHub — monitor health, revenue, growth, and take action on subscriptions.
+   246→            </p>
+   247→          </div>
+   248→          <div className="flex flex-wrap gap-3">
+   249→            <div className="rounded-xl bg-white/5 px-4 py-3 ring-1 ring-white/10 backdrop-blur">
+   250→              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+   251→                <Server className="h-3 w-3" /> Total Revenue
+   252→              </div>
+   253→              <div className="mt-1 text-xl font-bold text-white">{formatKES(summary.totalRevenue)}</div>
+   254→            </div>
+   255→            <div className="rounded-xl bg-white/5 px-4 py-3 ring-1 ring-white/10 backdrop-blur">
+   256→              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+   257→                <Activity className="h-3 w-3" /> Active Schools
+   258→              </div>
+   259→              <div className="mt-1 text-xl font-bold text-white">{summary.activeSchools}<span className="ml-1 text-sm text-slate-400">/ {summary.totalSchools}</span></div>
+   260→            </div>
+   261→          </div>
+   262→        </div>
+   263→      </div>
+   264→
+   265→      {/* 5 STAT CARDS */}
+   266→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+   267→        <StatTile label="Total Schools" value={formatNumber(summary.totalSchools)} icon={Building2} accent="emerald" sub={`${summary.activeSchools} active`} />
+   268→        <StatTile label="Active" value={formatNumber(summary.activeSchools)} icon={CheckCircle2} accent="emerald" sub={`${summary.suspendedSchools} suspended`} />
+   269→        <StatTile label="On Trial" value={formatNumber(summary.trialSchools)} icon={Clock} accent="amber" sub={`${summary.expiredSchools} expired`} />
+   270→        <StatTile label="Total Students" value={formatNumber(summary.totalStudents)} icon={Users} accent="teal" sub={`${formatNumber(summary.totalStaff)} staff`} />
+   271→        <StatTile label="Total Revenue" value={formatKES(summary.totalRevenue)} icon={Wallet} accent="emerald" sub={`${formatNumber(summary.totalPayments)} payments`} />
+   272→      </div>
+   273→
+   274→      {/* CHARTS ROW */}
+   275→      <div className="grid gap-4 lg:grid-cols-3">
+   276→        {/* Revenue by Plan — Bar */}
+   277→        <Card className="lg:col-span-2">
+   278→          <CardHeader className="pb-2">
+   279→            <CardTitle className="flex items-center gap-2 text-base">
+   280→              <Wallet className="h-4 w-4 text-emerald-600" /> Revenue by Plan
+   281→            </CardTitle>
+   282→            <CardDescription>Cumulative payment revenue collected per subscription tier</CardDescription>
+   283→          </CardHeader>
+   284→          <CardContent>
+   285→            <div className="h-64 w-full">
+   286→              <ResponsiveContainer width="100%" height="100%">
+   287→                <BarChart data={revenueByPlan} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+   288→                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+   289→                  <XAxis dataKey="plan" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+   290→                  <YAxis tickFormatter={(v) => formatKES(v as number).replace('KES ', '')} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={60} />
+   291→                  <RTooltip
+   292→                    formatter={(v: number) => [formatKES(v), 'Revenue']}
+   293→                    contentStyle={{ borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
+   294→                  />
+   295→                  <Bar dataKey="amount" radius={[8, 8, 0, 0]} maxBarSize={80}>
+   296→                    {revenueByPlan.map((entry) => (
+   297→                      <Cell key={entry.plan} fill={PLAN_BAR_COLOR[entry.plan] || '#64748b'} />
+   298→                    ))}
+   299→                  </Bar>
+   300→                </BarChart>
+   301→              </ResponsiveContainer>
+   302→            </div>
+   303→          </CardContent>
+   304→        </Card>
+   305→
+   306→        {/* Schools by Status — Donut */}
+   307→        <Card>
+   308→          <CardHeader className="pb-2">
+   309→            <CardTitle className="flex items-center gap-2 text-base">
+   310→              <Activity className="h-4 w-4 text-teal-600" /> Schools by Status
+   311→            </CardTitle>
+   312→            <CardDescription>Distribution across {summary.totalSchools} schools</CardDescription>
+   313→          </CardHeader>
+   314→          <CardContent>
+   315→            <div className="h-44">
+   316→              <ResponsiveContainer width="100%" height="100%">
+   317→                <PieChart>
+   318→                  <Pie data={schoolsByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3}>
+   319→                    {schoolsByStatus.map((entry) => (
+   320→                      <Cell key={entry.name} fill={entry.color} stroke="hsl(var(--background))" strokeWidth={2} />
+   321→                    ))}
+   322→                  </Pie>
+   323→                  <RTooltip
+   324→                    formatter={(v: number, n: string) => [`${v} school${v === 1 ? '' : 's'}`, n]}
+   325→                    contentStyle={{ borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'hsl(var(--popover))' }}
+   326→                  />
+   327→                </PieChart>
+   328→              </ResponsiveContainer>
+   329→            </div>
+   330→            <div className="mt-2 grid grid-cols-2 gap-2">
+   331→              {schoolsByStatus.map(s => (
+   332→                <div key={s.name} className="flex items-center gap-1.5 text-xs">
+   333→                  <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+   334→                  <span className="text-muted-foreground">{s.name}</span>
+   335→                  <span className="ml-auto font-semibold">{s.value}</span>
+   336→                </div>
+   337→              ))}
+   338→            </div>
+   339→          </CardContent>
+   340→        </Card>
+   341→      </div>
+   342→
+   343→      {/* MONTHLY GROWTH + RECENT REGISTRATIONS */}
+   344→      <div className="grid gap-4 lg:grid-cols-3">
+   345→        <Card className="lg:col-span-2">
+   346→          <CardHeader className="pb-2">
+   347→            <CardTitle className="flex items-center gap-2 text-base">
+   348→              <TrendingUp className="h-4 w-4 text-emerald-600" /> Monthly Growth
+   349→            </CardTitle>
+   350→            <CardDescription>New schools registered per month (last 6 months)</CardDescription>
+   351→          </CardHeader>
+   352→          <CardContent>
+   353→            <div className="h-56 w-full">
+   354→              <ResponsiveContainer width="100%" height="100%">
+   355→                <LineChart data={monthlyGrowth} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+   356→                  <defs>
+   357→                    <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+   358→                      <stop offset="5%" stopColor="#059669" stopOpacity={0.4} />
+   359→                      <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+   360→                    </linearGradient>
+   361→                  </defs>
+   362→                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+   363→                  <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+   364→                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={28} />
+   365→                  <RTooltip
+   366→                    formatter={(v: number) => [`${v} new school${v === 1 ? '' : 's'}`, 'Registered']}
+   367→                    contentStyle={{ borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'hsl(var(--popover))' }}
+   368→                  />
+   369→                  <Line type="monotone" dataKey="count" stroke="#059669" strokeWidth={3} dot={{ r: 5, fill: '#059669' }} activeDot={{ r: 7 }} />
+   370→                </LineChart>
+   371→              </ResponsiveContainer>
+   372→            </div>
+   373→          </CardContent>
+   374→        </Card>
+   375→
+   376→        {/* Recent Registrations */}
+   377→        <Card>
+   378→          <CardHeader className="pb-2">
+   379→            <CardTitle className="flex items-center gap-2 text-base">
+   380→              <Rocket className="h-4 w-4 text-amber-600" /> Recent Registrations
+   381→            </CardTitle>
+   382→            <CardDescription>Latest schools to join the platform</CardDescription>
+   383→          </CardHeader>
+   384→          <CardContent>
+   385→            <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+   386→              {recentRegistrations.length === 0 && (
+   387→                <p className="py-8 text-center text-sm text-muted-foreground">No registrations yet.</p>
+   388→              )}
+   389→              {recentRegistrations.map(r => (
+   390→                <button
+   391→                  key={r.id}
+   392→                  onClick={() => setDetailSchool(schools.find(s => s.id === r.id) || null)}
+   393→                  className="flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-colors hover:bg-muted/50"
+   394→                >
+   395→                  <Avatar className="h-9 w-9 shrink-0">
+   396→                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-semibold text-white">
+   397→                      {r.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+   398→                    </AvatarFallback>
+   399→                  </Avatar>
+   400→                  <div className="min-w-0 flex-1">
+   401→                    <p className="truncate text-sm font-medium">{r.name}</p>
+   402→                    <p className="truncate text-xs text-muted-foreground">
+   403→                      {r.county || '—'} · {timeAgo(r.createdAt)}
+   404→                    </p>
+   405→                  </div>
+   406→                  <div className="flex flex-col items-end gap-1">
+   407→                    <PlanBadge plan={r.plan} />
+   408→                    <span className="text-[10px] text-muted-foreground">{r.studentCount} students</span>
+   409→                  </div>
+   410→                </button>
+   411→              ))}
+   412→            </div>
+   413→          </CardContent>
+   414→        </Card>
+   415→      </div>
+   416→
+   417→      {/* SCHOOLS TABLE */}
+   418→      <Card>
+   419→        <CardHeader>
+   420→          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   421→            <div>
+   422→              <CardTitle className="flex items-center gap-2 text-base">
+   423→                <Building2 className="h-4 w-4 text-emerald-600" /> All Schools
+   424→                <Badge variant="secondary" className="ml-1">{filtered.length}</Badge>
+   425→              </CardTitle>
+   426→              <CardDescription>Manage subscriptions, status & access for every school</CardDescription>
+   427→            </div>
+   428→          </div>
+   429→          {/* Filter bar */}
+   430→          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+   431→            <div className="relative flex-1">
+   432→              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   433→              <Input
+   434→                placeholder="Search by name, county, or email…"
+   435→                value={search}
+   436→                onChange={e => setSearch(e.target.value)}
+   437→                className="pl-9"
+   438→              />
+   439→            </div>
+   440→            <div className="flex gap-2">
+   441→              <select
+   442→                value={statusFilter}
+   443→                onChange={e => setStatusFilter(e.target.value)}
+   444→                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+   445→              >
+   446→                <option value="">All Statuses</option>
+   447→                <option value="Active">Active</option>
+   448→                <option value="Trial">Trial</option>
+   449→                <option value="Suspended">Suspended</option>
+   450→                <option value="Expired">Expired</option>
+   451→              </select>
+   452→              <select
+   453→                value={planFilter}
+   454→                onChange={e => setPlanFilter(e.target.value)}
+   455→                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+   456→              >
+   457→                <option value="">All Plans</option>
+   458→                <option value="Starter">Starter</option>
+   459→                <option value="Standard">Standard</option>
+   460→                <option value="Premium">Premium</option>
+   461→                <option value="Enterprise">Enterprise</option>
+   462→              </select>
+   463→            </div>
+   464→          </div>
+   465→        </CardHeader>
+   466→        <CardContent className="p-0">
+   467→          {/* Desktop table */}
+   468→          <div className="hidden overflow-x-auto md:block">
+   469→            <table className="w-full text-sm">
+   470→              <thead className="border-y bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
+   471→                <tr>
+   472→                  <th className="px-4 py-3 text-left font-semibold">School</th>
+   473→                  <th className="px-4 py-3 text-left font-semibold">Plan</th>
+   474→                  <th className="px-4 py-3 text-left font-semibold">Status</th>
+   475→                  <th className="px-4 py-3 text-left font-semibold">Trial Ends</th>
+   476→                  <th className="px-4 py-3 text-right font-semibold">Users</th>
+   477→                  <th className="px-4 py-3 text-right font-semibold">Students</th>
+   478→                  <th className="px-4 py-3 text-right font-semibold">Revenue</th>
+   479→                  <th className="px-4 py-3 text-right font-semibold">Actions</th>
+   480→                </tr>
+   481→              </thead>
+   482→              <tbody className="divide-y">
+   483→                {filtered.length === 0 && (
+   484→                  <tr>
+   485→                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+   486→                      No schools match your filters.
+   487→                    </td>
+   488→                  </tr>
+   489→                )}
+   490→                {filtered.map(s => (
+   491→                  <tr key={s.id} className="group transition-colors hover:bg-muted/30">
+   492→                    <td className="px-4 py-3">
+   493→                      <button onClick={() => setDetailSchool(s)} className="flex items-center gap-3 text-left">
+   494→                        <Avatar className="h-9 w-9">
+   495→                          <AvatarFallback className="bg-gradient-to-br from-slate-600 to-slate-800 text-xs font-semibold text-white">
+   496→                            {s.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+   497→                          </AvatarFallback>
+   498→                        </Avatar>
+   499→                        <div className="min-w-0">
+   500→                          <p className="truncate font-medium group-hover:text-emerald-700 dark:group-hover:text-emerald-400">{s.name}</p>
+   501→                          <p className="truncate text-xs text-muted-foreground">
+   502→                            {s.county || 'No county'} · {timeAgo(s.createdAt)}
+   503→                          </p>
+   504→                        </div>
+   505→                      </button>
+   506→                    </td>
+   507→                    <td className="px-4 py-3"><PlanBadge plan={s.plan} /></td>
+   508→                    <td className="px-4 py-3"><StatusBadge status={s.status} /></td>
+   509→                    <td className="px-4 py-3 text-xs text-muted-foreground">
+   510→                      {s.trialEndsAt ? formatDate(s.trialEndsAt) : <span className="text-muted-foreground/50">—</span>}
+   511→                    </td>
+   512→                    <td className="px-4 py-3 text-right tabular-nums">{s.userCount}</td>
+   513→                    <td className="px-4 py-3 text-right tabular-nums">{s.studentCount}</td>
+   514→                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">{formatKES(s.revenue)}</td>
+   515→                    <td className="px-4 py-3 text-right">
+   516→                      <SchoolActions
+   517→                        school={s}
+   518→                        busy={busy}
+   519→                        onView={() => setDetailSchool(s)}
+   520→                        onActivate={() => updateSchool(s.id, { status: 'Active' }, `${s.name} activated`)}
+   521→                        onSuspend={() => updateSchool(s.id, { status: 'Suspended' }, `${s.name} suspended`)}
+   522→                        onUpgrade={(plan) => updateSchool(s.id, { plan }, `${s.name} upgraded to ${plan}`)}
+   523→                        onDelete={() => setDeleteSchool(s)}
+   524→                      />
+   525→                    </td>
+   526→                  </tr>
+   527→                ))}
+   528→              </tbody>
+   529→            </table>
+   530→          </div>
+   531→
+   532→          {/* Mobile cards */}
+   533→          <div className="divide-y md:hidden">
+   534→            {filtered.length === 0 && (
+   535→              <p className="px-4 py-12 text-center text-sm text-muted-foreground">No schools match your filters.</p>
+   536→            )}
+   537→            {filtered.map(s => (
+   538→              <div key={s.id} className="p-4">
+   539→                <div className="flex items-start gap-3">
+   540→                  <Avatar className="h-10 w-10">
+   541→                    <AvatarFallback className="bg-gradient-to-br from-slate-600 to-slate-800 text-xs font-semibold text-white">
+   542→                      {s.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+   543→                    </AvatarFallback>
+   544→                  </Avatar>
+   545→                  <div className="min-w-0 flex-1">
+   546→                    <p className="font-medium">{s.name}</p>
+   547→                    <p className="truncate text-xs text-muted-foreground">{s.county || 'No county'} · {timeAgo(s.createdAt)}</p>
+   548→                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+   549→                      <PlanBadge plan={s.plan} />
+   550→                      <StatusBadge status={s.status} />
+   551→                    </div>
+   552→                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+   553→                      <div><div className="text-muted-foreground">Users</div><div className="font-semibold">{s.userCount}</div></div>
+   554→                      <div><div className="text-muted-foreground">Students</div><div className="font-semibold">{s.studentCount}</div></div>
+   555→                      <div><div className="text-muted-foreground">Revenue</div><div className="font-semibold text-emerald-700 dark:text-emerald-400">{formatKES(s.revenue)}</div></div>
+   556→                    </div>
+   557→                  </div>
+   558→                </div>
+   559→                <div className="mt-3 flex justify-end">
+   560→                  <SchoolActions
+   561→                    school={s}
+   562→                    busy={busy}
+   563→                    onView={() => setDetailSchool(s)}
+   564→                    onActivate={() => updateSchool(s.id, { status: 'Active' }, `${s.name} activated`)}
+   565→                    onSuspend={() => updateSchool(s.id, { status: 'Suspended' }, `${s.name} suspended`)}
+   566→                    onUpgrade={(plan) => updateSchool(s.id, { plan }, `${s.name} upgraded to ${plan}`)}
+   567→                    onDelete={() => setDeleteSchool(s)}
+   568→                  />
+   569→                </div>
+   570→              </div>
+   571→            ))}
+   572→          </div>
+   573→        </CardContent>
+   574→      </Card>
+   575→
+   576→      {/* DETAIL DIALOG */}
+   577→      <SchoolDetailDialog
+   578→        school={detailSchool}
+   579→        onOpenChange={(o) => !o && setDetailSchool(null)}
+   580→        onMutated={refetch}
+   581→      />
+   582→
+   583→      {/* DELETE CONFIRM */}
+   584→      <AlertDialog open={!!deleteSchool} onOpenChange={(o) => !o && setDeleteSchool(null)}>
+   585→        <AlertDialogContent>
+   586→          <AlertDialogHeader>
+   587→            <AlertDialogTitle className="flex items-center gap-2">
+   588→              <AlertTriangle className="h-5 w-5 text-rose-600" />
+   589→              Delete {deleteSchool?.name}?
+   590→            </AlertDialogTitle>
+   591→            <AlertDialogDescription>
+   592→              This will permanently delete the school and all its user accounts, invoices, and payments.
+   593→              Students and staff records will be detached (schoolId cleared) but kept in the database for audit.
+   594→              <span className="mt-2 block font-medium text-rose-700 dark:text-rose-400">This action cannot be undone.</span>
+   595→            </AlertDialogDescription>
+   596→          </AlertDialogHeader>
+   597→          <AlertDialogFooter>
+   598→            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+   599→            <AlertDialogAction
+   600→              className="bg-rose-600 hover:bg-rose-700"
+   601→              disabled={busy}
+   602→              onClick={(e) => { e.preventDefault(); handleDelete() }}
+   603→            >
+   604→              {busy ? 'Deleting…' : <><Trash2 className="mr-1.5 h-4 w-4" /> Delete School</>}
+   605→            </AlertDialogAction>
+   606→          </AlertDialogFooter>
+   607→        </AlertDialogContent>
+   608→      </AlertDialog>
+   609→    </div>
+   610→  )
+   611→}
+   612→
+   613→// ---------------------------------------------------------------------------
+   614→// Stat tile
+   615→// ---------------------------------------------------------------------------
+   616→function StatTile({ label, value, icon: Icon, accent, sub }: {
+   617→  label: string
+   618→  value: string
+   619→  icon: React.ComponentType<{ className?: string }>
+   620→  accent: 'emerald' | 'teal' | 'amber'
+   621→  sub?: string
+   622→}) {
+   623→  const a: Record<string, string> = {
+   624→    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20',
+   625→    teal: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 ring-teal-500/20',
+   626→    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20',
+   627→  }
+   628→  return (
+   629→    <Card className="overflow-hidden">
+   630→      <CardContent className="p-4">
+   631→        <div className="flex items-start justify-between gap-2">
+   632→          <div className="min-w-0">
+   633→            <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+   634→            <p className="mt-1 truncate text-xl font-bold tracking-tight md:text-2xl">{value}</p>
+   635→            {sub && <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>}
+   636→          </div>
+   637→          <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1', a[accent])}>
+   638→            <Icon className="h-5 w-5" />
+   639→          </div>
+   640→        </div>
+   641→      </CardContent>
+   642→    </Card>
+   643→  )
+   644→}
+   645→
+   646→// ---------------------------------------------------------------------------
+   647→// School row actions (view + activate/suspend/upgrade/delete dropdown)
+   648→// ---------------------------------------------------------------------------
+   649→function SchoolActions({ school, busy, onView, onActivate, onSuspend, onUpgrade, onDelete }: {
+   650→  school: SchoolListItem
+   651→  busy: boolean
+   652→  onView: () => void
+   653→  onActivate: () => void
+   654→  onSuspend: () => void
+   655→  onUpgrade: (plan: string) => void
+   656→  onDelete: () => void
+   657→}) {
+   658→  return (
+   659→    <div className="flex items-center justify-end gap-1">
+   660→      <TooltipProvider delayDuration={300}>
+   661→        {school.status !== 'Active' && (
+   662→          <Tooltip>
+   663→            <TooltipTrigger asChild>
+   664→              <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-600 hover:bg-emerald-500/10" disabled={busy} onClick={onActivate} aria-label="Activate">
+   665→                <PlayCircle className="h-4 w-4" />
+   666→              </Button>
+   667→            </TooltipTrigger>
+   668→            <TooltipContent>Activate</TooltipContent>
+   669→          </Tooltip>
+   670→        )}
+   671→        {school.status !== 'Suspended' && (
+   672→          <Tooltip>
+   673→            <TooltipTrigger asChild>
+   674→              <Button size="icon" variant="ghost" className="h-8 w-8 text-amber-600 hover:bg-amber-500/10" disabled={busy} onClick={onSuspend} aria-label="Suspend">
+   675→                <PauseCircle className="h-4 w-4" />
+   676→              </Button>
+   677→            </TooltipTrigger>
+   678→            <TooltipContent>Suspend</TooltipContent>
+   679→          </Tooltip>
+   680→        )}
+   681→        <Tooltip>
+   682→          <TooltipTrigger asChild>
+   683→            <Button size="icon" variant="ghost" className="h-8 w-8 text-violet-600 hover:bg-violet-500/10" disabled={busy} onClick={() => onUpgrade(school.plan === 'Starter' ? 'Standard' : school.plan === 'Standard' ? 'Premium' : 'Enterprise')} aria-label="Upgrade plan">
+   684→              <ArrowUpCircle className="h-4 w-4" />
+   685→            </Button>
+   686→          </TooltipTrigger>
+   687→          <TooltipContent>Upgrade Plan</TooltipContent>
+   688→        </Tooltip>
+   689→      </TooltipProvider>
+   690→
+   691→      <DropdownMenu>
+   692→        <DropdownMenuTrigger asChild>
+   693→          <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="More actions">
+   694→            <MoreVertical className="h-4 w-4" />
+   695→          </Button>
+   696→        </DropdownMenuTrigger>
+   697→        <DropdownMenuContent align="end" className="w-52">
+   698→          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+   699→          <DropdownMenuItem onClick={onView}><Eye className="mr-2 h-4 w-4" /> View Details</DropdownMenuItem>
+   700→          <DropdownMenuSeparator />
+   701→          <DropdownMenuLabel className="text-xs">Set Status</DropdownMenuLabel>
+   702→          <DropdownMenuItem onClick={onActivate} disabled={school.status === 'Active'}><PlayCircle className="mr-2 h-4 w-4 text-emerald-600" /> Activate</DropdownMenuItem>
+   703→          <DropdownMenuItem onClick={onSuspend} disabled={school.status === 'Suspended'}><PauseCircle className="mr-2 h-4 w-4 text-amber-600" /> Suspend</DropdownMenuItem>
+   704→          <DropdownMenuSeparator />
+   705→          <DropdownMenuLabel className="text-xs">Upgrade to Plan</DropdownMenuLabel>
+   706→          {['Starter', 'Standard', 'Premium', 'Enterprise'].filter(p => p !== school.plan).map(p => (
+   707→            <DropdownMenuItem key={p} onClick={() => onUpgrade(p)}>
+   708→              {p === 'Enterprise' ? <Crown className="mr-2 h-4 w-4 text-amber-600" /> : p === 'Premium' ? <Sparkles className="mr-2 h-4 w-4 text-emerald-600" /> : <ArrowUpCircle className="mr-2 h-4 w-4" />}
+   709→              {p}
+   710→            </DropdownMenuItem>
+   711→          ))}
+   712→          <DropdownMenuSeparator />
+   713→          <DropdownMenuItem className="text-rose-600 focus:text-rose-600" onClick={onDelete}>
+   714→            <Trash2 className="mr-2 h-4 w-4" /> Delete School
+   715→          </DropdownMenuItem>
+   716→        </DropdownMenuContent>
+   717→      </DropdownMenu>
+   718→    </div>
+   719→  )
+   720→}
+   721→
+   722→// ---------------------------------------------------------------------------
+   723→// School Detail Dialog
+   724→// ---------------------------------------------------------------------------
+   725→function SchoolDetailDialog({ school, onOpenChange, onMutated }: {
+   726→  school: SchoolListItem | null
+   727→  onOpenChange: (o: boolean) => void
+   728→  onMutated: () => void
+   729→}) {
+   730→  const { data, loading } = useFetch<SchoolDetail>(school ? `/api/superadmin/${school.id}` : null, [school?.id])
+   731→  const [busy, setBusy] = useState(false)
+   732→
+   733→  const update = async (body: Record<string, unknown>, msg: string) => {
+   734→    if (!school) return
+   735→    setBusy(true)
+   736→    try {
+   737→      await apiPut(`/api/superadmin/${school.id}`, body)
+   738→      toast.success(msg)
+   739→      onMutated()
+   740→    } catch (e: unknown) {
+   741→      toast.error(e instanceof Error ? e.message : 'Update failed')
+   742→    } finally {
+   743→      setBusy(false)
+   744→    }
+   745→  }
+   746→
+   747→  return (
+   748→    <Dialog open={!!school} onOpenChange={onOpenChange}>
+   749→      <DialogContent className="max-h-[95vh] max-w-4xl overflow-y-auto scrollbar-thin">
+   750→        {loading || !data || !school ? (
+   751→          <div className="space-y-4 py-8">
+   752→            <Skeleton className="h-28 w-full rounded-xl" />
+   753→            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+   754→              {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
+   755→            </div>
+   756→            <Skeleton className="h-64 w-full rounded-lg" />
+   757→          </div>
+   758→        ) : (
+   759→          <>
+   760→            {/* Header */}
+   761→            <div className="relative -mx-6 -mt-6 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 p-6 text-white">
+   762→              <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-500/20 blur-3xl" />
+   763→              <div className="relative z-10 flex items-start gap-4">
+   764→                <Avatar className="h-14 w-14 ring-2 ring-white/20">
+   765→                  <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-lg font-bold text-white">
+   766→                    {data.school.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+   767→                  </AvatarFallback>
+   768→                </Avatar>
+   769→                <div className="min-w-0 flex-1">
+   770→                  <DialogTitle className="text-xl font-bold text-white">{data.school.name}</DialogTitle>
+   771→                  <DialogDescription className="mt-0.5 text-sm text-slate-300">
+   772→                    {data.school.slug} · {data.school.county || 'No county'}
+   773→                  </DialogDescription>
+   774→                  <div className="mt-2 flex flex-wrap items-center gap-2">
+   775→                    <PlanBadge plan={data.school.plan} />
+   776→                    <StatusBadge status={data.school.status} />
+   777→                    {data.school.trialEndsAt && (
+   778→                      <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs text-amber-200 ring-1 ring-white/10">
+   779→                        Trial ends {formatDate(data.school.trialEndsAt)}
+   780→                      </span>
+   781→                    )}
+   782→                  </div>
+   783→                </div>
+   784→              </div>
+   785→              <div className="relative z-10 mt-4 flex flex-wrap gap-2">
+   786→                {data.school.status !== 'Active' && (
+   787→                  <Button size="sm" disabled={busy} onClick={() => update({ status: 'Active' }, 'School activated')}
+   788→                    className="bg-emerald-600 hover:bg-emerald-700">
+   789→                    <PlayCircle className="mr-1.5 h-3.5 w-3.5" /> Activate
+   790→                  </Button>
+   791→                )}
+   792→                {data.school.status !== 'Suspended' && (
+   793→                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => update({ status: 'Suspended' }, 'School suspended')}>
+   794→                    <PauseCircle className="mr-1.5 h-3.5 w-3.5" /> Suspend
+   795→                  </Button>
+   796→                )}
+   797→                <DropdownMenu>
+   798→                  <DropdownMenuTrigger asChild>
+   799→                    <Button size="sm" variant="outline" disabled={busy}>
+   800→                      <ArrowUpCircle className="mr-1.5 h-3.5 w-3.5" /> Upgrade Plan
+   801→                    </Button>
+   802→                  </DropdownMenuTrigger>
+   803→                  <DropdownMenuContent align="start">
+   804→                    {['Starter', 'Standard', 'Premium', 'Enterprise'].filter(p => p !== data.school.plan).map(p => (
+   805→                      <DropdownMenuItem key={p} onClick={() => update({ plan: p }, `Plan changed to ${p}`)}>
+   806→                        {p === 'Enterprise' ? <Crown className="mr-2 h-4 w-4 text-amber-600" /> : p === 'Premium' ? <Sparkles className="mr-2 h-4 w-4 text-emerald-600" /> : <ArrowUpCircle className="mr-2 h-4 w-4" />}
+   807→                        {p}
+   808→                      </DropdownMenuItem>
+   809→                    ))}
+   810→                  </DropdownMenuContent>
+   811→                </DropdownMenu>
+   812→              </div>
+   813→            </div>
+   814→
+   815→            {/* Quick stats */}
+   816→            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+   817→              <MiniStat label="Users" value={data.stats.userCount} icon={Users} accent="emerald" />
+   818→              <MiniStat label="Students" value={data.stats.studentCount} icon={GraduationCap} accent="teal" />
+   819→              <MiniStat label="Staff" value={data.stats.staffCount} icon={UserCog} accent="amber" />
+   820→              <MiniStat label="Invoices" value={data.stats.invoiceCount} icon={FileText} accent="violet" />
+   821→              <MiniStat label="Payments" value={data.stats.paymentCount} icon={Banknote} accent="emerald" />
+   822→              <MiniStat label="Billed" value={formatKES(data.stats.totalBilled)} icon={Wallet} accent="teal" />
+   823→              <MiniStat label="Collected" value={formatKES(data.stats.totalCollected)} icon={CheckCircle2} accent="emerald" />
+   824→              <MiniStat label="Outstanding" value={formatKES(data.stats.totalOutstanding)} icon={AlertTriangle} accent="rose" />
+   825→            </div>
+   826→
+   827→            {/* Two columns */}
+   828→            <div className="grid gap-4 lg:grid-cols-2">
+   829→              {/* Contact + meta */}
+   830→              <Card>
+   831→                <CardHeader className="pb-2"><CardTitle className="text-sm">School Information</CardTitle></CardHeader>
+   832→                <CardContent className="space-y-2 text-sm">
+   833→                  <InfoRow icon={Mail} label="Email" value={data.school.email || '—'} />
+   834→                  <InfoRow icon={Phone} label="Phone" value={data.school.phone || '—'} />
+   835→                  <InfoRow icon={MapPin} label="Address" value={data.school.address || '—'} />
+   836→                  <InfoRow icon={MapPin} label="County" value={data.school.county || '—'} />
+   837→                  <InfoRow icon={CalendarDays} label="Joined" value={`${formatDate(data.school.createdAt)} (${timeAgo(data.school.createdAt)})`} />
+   838→                  <InfoRow icon={Building2} label="Max Students" value={String(data.school.maxStudents)} />
+   839→                </CardContent>
+   840→              </Card>
+   841→
+   842→              {/* Revenue trend */}
+   843→              <Card>
+   844→                <CardHeader className="pb-2">
+   845→                  <CardTitle className="text-sm">Revenue Trend (6 months)</CardTitle>
+   846→                  <CardDescription>Total: {formatKES(data.stats.totalRevenue)}</CardDescription>
+   847→                </CardHeader>
+   848→                <CardContent>
+   849→                  <div className="h-40">
+   850→                    <ResponsiveContainer width="100%" height="100%">
+   851→                      <BarChart data={data.revenueTrend} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+   852→                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+   853→                        <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+   854→                        <YAxis tickFormatter={(v) => formatKES(v as number).replace('KES ', '')} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" width={50} />
+   855→                        <RTooltip formatter={(v: number) => [formatKES(v), 'Revenue']} contentStyle={{ borderRadius: 8, border: '1px solid hsl(var(--border))' }} />
+   856→                        <Bar dataKey="amount" fill="#059669" radius={[6, 6, 0, 0]} maxBarSize={36} />
+   857→                      </BarChart>
+   858→                    </ResponsiveContainer>
+   859→                  </div>
+   860→                </CardContent>
+   861→              </Card>
+   862→
+   863→              {/* Recent payments */}
+   864→              <Card>
+   865→                <CardHeader className="pb-2"><CardTitle className="text-sm">Recent Payments</CardTitle></CardHeader>
+   866→                <CardContent>
+   867→                  <div className="space-y-2 pr-1">
+   868→                    {data.recentPayments.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No payments yet.</p>}
+   869→                    {data.recentPayments.map(p => (
+   870→                      <div key={p.id} className="flex items-center gap-3 rounded-lg border p-2">
+   871→                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+   872→                          <Banknote className="h-4 w-4" />
+   873→                        </div>
+   874→                        <div className="min-w-0 flex-1">
+   875→                          <p className="truncate text-sm font-medium">{p.payerName || p.reference || p.method}</p>
+   876→                          <p className="truncate text-xs text-muted-foreground">{p.method} · {timeAgo(p.receivedAt)}</p>
+   877→                        </div>
+   878→                        <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{formatKES(p.amount)}</div>
+   879→                      </div>
+   880→                    ))}
+   881→                  </div>
+   882→                </CardContent>
+   883→              </Card>
+   884→
+   885→              {/* Users list */}
+   886→              <Card>
+   887→                <CardHeader className="pb-2"><CardTitle className="text-sm">User Accounts ({data.users.length})</CardTitle></CardHeader>
+   888→                <CardContent>
+   889→                  <div className="space-y-2 pr-1">
+   890→                    {data.users.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No user accounts.</p>}
+   891→                    {data.users.map(u => (
+   892→                      <div key={u.id} className="flex items-center gap-3 rounded-lg border p-2">
+   893→                        <Avatar className="h-8 w-8">
+   894→                          <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-[10px] font-semibold text-white">
+   895→                            {u.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+   896→                          </AvatarFallback>
+   897→                        </Avatar>
+   898→                        <div className="min-w-0 flex-1">
+   899→                          <p className="truncate text-sm font-medium">{u.name}</p>
+   900→                          <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+   901→                        </div>
+   902→                        <div className="flex flex-col items-end gap-0.5">
+   903→                          <Badge variant="outline" className="text-[10px]">{u.role}</Badge>
+   904→                          <span className="text-[10px] text-muted-foreground">{u.lastLoginAt ? timeAgo(u.lastLoginAt) : 'never'}</span>
+   905→                        </div>
+   906→                      </div>
+   907→                    ))}
+   908→                  </div>
+   909→                </CardContent>
+   910→              </Card>
+   911→            </div>
+   912→
+   913→            <DialogFooter>
+   914→              <DialogClose asChild>
+   915→                <Button variant="outline">Close</Button>
+   916→              </DialogClose>
+   917→            </DialogFooter>
+   918→          </>
+   919→        )}
+   920→      </DialogContent>
+   921→    </Dialog>
+   922→  )
+   923→}
+   924→
+   925→function MiniStat({ label, value, icon: Icon, accent }: {
+   926→  label: string
+   927→  value: string | number
+   928→  icon: React.ComponentType<{ className?: string }>
+   929→  accent: 'emerald' | 'teal' | 'amber' | 'violet' | 'rose'
+   930→}) {
+   931→  const a: Record<string, string> = {
+   932→    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+   933→    teal: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+   934→    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+   935→    violet: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+   936→    rose: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+   937→  }
+   938→  return (
+   939→    <div className="rounded-xl border bg-card p-3">
+   940→      <div className="flex items-center justify-between gap-2">
+   941→        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+   942→        <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg', a[accent])}>
+   943→          <Icon className="h-3.5 w-3.5" />
+   944→        </div>
+   945→      </div>
+   946→      <p className="mt-1 truncate text-lg font-bold tabular-nums">{value}</p>
+   947→    </div>
+   948→  )
+   949→}
+   950→
+   951→function InfoRow({ icon: Icon, label, value }: {
+   952→  icon: React.ComponentType<{ className?: string }>
+   953→  label: string
+   954→  value: string
+   955→}) {
+   956→  return (
+   957→    <div className="flex items-center gap-2.5">
+   958→      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+   959→      <span className="w-24 shrink-0 text-muted-foreground">{label}</span>
+   960→      <span className="min-w-0 flex-1 truncate font-medium">{value}</span>
+   961→    </div>
+   962→  )
+   963→}
+   964→

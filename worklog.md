@@ -3688,3 +3688,80 @@ Stage Summary:
 - ✅ Action buttons at dialog bottoms are always reachable
 - ✅ Internal scroll works when dialog content is taller than viewport
 - ✅ Deployed to live site via SSH push (Vercel built successfully)
+
+---
+Task ID: OVERHAUL-1
+Agent: full-stack-developer
+Task: Redesign SuperAdminModule dashboard
+
+Work Log:
+- Read worklog.md for project context, reviewed existing superadmin.tsx (964 lines),
+  parent page.tsx dispatch logic, and /api/superadmin route to confirm the API
+  contract (summary, revenueByPlan, schoolsByPlan, schoolsByStatus, monthlyGrowth,
+  recentRegistrations, schools).
+- Confirmed dispatch already routes `effectiveModule === 'superadmin'` to
+  <SuperAdminModule />. Issue was visual polish, not routing.
+- Completely rewrote src/components/modules/superadmin.tsx with an executive-grade,
+  SaaS-style dashboard. New file structure:
+  1. Premium hero header — emerald/teal/slate gradient with subtle dot-grid
+     texture, dual glow accents, "Platform Owner Console" pill, plus an inline
+     KPI strip showing MRR / Active Schools / On Trial.
+  2. Four stat cards (Total Schools, Total Revenue, Total Students, Active Trials)
+     — each with icon chip, value, sub-label, a sparkline (recharts AreaChart
+     with gradient fill, no axes), and a delta pill showing % change vs prev month.
+  3. Revenue Trend area chart (6 months, computed client-side from schools list
+     revenue bucketed by createdAt month — honest proxy since API only exposes
+     per-school revenue).
+  4. Schools by Plan donut chart (PieChart) with legend + a progress-bar
+     breakdown table.
+  5. Monthly Growth area chart (teal gradient) using API monthlyGrowth data.
+  6. Schools by Status bar chart (color-coded per status).
+  7. Recent Registrations table (shadcn Table) with school avatar, plan badge,
+     status badge, county, student count, created time.
+  8. All Schools table (shadcn Table) with search input + shadcn Select filters
+     for status & plan. Columns: school (avatar+name+county), plan badge,
+     status badge, students, users, revenue, last login, actions dropdown.
+     Includes mobile-card layout for small screens.
+  9. School Detail Dialog (refined with emerald gradient header) — keeps all
+     existing functionality: activate/suspend/upgrade, school info, revenue
+     trend bar chart, recent payments, user accounts list.
+  10. Delete confirmation AlertDialog.
+- Styling system:
+  - Palette: emerald (#059669, #10b981), teal (#14b8a6), amber (#f59e0b),
+    rose (#f43f5e), slate neutrals. No indigo/blue.
+  - All cards use rounded-xl + shadow-sm + hover:shadow-md transition.
+  - Card padding: p-5/p-6 with gap-4 between grid cells.
+  - All charts use hsl(var(--border)) / hsl(var(--popover)) / hsl(var(--muted-foreground))
+    for proper dark-mode support.
+- Graceful null handling: every API field accessed via `?? []` / `?? 0` defaults.
+  Empty states for all charts via <EmptyChartState>. Loading skeleton mirrors
+  the final layout (hero, 4 cards, two chart rows, table).
+- Helper functions: Sparkline (reusable inline mini-chart with random ID for
+  gradient), DeltaPill (up/down arrow with % change), StatusBadge (with dot
+  indicator), PlanBadge (with crown/sparkles icons), SchoolInitials avatar,
+  buildMonthlyRevenue/Students/Trials (client-side trend derivation from
+  schools list), pctDelta (month-over-month % change).
+- Replaced native <select> filters with shadcn/ui Select component.
+- Replaced native <table> with shadcn/ui Table primitives for consistency.
+- Verified ESLint passes (exit 0) on superadmin.tsx. Pre-existing 2 errors in
+  src/app/api/biometric/logs/route.ts are unrelated to this task.
+- Verified TypeScript (bunx tsc --noEmit) — no errors in superadmin.tsx.
+
+Stage Summary:
+- ✅ SuperAdminModule completely overhauled into executive-grade SaaS-style
+  platform owner dashboard (Vercel/Stripe/Linear aesthetic)
+- ✅ 4 stat cards with sparklines + month-over-month delta pills
+- ✅ 4 recharts visualizations: Revenue trend area, Schools-by-plan donut,
+  Monthly growth area, Schools-by-status bar
+- ✅ Recent registrations table + searchable/filterable schools list table
+  with status & plan filters (shadcn Select), avatar, plan/status badges,
+  student/user counts, revenue, last login, action dropdown (view/activate/
+  suspend/upgrade/delete)
+- ✅ Refined detail dialog (emerald gradient header, 8 mini-stats, revenue
+  trend bar chart, recent payments + user accounts lists)
+- ✅ Emerald/teal primary palette with neutral grays, dark-mode throughout
+- ✅ Self-contained 'use client' component — does NOT fall through to
+  regular school dashboard. All data accessed via safe defaults.
+- ✅ Mobile-first responsive (single column on mobile, scales up to lg:grid-cols-3
+  / lg:grid-cols-4)
+- ✅ Graceful empty/null handling for every API field
