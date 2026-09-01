@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserFromRequest } from '@/lib/auth-utils'
 
+// Safe query helper — catches errors and returns a default value
+async function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await promise
+  } catch (e) {
+    console.error('[superadmin] query failed:', e)
+    return fallback
+  }
+}
+
 // GET /api/superadmin — Platform-wide dashboard data for the platform owner.
-// Returns aggregated stats across every school on the platform.
 // Requires a super_admin session (platform owner).
 export async function GET(req: NextRequest) {
   const user = await getUserFromRequest(req)
@@ -17,69 +26,44 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // The "platform" school is a system record (owns the super-admin user) and
-  // must never appear in tenant listings or platform-wide stats.
   const tenantWhere = { slug: { not: 'platform' } }
 
-  // Aggregate counts in parallel
+  // Run all counts in parallel with safe wrappers
   const [
-    totalSchools,
-    activeSchools,
-    trialSchools,
-    suspendedSchools,
-    expiredSchools,
-    totalUsers,
-    totalStudents,
-    totalStaff,
-    totalInvoices,
-    paymentsAgg,
-    schools,
-    recentSchools,
+    totalSchools, activeSchools, trialSchools, suspendedSchools, expiredSchools,
+    totalUsers, totalStudents, totalStaff, totalInvoices, paymentsAgg,
+    schools, recentSchools,
   ] = await Promise.all([
-    db.school.count({ where: tenantWhere }),
-    db.school.count({ where: { ...tenantWhere, status: 'Active' } }),
-    db.school.count({ where: { ...tenantWhere, status: 'Trial' } }),
-    db.school.count({ where: { ...tenantWhere, status: 'Suspended' } }),
-    db.school.count({ where: { ...tenantWhere, status: 'Expired' } }),
-    db.userAccount.count({ where: { school: { slug: { not: 'platform' } } } }),
-    db.student.count({ where: { schoolId: { not: null }, school: { slug: { not: 'platform' } } } }),
-    db.staff.count({ where: { schoolId: { not: null }, school: { slug: { not: 'platform' } } } }),
-    db.invoice.count({ where: { schoolId: { not: null }, school: { slug: { not: 'platform' } } } }),
-    db.payment.aggregate({
-      where: { school: { slug: { not: 'platform' } } },
-      _sum: { amount: true },
-      _count: true,
-    }),
-    db.school.findMany({
+    safe(db.school.count({ where: tenantWhere }), 0),
+    safe(db.school.count({ where: { ...tenantWhere, status: 'Active' } }), 0),
+    safe(db.school.count({ where: { ...tenantWhere, status: 'Trial' } }), 0),
+    safe(db.school.count({ where: { ...tenantWhere, status: 'Suspended' } }), 0),
+    safe(db.school.count({ where: { ...tenantWhere, status: 'Expired' } }), 0),
+    safe(db.userAccount.count({ where: { school: { slug: { not: 'platform' } } } }), 0),
+    safe(db.student.count({ where: { schoolId: { not: null }, school: { slug: { not: 'platform' } } } }), 0),
+    safe(db.staff.count({ where: { schoolId: { not: null }, school: { slug: { not: 'platform' } } } }), 0),
+    safe(db.invoice.count({ where: { schoolId: { not: null }, school: { slug: { not: 'platform' } } } }), 0),
+    safe(db.payment.aggregate({ where: { school: { slug: { not: 'platform' } } }, _sum: { amount: true }, _count: true }), { _sum: { amount: 0 }, _count: 0 }),
+    safe(db.school.findMany({
       where: tenantWhere,
       orderBy: { createdAt: 'desc' },
       include: {
-        users: {
-          select: { id: true, name: true, email: true, role: true, status: true, lastLoginAt: true },
-          orderBy: { lastLoginAt: 'desc' },
-        },
+        users: { select: { id: true, name: true, email: true, role: true, status: true, lastLoginAt: true }, orderBy: { lastLoginAt: 'desc' } },
         _count: { select: { students: true, staff: true, invoices: true, payments: true, users: true } },
       },
-    }),
-    db.school.findMany({
+    }), []),
+    safe(db.school.findMany({
       where: tenantWhere,
       orderBy: { createdAt: 'desc' },
       take: 5,
-      select: {
-        id: true, name: true, slug: true, plan: true, status: true,
-        county: true, createdAt: true, trialEndsAt: true,
-        _count: { select: { students: true, users: true } },
-      },
-    }),
+      select: { id: true, name: true, slug: true, plan: true, status: true, county: true, createdAt: true, trialEndsAt: true, _count: { select: { students: true, users: true } } },
+    }), []),
   ])
 
-  // Revenue per school
-  const revenueBySchoolRaw = await db.payment.groupBy({
-    by: ['schoolId'],
-    where: { school: { slug: { not: 'platform' } } },
-    _sum: { amount: true },
-    _count: true,
-  })
+  const revenueBySchoolRaw = await safe(
+    db.payment.groupBy({ by: ['schoolId'], where: { school: { slug: { not: 'platform' } } }, _sum: { amount: true }, _count: true }),
+    []
+  )
   const revenueBySchoolMap = new Map<string, number>()
   for (const r of revenueBySchoolRaw) {
     if (r.schoolId) revenueBySchoolMap.set(r.schoolId, r._sum.amount || 0)
