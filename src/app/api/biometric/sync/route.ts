@@ -58,19 +58,14 @@ export async function POST(req: NextRequest) {
     } else {
       // Auth path 2: staff session or demo fallback
       // Try to get the school directly — same query as /api/auth/school-code
+      // Don't catch errors — let them propagate so we can see what's failing
       const school = await db.school.findUnique({
         where: { schoolCode: 'SKH-2024-001' },
-      }).catch(() => null)
+      })
       if (!school) {
-        // Try any school as a last resort
-        const anySchool = await db.school.findFirst().catch(() => null)
-        if (!anySchool) {
-          return NextResponse.json({ error: 'No school configured' }, { status: 404 })
-        }
-        schoolId = anySchool.id
-      } else {
-        schoolId = school.id
+        return NextResponse.json({ error: 'School SKH-2024-001 not found in DB' }, { status: 404 })
       }
+      schoolId = school.id
     }
 
     const log = await db.biometricLog.create({
