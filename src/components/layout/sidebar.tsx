@@ -11,7 +11,7 @@ import {
   MessageSquare, IdCard,
   LogOut, Upload, PackagePlus,
   Shield, UserCheck, CalendarClock,
-  Fingerprint, Navigation, MessageSquare, BarChart3,
+  Fingerprint, Navigation,
 } from 'lucide-react'
 
 interface NavItem {
