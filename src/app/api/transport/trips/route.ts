@@ -51,18 +51,30 @@ export async function POST(req: NextRequest) {
       driverId?: string
       direction?: string
     }
-    const trip = await db.busTrip.create({
-      data: {
+    const tripId = `trip_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+    // Use raw SQL — Prisma client on Vercel doesn't know about BusTrip table
+    await db.$executeRawUnsafe(`
+      INSERT INTO "BusTrip" (id, "schoolId", "routeId", "vehicleId", "driverId", direction, status, "departureAt", "boardingCount", "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, $4, $5, $6, 'in_progress', NOW(), 0, NOW(), NOW())
+      ON CONFLICT (id) DO NOTHING
+    `, tripId, schoolId, body.routeId || null, body.vehicleId || null, body.driverId || null, body.direction || 'to_school').catch((e) => {
+      throw new Error('Failed to create trip: ' + e.message)
+    })
+
+    return NextResponse.json({
+      trip: {
+        id: tripId,
         schoolId,
-        routeId: body.routeId,
-        vehicleId: body.vehicleId,
-        driverId: body.driverId,
+        routeId: body.routeId || null,
+        vehicleId: body.vehicleId || null,
+        driverId: body.driverId || null,
         direction: body.direction || 'to_school',
         status: 'in_progress',
-        departureAt: new Date(),
-      },
-    })
-    return NextResponse.json({ trip }, { status: 201 })
+        departureAt: new Date().toISOString(),
+        boardingCount: 0,
+      }
+    }, { status: 201 })
   } catch (e: any) {
     if (String(e?.message || '').includes('does not exist')) {
       return NextResponse.json(

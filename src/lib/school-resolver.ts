@@ -4,8 +4,8 @@ import { db } from '@/lib/db'
  * Resolve the school ID from a request — with a fallback to the first
  * non-platform school if the user isn't authenticated.
  *
- * This keeps the biometric + bus tracking system working for demos on
- * Vercel previews where the session cookie may not be available.
+ * Uses RAW SQL (not Prisma client) because the Prisma client on Vercel
+ * doesn't know about the full schema. Raw SQL always works.
  *
  * Returns the schoolId (or null if no school exists at all).
  */
@@ -21,17 +21,19 @@ export async function getSchoolId(req: Request): Promise<string | null> {
     // ignore auth errors — fall through to fallback
   }
 
-  // Fallback: find the demo school by schoolCode (same query as /api/auth/school-code)
+  // Fallback: use RAW SQL (same approach as /api/biometric/sync which works)
   try {
-    const school = await db.school.findUnique({
-      where: { schoolCode: 'SKH-2024-001' },
-    })
-    if (school) return school.id
-  } catch (e) {
-    // If that fails, try finding ANY school
+    const schools = await db.$queryRawUnsafe<Array<{id: string}>>(
+      `SELECT id FROM "School" WHERE "schoolCode" = 'SKH-2024-001' LIMIT 1`
+    )
+    if (schools.length > 0) return schools[0].id
+  } catch {
+    // try without filter
     try {
-      const school = await db.school.findFirst()
-      if (school) return school.id
+      const schools = await db.$queryRawUnsafe<Array<{id: string}>>(
+        `SELECT id FROM "School" LIMIT 1`
+      )
+      if (schools.length > 0) return schools[0].id
     } catch {
       // give up
     }

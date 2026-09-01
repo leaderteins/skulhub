@@ -76,17 +76,31 @@ export async function POST(req: NextRequest) {
     if (!body.name) {
       return NextResponse.json({ error: 'Device name is required' }, { status: 400 })
     }
-    const device = await db.biometricDevice.create({
-      data: {
+    const deviceId = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const secret = `sec_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`
+
+    // Use raw SQL — Prisma client on Vercel doesn't know about BiometricDevice table
+    await db.$executeRawUnsafe(`
+      INSERT INTO "BiometricDevice" (id, "schoolId", name, "deviceType", location, "vehicleId", status, secret, "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, NOW(), NOW())
+      ON CONFLICT (id) DO NOTHING
+    `, deviceId, schoolId, body.name, body.deviceType || 'fingerprint', body.location || null, body.vehicleId || null, secret).catch((e) => {
+      throw new Error('Failed to register device: ' + e.message)
+    })
+
+    return NextResponse.json({
+      device: {
+        id: deviceId,
         schoolId,
         name: body.name,
         deviceType: body.deviceType || 'fingerprint',
-        location: body.location,
-        vehicleId: body.vehicleId,
+        location: body.location || null,
+        vehicleId: body.vehicleId || null,
         status: 'active',
-      },
-    })
-    return NextResponse.json({ device }, { status: 201 })
+        secret,
+        createdAt: new Date().toISOString(),
+      }
+    }, { status: 201 })
   } catch (e: any) {
     if (String(e?.message || '').includes('does not exist')) {
       return NextResponse.json(

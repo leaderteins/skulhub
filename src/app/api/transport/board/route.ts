@@ -50,25 +50,34 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
-    const boarding = await db.busBoarding.create({
-      data: {
+    const boardingId = `board_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+    // Use raw SQL — Prisma client on Vercel doesn't know about BusBoarding table
+    await db.$executeRawUnsafe(`
+      INSERT INTO "BusBoarding" (id, "schoolId", "tripId", "studentId", action, "stopName", gps, timestamp, "createdAt")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+      ON CONFLICT (id) DO NOTHING
+    `, boardingId, schoolId, body.tripId, body.studentId, body.action, body.stopName || null, body.gps || null).catch((e) => {
+      throw new Error('Failed to log boarding: ' + e.message)
+    })
+
+    // Update trip's boarding count if this is a 'board' action
+    if (body.action === 'board') {
+      await db.$executeRawUnsafe(`UPDATE "BusTrip" SET "boardingCount" = "boardingCount" + 1 WHERE id = $1`, body.tripId).catch(() => {})
+    }
+
+    return NextResponse.json({
+      boarding: {
+        id: boardingId,
         schoolId,
         tripId: body.tripId,
         studentId: body.studentId,
         action: body.action,
-        stopName: body.stopName,
-        gps: body.gps,
-      },
-    })
-
-    if (body.action === 'board') {
-      await db.busTrip.update({
-        where: { id: body.tripId },
-        data: { boardingCount: { increment: 1 } },
-      })
-    }
-
-    return NextResponse.json({ boarding }, { status: 201 })
+        stopName: body.stopName || null,
+        gps: body.gps || null,
+        timestamp: new Date().toISOString(),
+      }
+    }, { status: 201 })
   } catch (e: any) {
     if (String(e?.message || '').includes('does not exist')) {
       return NextResponse.json(

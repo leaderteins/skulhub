@@ -80,18 +80,29 @@ export async function POST(req: NextRequest) {
       .update(`${body.personId}-${body.personType}-${body.fingerIndex || 0}-${Date.now()}-${crypto.randomBytes(16).toString('hex')}`)
       .digest('hex')
 
-    const template = await db.biometricTemplate.create({
-      data: {
+    const templateId = `tmpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+    // Use raw SQL — Prisma client on Vercel doesn't know about BiometricTemplate table
+    await db.$executeRawUnsafe(`
+      INSERT INTO "BiometricTemplate" (id, "schoolId", "personId", "personType", "templateHash", "fingerIndex", "isActive", "enrolledAt", "enrolledBy", "createdAt")
+      VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), $7, NOW())
+      ON CONFLICT (id) DO NOTHING
+    `, templateId, schoolId, body.personId, body.personType, templateHash, body.fingerIndex || 0, user.id).catch((e) => {
+      throw new Error('Failed to enroll: ' + e.message)
+    })
+
+    return NextResponse.json({
+      template: {
+        id: templateId,
         schoolId,
         personId: body.personId,
         personType: body.personType,
         templateHash,
         fingerIndex: body.fingerIndex || 0,
         enrolledBy: user.id,
-      },
-    })
-
-    return NextResponse.json({ template }, { status: 201 })
+        enrolledAt: new Date().toISOString(),
+      }
+    }, { status: 201 })
   } catch (e: any) {
     if (String(e?.message || '').includes('does not exist')) {
       return NextResponse.json(
