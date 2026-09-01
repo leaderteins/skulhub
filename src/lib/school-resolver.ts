@@ -21,16 +21,14 @@ export async function getSchoolId(req: Request): Promise<string | null> {
     // ignore auth errors — fall through to fallback
   }
 
-  // Fallback: find the first school with schoolCode SKH-2024-001
-  // (we know this works because /api/auth/school-code uses the same query)
+  // Fallback: find the demo school by schoolCode (same query as /api/auth/school-code)
   try {
-    const school = await db.school.findFirst({
-      where: { schoolCode: { not: '' } },
-      orderBy: { createdAt: 'asc' },
+    const school = await db.school.findUnique({
+      where: { schoolCode: 'SKH-2024-001' },
     })
     if (school) return school.id
   } catch (e) {
-    // If that fails too, try without any filter
+    // If that fails, try finding ANY school
     try {
       const school = await db.school.findFirst()
       if (school) return school.id
