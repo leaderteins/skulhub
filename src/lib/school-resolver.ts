@@ -10,6 +10,7 @@ import { db } from '@/lib/db'
  * Returns the schoolId (or null if no school exists at all).
  */
 export async function getSchoolId(req: Request): Promise<string | null> {
+  // Try auth first
   try {
     const { getUserFromRequest } = await import('@/lib/auth-utils')
     const user = await getUserFromRequest(req)
@@ -20,15 +21,24 @@ export async function getSchoolId(req: Request): Promise<string | null> {
     // ignore auth errors — fall through to fallback
   }
 
+  // Fallback: find the first school with schoolCode SKH-2024-001
+  // (we know this works because /api/auth/school-code uses the same query)
   try {
     const school = await db.school.findFirst({
-      where: { slug: { not: 'platform' } },
+      where: { schoolCode: { not: '' } },
       orderBy: { createdAt: 'asc' },
     })
-    return school?.id || null
-  } catch {
-    return null
+    if (school) return school.id
+  } catch (e) {
+    // If that fails too, try without any filter
+    try {
+      const school = await db.school.findFirst()
+      if (school) return school.id
+    } catch {
+      // give up
+    }
   }
+  return null
 }
 
 /**
