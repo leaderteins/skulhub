@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { resolveSchoolFromRequest } from '@/lib/mpesa'
+import { getSchoolId } from '@/lib/school-resolver'
 
 /**
  * GET /api/biometric/enroll?personId=xxx&personType=student
@@ -8,16 +8,16 @@ import { resolveSchoolFromRequest } from '@/lib/mpesa'
  */
 export async function GET(req: NextRequest) {
   try {
-    const { school } = await resolveSchoolFromRequest(req)
-    if (!school) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const schoolId = await getSchoolId(req)
+    if (!schoolId) {
+      return NextResponse.json({ templates: [], demo: true })
     }
     const personId = req.nextUrl.searchParams.get('personId')
     if (!personId) {
       return NextResponse.json({ error: 'personId is required' }, { status: 400 })
     }
     const templates = await db.biometricTemplate.findMany({
-      where: { schoolId: school.id, personId },
+      where: { schoolId, personId },
       orderBy: { enrolledAt: 'desc' },
     })
     return NextResponse.json({ templates })

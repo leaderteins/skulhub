@@ -1,23 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { resolveSchoolFromRequest } from '@/lib/mpesa'
+import { getSchoolId } from '@/lib/school-resolver'
 
 /**
  * POST /api/biometric/sync
  *
- * Webhook endpoint that biometric devices (ZKTeco K40, bus tablets) call
- * when a student/staff taps their finger or RFID card.
+ * Webhook endpoint that biometric devices call when a student/staff taps.
  *
  * Two auth modes:
  *   1. Device secret (HMAC): devices pre-registered with a `secret` field
- *      sign their payloads. We verify the signature.
- *   2. Staff session: when an admin simulates a tap from the dashboard UI,
- *      they're already authenticated via cookie.
- *
- * Body:
- *   { deviceId, personId, personType, action, location?, gps?, verified? }
- *
- * Returns: { log: {...} }
+ *   2. Staff session or demo fallback: for simulator / admin-initiated taps
  */
 export async function POST(req: NextRequest) {
   try {
@@ -25,11 +17,10 @@ export async function POST(req: NextRequest) {
       deviceId?: string
       personId: string
       personType?: string
-      action: string // "check_in" | "check_out" | "board_bus" | "alight_bus"
+      action: string
       location?: string
       gps?: string
       verified?: boolean
-      // OR for device-auth: schoolCode + deviceSecret
       schoolCode?: string
       deviceSecret?: string
     }
@@ -41,7 +32,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    let schoolId: string | undefined
+    let schoolId: string | null = null
     let deviceId: string | null = body.deviceId || null
 
     // Auth path 1: device secret
@@ -60,20 +51,16 @@ export async function POST(req: NextRequest) {
       }
       schoolId = school.id
       deviceId = device.id
-      // Update lastSeen
       await db.biometricDevice.update({
         where: { id: device.id },
         data: { lastSeen: new Date(), status: 'active' },
       })
     } else {
-      // Auth path 2: staff session (for simulator / admin-initiated taps)
-      // resolveSchoolFromRequest now has a built-in fallback to the first
-      // school, so this works even without a session cookie on Vercel.
-      const { school } = await resolveSchoolFromRequest(req)
-      if (!school) {
+      // Auth path 2: staff session or demo fallback
+      schoolId = await getSchoolId(req)
+      if (!schoolId) {
         return NextResponse.json({ error: 'No school configured' }, { status: 404 })
       }
-      schoolId = school.id
     }
 
     const log = await db.biometricLog.create({

@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { resolveSchoolFromRequest } from '@/lib/mpesa'
+import { getSchoolId } from '@/lib/school-resolver'
 
 /**
  * GET /api/transport/trips?status=in_progress
- * Lists bus trips for the school.
  */
 export async function GET(req: NextRequest) {
   try {
-    const { school } = await resolveSchoolFromRequest(req)
-    if (!school) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const schoolId = await getSchoolId(req)
+    if (!schoolId) {
+      return NextResponse.json({ trips: [], demo: true })
     }
     const status = req.nextUrl.searchParams.get('status')
-    const where: any = { schoolId: school.id }
+    const where: any = { schoolId }
     if (status) where.status = status
 
     const trips = await db.busTrip.findMany({
@@ -23,7 +22,7 @@ export async function GET(req: NextRequest) {
       include: {
         boardings: {
           orderBy: { timestamp: 'desc' },
-          take: 5, // latest 5 boardings for preview
+          take: 5,
         },
       },
     })
@@ -39,14 +38,12 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/transport/trips
- * Start a new bus trip.
- * Body: { routeId?, vehicleId?, driverId?, direction? }
  */
 export async function POST(req: NextRequest) {
   try {
-    const { school, user } = await resolveSchoolFromRequest(req)
-    if (!school || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const schoolId = await getSchoolId(req)
+    if (!schoolId) {
+      return NextResponse.json({ error: 'No school configured' }, { status: 404 })
     }
     const body = await req.json() as {
       routeId?: string
@@ -56,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
     const trip = await db.busTrip.create({
       data: {
-        schoolId: school.id,
+        schoolId,
         routeId: body.routeId,
         vehicleId: body.vehicleId,
         driverId: body.driverId,
@@ -79,14 +76,12 @@ export async function POST(req: NextRequest) {
 
 /**
  * PATCH /api/transport/trips?id=xxx
- * Update a trip's status (e.g., complete it) or append GPS trail.
- * Body: { status?, gpsTrail?, boardingCount? }
  */
 export async function PATCH(req: NextRequest) {
   try {
-    const { school } = await resolveSchoolFromRequest(req)
-    if (!school) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const schoolId = await getSchoolId(req)
+    if (!schoolId) {
+      return NextResponse.json({ error: 'No school configured' }, { status: 404 })
     }
     const id = req.nextUrl.searchParams.get('id')
     if (!id) {

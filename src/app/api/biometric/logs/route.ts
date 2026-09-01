@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { resolveSchoolFromRequest } from '@/lib/mpesa'
+import { getSchoolId, getSchoolIdAndUser } from '@/lib/school-resolver'
 import crypto from 'crypto'
 
 /**
@@ -9,9 +9,9 @@ import crypto from 'crypto'
  */
 export async function GET(req: NextRequest) {
   try {
-    const { school } = await resolveSchoolFromRequest(req)
-    if (!school) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const schoolId = await getSchoolId(req)
+    if (!schoolId) {
+      return NextResponse.json({ logs: [], count: 0, demo: true })
     }
     const sp = req.nextUrl.searchParams
     const limit = Math.min(parseInt(sp.get('limit') || '50'), 500)
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const from = sp.get('from')
     const to = sp.get('to')
 
-    const where: any = { schoolId: school.id }
+    const where: any = { schoolId }
     if (personId) where.personId = personId
     if (from || to) {
       where.timestamp = {}
@@ -45,17 +45,13 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/biometric/enroll
  * Enrolls a biometric template for a student or staff member.
- * Body: { personId, personType, fingerIndex?, enrolledBy? }
- *
- * NOTE: In production, this would receive the raw template from the ZKTeco
- * SDK and hash it. Here we generate a random hash placeholder — the actual
- * enrollment would happen via the device's SDK on a local agent.
+ * Body: { personId, personType, fingerIndex? }
  */
 export async function POST(req: NextRequest) {
   try {
-    const { school, user } = await resolveSchoolFromRequest(req)
-    if (!school || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { schoolId, user } = await getSchoolIdAndUser(req)
+    if (!schoolId || !user) {
+      return NextResponse.json({ error: 'No school configured' }, { status: 404 })
     }
     const body = await req.json() as {
       personId: string
@@ -69,9 +65,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Generate a one-way hash of the (simulated) biometric template.
-    // In production, the ZKTeco SDK would provide the actual template bytes,
-    // which we'd hash with SHA-256 and store only the hash.
     const templateHash = crypto
       .createHash('sha256')
       .update(`${body.personId}-${body.personType}-${body.fingerIndex || 0}-${Date.now()}-${crypto.randomBytes(16).toString('hex')}`)
@@ -79,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     const template = await db.biometricTemplate.create({
       data: {
-        schoolId: school.id,
+        schoolId,
         personId: body.personId,
         personType: body.personType,
         templateHash,
