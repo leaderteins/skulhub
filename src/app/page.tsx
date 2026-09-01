@@ -91,7 +91,9 @@ export default function Home() {
   // dashboard of their own. Switch automatically if they're still on 'dashboard'
   // or any module they don't have access to.
   useEffect(() => {
-    if (isSuperAdmin) {
+    // Check both isSuperAdmin flag AND user.role === 'super_admin' for robustness
+    const isActuallySuperAdmin = isSuperAdmin || user?.role === 'super_admin'
+    if (isActuallySuperAdmin) {
       // If super admin is on 'dashboard' (the default), switch to 'superadmin'
       if (activeModule === 'dashboard') {
         setActiveModule('superadmin')
@@ -101,7 +103,7 @@ export default function Home() {
         setActiveModule('superadmin')
       }
     }
-  }, [isSuperAdmin, activeModule, setActiveModule, hasAccess])
+  }, [isSuperAdmin, user, activeModule, setActiveModule, hasAccess])
 
   // Show loading skeleton while waiting for hydration from localStorage
   // This prevents the "losing user" flash where the login page appears briefly
