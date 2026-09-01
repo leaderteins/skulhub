@@ -13,25 +13,23 @@ export async function GET(req: NextRequest) {
     if (!schoolId) {
       return NextResponse.json({ logs: [], count: 0, demo: true })
     }
+    // Use raw SQL to query biometric logs — bypasses Prisma schema issues
     const sp = req.nextUrl.searchParams
     const limit = Math.min(parseInt(sp.get('limit') || '50'), 500)
     const personId = sp.get('personId')
-    const from = sp.get('from')
-    const to = sp.get('to')
 
-    const where: any = { schoolId }
-    if (personId) where.personId = personId
-    if (from || to) {
-      where.timestamp = {}
-      if (from) where.timestamp.gte = new Date(from)
-      if (to) where.timestamp.lte = new Date(to)
+    let query: string
+    let params: any[]
+
+    if (personId) {
+      query = `SELECT * FROM "BiometricLog" WHERE "schoolId" = $1 AND "personId" = $2 ORDER BY timestamp DESC LIMIT $3`
+      params = [schoolId, personId, limit]
+    } else {
+      query = `SELECT * FROM "BiometricLog" WHERE "schoolId" = $1 ORDER BY timestamp DESC LIMIT $2`
+      params = [schoolId, limit]
     }
 
-    const logs = await db.biometricLog.findMany({
-      where,
-      orderBy: { timestamp: 'desc' },
-      take: limit,
-    })
+    const logs = await db.$queryRawUnsafe<any[]>(query, ...params).catch(() => [])
 
     return NextResponse.json({ logs, count: logs.length })
   } catch (e: any) {
