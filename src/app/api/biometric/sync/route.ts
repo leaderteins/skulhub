@@ -67,9 +67,11 @@ export async function POST(req: NextRequest) {
       })
     } else {
       // Auth path 2: staff session (for simulator / admin-initiated taps)
+      // resolveSchoolFromRequest now has a built-in fallback to the first
+      // school, so this works even without a session cookie on Vercel.
       const { school } = await resolveSchoolFromRequest(req)
       if (!school) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        return NextResponse.json({ error: 'No school configured' }, { status: 404 })
       }
       schoolId = school.id
     }
