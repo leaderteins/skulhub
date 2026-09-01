@@ -41,6 +41,8 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   reports: { title: 'Reports & Analytics', subtitle: 'Performance insights & exports' },
   biometric: { title: 'Biometric Attendance', subtitle: 'Fingerprint & RFID taps from gates and buses' },
   bustracking: { title: 'Live Bus Tracking', subtitle: 'Real-time student boarding & alighting' },
+  notifications: { title: 'SMS & WhatsApp', subtitle: 'Automated parent notifications via Africa\'s Talking' },
+  examanalytics: { title: 'Exam Analytics', subtitle: 'KCSE performance insights & rankings' },
   superadmin: { title: 'Super Admin', subtitle: 'Platform-wide school management & analytics' },
   settings: { title: 'Settings', subtitle: 'System configuration' },
 }

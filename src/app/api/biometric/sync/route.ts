@@ -96,6 +96,45 @@ export async function POST(req: NextRequest) {
         timestamp: new Date().toISOString(),
       }
     }, { status: 201 })
+
+    // --- Auto-trigger SMS to parent (async, non-blocking) ---
+    // When a student taps at the gate or boards a bus, send an SMS to
+    // their parent/guardian automatically. This runs AFTER the response
+    // is sent so it doesn't slow down the tap recording.
+    ;(async () => {
+      try {
+        const student = await db.$queryRawUnsafe<any[]>(
+          `SELECT s."firstName", s."lastName", g.phone as "guardianPhone"
+           FROM "Student" s LEFT JOIN "Guardian" g ON g.id = s."guardianId"
+           WHERE s.id = $1 LIMIT 1`, body.personId
+        ).catch(() => [])
+
+        if (student.length === 0 || !student[0].guardianPhone) return
+
+        const stu = student[0]
+        const time = new Date().toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', hour12: true })
+        const actionLabels: Record<string, string> = {
+          check_in: 'checked in at school',
+          check_out: 'left school',
+          board_bus: 'boarded the bus',
+          alight_bus: 'alighted from the bus',
+        }
+        const label = actionLabels[body.action] || body.action
+        const message = `Dear Parent, ${stu.firstName} ${stu.lastName} has ${label} at ${time}. - SkulHub Academy`
+
+        await fetch(`${req.nextUrl.origin}/api/notifications/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: stu.guardianPhone,
+            message,
+            channel: 'sms',
+            studentId: body.personId,
+            eventType: body.action,
+          }),
+        }).catch(() => {}) // non-blocking
+      } catch {}
+    })()
   } catch (e: any) {
     if (String(e?.message || '').includes('does not exist')) {
       return NextResponse.json(

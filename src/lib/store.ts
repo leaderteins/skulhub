@@ -37,6 +37,8 @@ export type ModuleKey =
   | 'reports'
   | 'biometric'
   | 'bustracking'
+  | 'notifications'
+  | 'examanalytics'
   | 'settings'
   | 'superadmin'
 

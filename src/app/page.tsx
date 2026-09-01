@@ -48,6 +48,8 @@ import { InventoryRequestsModule } from '@/components/modules/inventory-requests
 import { ReportsModule } from '@/components/modules/reports'
 import { BiometricModule } from '@/components/modules/biometric'
 import { BusTrackingModule } from '@/components/modules/bus-tracking'
+import { NotificationsModule } from '@/components/modules/notifications'
+import { ExamAnalyticsModule } from '@/components/modules/exam-analytics'
 import { SettingsModule } from '@/components/modules/settings'
 import { SuperAdminModule } from '@/components/modules/superadmin'
 import { Card, CardContent } from '@/components/ui/card'
@@ -216,6 +218,8 @@ export default function Home() {
               {effectiveModule === 'reports' && <ReportsModule />}
               {effectiveModule === 'biometric' && <BiometricModule />}
               {effectiveModule === 'bustracking' && <BusTrackingModule />}
+              {effectiveModule === 'notifications' && <NotificationsModule />}
+              {effectiveModule === 'examanalytics' && <ExamAnalyticsModule />}
               {effectiveModule === 'superadmin' && <SuperAdminModule />}
               {effectiveModule === 'settings' && <SettingsModule />}
             </>
