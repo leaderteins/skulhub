@@ -1204,3 +1204,120 @@ model ActivityLog {
   details   String?
   createdAt DateTime @default(now())
 }
+
+// ---------------------------------------------------------------------------
+// BIOMETRIC ATTENDANCE SYSTEM
+// ---------------------------------------------------------------------------
+// Tracks biometric devices (ZKTeco K40, USB scanners, bus tablets), enrolled
+// fingerprint/face templates, and the live tap log. Designed to work with or
+// without real hardware — the UI includes a built-in simulator for demos.
+
+model BiometricDevice {
+  id          String   @id @default(cuid())
+  schoolId    String
+  name        String   // e.g. "Main Gate Scanner", "Bus 3 Tablet"
+  deviceType  String   @default("fingerprint") // "fingerprint" | "rfid" | "face" | "tablet"
+  location    String?  // e.g. "Main Gate", "Bus 3"
+  vehicleId   String?  // if deviceType is "tablet" — which bus it's mounted in
+  status      String   @default("active") // "active" | "inactive" | "offline"
+  lastSeen    DateTime?
+  secret      String   @default(cuid()) // shared secret for HMAC auth on /sync
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  logs        BiometricLog[]
+}
+
+model BiometricTemplate {
+  id           String   @id @default(cuid())
+  schoolId     String
+  personId     String   // Student.id or Staff.id
+  personType   String   @default("student") // "student" | "staff"
+  templateHash String   @unique // one-way hash of the biometric template (never store raw)
+  fingerIndex  Int      @default(0) // 0 = thumb, 1 = index, etc.
+  isActive     Boolean  @default(true)
+  enrolledAt   DateTime @default(now())
+  enrolledBy   String?  // UserAccount.id of the admin who enrolled
+  createdAt     DateTime @default(now())
+}
+
+model BiometricLog {
+  id           String   @id @default(cuid())
+  schoolId     String
+  deviceId     String?
+  device       BiometricDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  personId     String   // Student.id or Staff.id
+  personType   String   @default("student") // "student" | "staff" | "unknown"
+  action       String   // "check_in" | "check_out" | "board_bus" | "alight_bus"
+  location     String?  // human-readable location
+  gps          String?  // "lat,lng" if device has GPS
+  verified     Boolean  @default(true) // false if the template didn't match
+  timestamp    DateTime @default(now())
+
+  createdAt     DateTime @default(now())
+
+  @@index([schoolId, timestamp])
+  @@index([personId, timestamp])
+}
+
+// ---------------------------------------------------------------------------
+// BUS TRACKING SYSTEM
+// ---------------------------------------------------------------------------
+
+model BusTrip {
+  id           String   @id @default(cuid())
+  schoolId     String
+  routeId      String?
+  vehicleId    String?
+  driverId     String?
+  direction    String   @default("to_school") // "to_school" | "from_school"
+  status       String   @default("scheduled") // "scheduled" | "in_progress" | "completed" | "cancelled"
+  departureAt  DateTime?
+  arrivalAt    DateTime?
+  boardingCount Int    @default(0) // denormalized for fast dashboard queries
+  gpsTrail     String? // JSON array of {lat,lng,ts}
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  boardings    BusBoarding[]
+
+  @@index([schoolId, status])
+}
+
+model BusBoarding {
+  id           String   @id @default(cuid())
+  schoolId     String
+  tripId       String
+  trip         BusTrip  @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  studentId    String
+  action       String   // "board" | "alight"
+  stopName     String?  // named bus stop
+  gps          String?  // "lat,lng"
+  timestamp    DateTime @default(now())
+
+  createdAt     DateTime @default(now())
+
+  @@index([tripId, action])
+  @@index([studentId, timestamp])
+}
+
+// ---------------------------------------------------------------------------
+// WEBAUTHN (passwordless login) — stores credential public keys
+// ---------------------------------------------------------------------------
+// Allows staff to log in with Touch ID / Windows Hello / Android fingerprint
+// instead of typing a password. Uses the WebAuthn standard (W3C).
+
+model WebAuthnCredential {
+  id            String   @id @default(cuid())
+  userId        String   // UserAccount.id
+  credentialId  String   @unique // base64url — the credential's unique ID
+  publicKey     String   // base64url — COSE public key
+  counter       Int      @default(0) // replay-attack protection
+  deviceType    String?  // "single_device" | "multi_device"
+  transports    String?  // JSON array of transport hints
+  nickname      String?  // user-friendly name e.g. "MacBook Touch ID"
+  createdAt     DateTime @default(now())
+  lastUsedAt    DateTime?
+
+  @@index([userId])
+}

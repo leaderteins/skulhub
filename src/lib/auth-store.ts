@@ -61,7 +61,8 @@ const ALL_MODULES = [
   'health', 'events', 'discipline',
   'hostel', 'finance', 'communications', 'library', 'transport', 'inventory',
   'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom',
-  'payroll', 'appraisals', 'feedback', 'idcards', 'dataimport', 'invrequests', 'reports', 'settings',
+  'payroll', 'appraisals', 'feedback', 'idcards', 'dataimport', 'invrequests', 'reports',
+  'biometric', 'bustracking', 'settings',
 ]
 
 // Module VIEW access by role. super_admin sees everything (platform owner).
@@ -69,7 +70,7 @@ export const MODULE_ACCESS: Record<UserRole, string[]> = {
   super_admin: ['superadmin', 'settings'],
   admin: ALL_MODULES,
   principal: ALL_MODULES,
-  deputy_principal: ['dashboard', 'admissions', 'students', 'staff', 'staffapprovals', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'timetable', 'health', 'events', 'discipline', 'hostel', 'communications', 'library', 'transport', 'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom', 'payroll', 'appraisals', 'feedback', 'idcards', 'reports'],
+  deputy_principal: ['dashboard', 'admissions', 'students', 'staff', 'staffapprovals', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'timetable', 'health', 'events', 'discipline', 'hostel', 'communications', 'library', 'transport', 'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom', 'payroll', 'appraisals', 'feedback', 'idcards', 'reports', 'biometric', 'bustracking'],
   bursar: ['dashboard', 'students', 'finance', 'procurement', 'facilities', 'payroll', 'idcards', 'reports', 'settings'],
   teacher: ['dashboard', 'students', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'timetable', 'events', 'discipline', 'staffroom', 'appraisals', 'feedback', 'idcards', 'invrequests', 'settings'],
   librarian: ['dashboard', 'students', 'library', 'invrequests', 'feedback', 'settings'],
@@ -77,8 +78,8 @@ export const MODULE_ACCESS: Record<UserRole, string[]> = {
   matron: ['dashboard', 'students', 'hostel', 'health', 'discipline', 'feedback', 'settings'],
   secretary: ['dashboard', 'admissions', 'students', 'staff', 'academics', 'lessonplans', 'homework', 'timetable', 'communications', 'events', 'staffroom', 'appraisals', 'feedback', 'idcards', 'dataimport', 'settings'],
   admissions: ['dashboard', 'admissions', 'students', 'idcards', 'dataimport', 'settings'],
-  bus_driver: ['dashboard', 'students', 'transport', 'feedback', 'settings'],
-  gate_man: ['dashboard', 'students', 'visitors', 'transport', 'feedback', 'settings'],
+  bus_driver: ['dashboard', 'students', 'transport', 'bustracking', 'feedback', 'settings'],
+  gate_man: ['dashboard', 'students', 'visitors', 'transport', 'biometric', 'bustracking', 'feedback', 'settings'],
   cook: ['dashboard', 'students', 'cafeteria', 'invrequests', 'feedback', 'settings'],
 }
 

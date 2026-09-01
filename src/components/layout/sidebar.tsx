@@ -11,6 +11,7 @@ import {
   MessageSquare, IdCard,
   LogOut, Upload, PackagePlus,
   Shield, UserCheck, CalendarClock,
+  Fingerprint, Navigation,
 } from 'lucide-react'
 
 interface NavItem {
@@ -29,6 +30,7 @@ const NAV: NavItem[] = [
   { key: 'alumni', label: 'Alumni Network', icon: UsersRound, group: 'People' },
   { key: 'academics', label: 'Academics', icon: BookOpen, group: 'Academic' },
   { key: 'attendance', label: 'Attendance', icon: CalendarCheck, group: 'Academic' },
+  { key: 'biometric', label: 'Biometric', icon: Fingerprint, group: 'Academic' },
   { key: 'exams', label: 'Examinations', icon: ClipboardCheck, group: 'Academic' },
   { key: 'reportcards', label: 'Report Cards', icon: FileText, group: 'Academic' },
   { key: 'lessonplans', label: 'Lesson Plans', icon: NotebookPen, group: 'Academic' },
@@ -44,6 +46,7 @@ const NAV: NavItem[] = [
   { key: 'communications', label: 'Communications', icon: Megaphone, group: 'Administration' },
   { key: 'library', label: 'Library', icon: Library, group: 'Administration' },
   { key: 'transport', label: 'Transport', icon: Bus, group: 'Administration' },
+  { key: 'bustracking', label: 'Bus Tracking', icon: Navigation, group: 'Administration' },
   { key: 'inventory', label: 'Inventory & Assets', icon: Package, group: 'Administration' },
   { key: 'cafeteria', label: 'Cafeteria & Meals', icon: UtensilsCrossed, group: 'Administration' },
   { key: 'procurement', label: 'Procurement', icon: ShoppingCart, group: 'Administration' },

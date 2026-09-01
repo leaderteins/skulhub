@@ -35,6 +35,8 @@ export type ModuleKey =
   | 'dataimport'
   | 'invrequests'
   | 'reports'
+  | 'biometric'
+  | 'bustracking'
   | 'settings'
   | 'superadmin'
 

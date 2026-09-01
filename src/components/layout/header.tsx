@@ -39,6 +39,8 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   dataimport: { title: 'Data Import & Migration', subtitle: 'Bulk import existing school data' },
   invrequests: { title: 'Inventory Requests', subtitle: 'Staff request items from the store' },
   reports: { title: 'Reports & Analytics', subtitle: 'Performance insights & exports' },
+  biometric: { title: 'Biometric Attendance', subtitle: 'Fingerprint & RFID taps from gates and buses' },
+  bustracking: { title: 'Live Bus Tracking', subtitle: 'Real-time student boarding & alighting' },
   superadmin: { title: 'Super Admin', subtitle: 'Platform-wide school management & analytics' },
   settings: { title: 'Settings', subtitle: 'System configuration' },
 }

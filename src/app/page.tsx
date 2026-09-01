@@ -46,6 +46,8 @@ import { IdCardsModule } from '@/components/modules/idcards'
 import { DataImportModule } from '@/components/modules/dataimport'
 import { InventoryRequestsModule } from '@/components/modules/inventory-requests'
 import { ReportsModule } from '@/components/modules/reports'
+import { BiometricModule } from '@/components/modules/biometric'
+import { BusTrackingModule } from '@/components/modules/bus-tracking'
 import { SettingsModule } from '@/components/modules/settings'
 import { SuperAdminModule } from '@/components/modules/superadmin'
 import { Card, CardContent } from '@/components/ui/card'
@@ -212,6 +214,8 @@ export default function Home() {
               {effectiveModule === 'dataimport' && <DataImportModule />}
               {effectiveModule === 'invrequests' && <InventoryRequestsModule />}
               {effectiveModule === 'reports' && <ReportsModule />}
+              {effectiveModule === 'biometric' && <BiometricModule />}
+              {effectiveModule === 'bustracking' && <BusTrackingModule />}
               {effectiveModule === 'superadmin' && <SuperAdminModule />}
               {effectiveModule === 'settings' && <SettingsModule />}
             </>
