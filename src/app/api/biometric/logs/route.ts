@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     const schools = await db.$queryRawUnsafe<Array<{id: string}>>(
       `SELECT id FROM "School" WHERE "schoolCode" = 'SKH-2024-001' LIMIT 1`
     ).catch(() => [])
+    let schoolId: string
     if (schools.length === 0) {
       const anySchools = await db.$queryRawUnsafe<Array<{id: string}>>(
         `SELECT id FROM "School" LIMIT 1`
@@ -20,9 +21,9 @@ export async function GET(req: NextRequest) {
       if (anySchools.length === 0) {
         return NextResponse.json({ logs: [], count: 0, demo: true })
       }
-      var schoolId = anySchools[0].id
+      schoolId = anySchools[0].id
     } else {
-      var schoolId = schools[0].id
+      schoolId = schools[0].id
     }
 
     // Use raw SQL to query biometric logs
