@@ -30,7 +30,13 @@ try {
   oldSha = fs.readFileSync(path.join(PROJECT_DIR, '.git/refs/remotes/origin/main'), 'utf-8').trim()
   console.log(`Remote origin/main: ${oldSha}`)
 } catch {
-  console.log('Remote origin/main: (not found — assuming empty repo)')
+  // Fall back to git rev-parse if the ref file doesn't exist
+  try {
+    oldSha = execSync(`cd ${PROJECT_DIR} && git rev-parse origin/main`, { encoding: 'utf-8' }).trim()
+    console.log(`Remote origin/main (via rev-parse): ${oldSha}`)
+  } catch {
+    console.log('Remote origin/main: (not found — assuming empty repo)')
+  }
 }
 
 // Use git CLI to create the pack file we'd send
