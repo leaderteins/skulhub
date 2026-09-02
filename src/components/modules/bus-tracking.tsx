@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from 'sonner'
 import {
   Bus, MapPin, Clock, Users, Navigation, Play, Square, UserCheck,
-  Plus, Loader2, Route, Phone, CheckCircle2
+  Plus, Loader2, Route, Phone, CheckCircle2, Fingerprint
 } from 'lucide-react'
 
 interface Trip {
@@ -231,7 +231,15 @@ export function BusTrackingModule() {
         <StatCard label="Active Trips" value={activeTrips.length} icon={Navigation} accent="emerald" sub="buses currently running" />
         <StatCard label="Students On Buses" value={onBusesNow} icon={Users} accent="teal" sub="boarded, not alighted" />
         <StatCard label="Completed Today" value={completedToday} icon={CheckCircle2} accent="cyan" sub="trips finished" />
-        <StatCard label="Total Boardings" value={boardings.filter(b => b.action === 'board').length} icon={UserCheck} accent="amber" sub="for selected trip" />
+        <StatCard label="Total Boardings" value={boardings.filter(b => b.action === 'board').length} icon={UserCheck} accent="amber" sub="biometric + manual" />
+      </div>
+
+      {/* Info banner — explains biometric integration */}
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900 dark:bg-emerald-950/20">
+        <p className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400">
+          <Fingerprint className="h-3.5 w-3.5" />
+          <span><strong>Biometric integration:</strong> When a student taps "Board Bus" or "Alight Bus" at the biometric scanner, it automatically appears here in the boarding manifest. No manual entry needed.</span>
+        </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

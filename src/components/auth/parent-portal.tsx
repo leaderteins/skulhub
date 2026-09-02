@@ -308,40 +308,40 @@ export function ParentPortal() {
                 <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
                   <Avatar className="h-16 w-16 border-2 border-emerald-200">
                     <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-lg font-bold text-white">
-                      {initials(dashboard.student.firstName, dashboard.student.lastName)}
+                      {initials(dashboard.student?.firstName, dashboard.student?.lastName)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-xl font-bold text-foreground">
-                        {dashboard.student.name}
+                        {dashboard.student?.name || 'Student'}
                       </h2>
-                      <Badge variant="outline" className={statusColor(dashboard.student.status)}>
-                        {dashboard.student.status}
+                      <Badge variant="outline" className={statusColor(dashboard.student?.status || 'Active')}>
+                        {dashboard.student?.status || 'Active'}
                       </Badge>
                       <Badge
                         variant="outline"
                         className={
-                          dashboard.student.boarding
+                          dashboard.student?.boarding
                             ? 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400'
                             : 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400'
                         }
                       >
-                        {dashboard.student.boarding ? 'Boarding' : 'Day Scholar'}
+                        {dashboard.student?.boarding ? 'Boarding' : 'Day Scholar'}
                       </Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                       Admission No:{' '}
                       <span className="font-medium text-foreground">
-                        {dashboard.student.admissionNo}
+                        {dashboard.student?.admissionNo || '—'}
                       </span>
                       {' · '}Class:{' '}
                       <span className="font-medium text-foreground">
-                        {dashboard.student.classLevel}
+                        {dashboard.student?.classLevel || '—'}
                       </span>
                       {' · '}Stream:{' '}
                       <span className="font-medium text-foreground">
-                        {dashboard.student.stream}
+                        {dashboard.student?.stream || '—'}
                       </span>
                     </p>
                     {dashboard.guardian && (

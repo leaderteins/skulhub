@@ -82,6 +82,36 @@ export async function POST(req: NextRequest) {
       VALUES (${logId}, ${schoolId}, ${deviceId}, ${body.personId}, ${body.personType || 'student'}, ${body.action}, ${body.location || null}, ${body.gps || null}, ${body.verified ?? true}, NOW(), NOW())
     `
 
+    // --- Bus tracking integration ---
+    // When a student boards or alights a bus via biometric tap, also create
+    // a BusBoarding record linked to the active trip. This way the bus
+    // tracking dashboard shows real-time boardings from biometric taps.
+    if (body.action === 'board_bus' || body.action === 'alight_bus') {
+      try {
+        // Find the active trip for this school (most recent in_progress)
+        const activeTrips = await db.$queryRawUnsafe<Array<{id: string}>>(
+          `SELECT id FROM "BusTrip" WHERE "schoolId" = $1 AND status = 'in_progress' ORDER BY "departureAt" DESC LIMIT 1`,
+          schoolId
+        ).catch(() => [])
+
+        if (activeTrips.length > 0) {
+          const tripId = activeTrips[0].id
+          const boardingId = `board_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+          const boardingAction = body.action === 'board_bus' ? 'board' : 'alight'
+          await db.$executeRawUnsafe(`
+            INSERT INTO "BusBoarding" (id, "schoolId", "tripId", "studentId", action, "stopName", gps, timestamp, "createdAt")
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING
+          `, boardingId, schoolId, tripId, body.personId, boardingAction, body.location || null, body.gps || null).catch(() => {})
+
+          // Increment trip boarding count if this is a board action
+          if (boardingAction === 'board') {
+            await db.$executeRawUnsafe(`UPDATE "BusTrip" SET "boardingCount" = "boardingCount" + 1 WHERE id = $1`, tripId).catch(() => {})
+          }
+        }
+      } catch {}
+    }
+
     return NextResponse.json({
       log: {
         id: logId,
