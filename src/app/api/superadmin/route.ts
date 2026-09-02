@@ -43,10 +43,70 @@ export async function GET(req: NextRequest) {
   const tenantWhere = { slug: { not: 'platform' } }
 
   // Run all counts in parallel with safe wrappers
+  // Schools list — use raw SQL because Prisma's findMany with nested includes
+  // (_count, users relation) fails on Vercel's Prisma client
+  let schools: any[] = []
+  try {
+    schools = await db.$queryRawUnsafe<any[]>(`
+      SELECT s.id, s.name, s.slug, s.email, s.phone, s.address, s.county,
+             s.plan, s.status, s."trialEndsAt", s."maxStudents", s."createdAt",
+             (SELECT COUNT(*) FROM "UserAccount" u WHERE u."schoolId" = s.id) as "userCount",
+             (SELECT COUNT(*) FROM "Student" st WHERE st."schoolId" = s.id) as "studentCount",
+             (SELECT COUNT(*) FROM "Staff" sf WHERE sf."schoolId" = s.id) as "staffCount",
+             (SELECT COUNT(*) FROM "Invoice" i WHERE i."schoolId" = s.id) as "invoiceCount",
+             (SELECT COUNT(*) FROM "Payment" p WHERE p."schoolId" = s.id) as "paymentCount",
+             COALESCE((SELECT SUM(p.amount) FROM "Payment" p WHERE p."schoolId" = s.id), 0) as "revenue",
+             (SELECT MAX(u."lastLoginAt") FROM "UserAccount" u WHERE u."schoolId" = s.id) as "lastLoginAt"
+      FROM "School" s
+      WHERE s.slug != 'platform'
+      ORDER BY s."createdAt" DESC
+    `).catch(() => [])
+    // Convert BigInt counts to numbers
+    schools = schools.map(s => ({
+      ...s,
+      userCount: Number(s.userCount) || 0,
+      studentCount: Number(s.studentCount) || 0,
+      staffCount: Number(s.staffCount) || 0,
+      invoiceCount: Number(s.invoiceCount) || 0,
+      paymentCount: Number(s.paymentCount) || 0,
+      revenue: Number(s.revenue) || 0,
+      _count: {
+        users: Number(s.userCount) || 0,
+        students: Number(s.studentCount) || 0,
+        staff: Number(s.staffCount) || 0,
+        invoices: Number(s.invoiceCount) || 0,
+        payments: Number(s.paymentCount) || 0,
+      },
+      users: [],
+    }))
+  } catch {}
+
+  // Recent schools — also raw SQL
+  let recentSchools: any[] = []
+  try {
+    recentSchools = await db.$queryRawUnsafe<any[]>(`
+      SELECT s.id, s.name, s.slug, s.plan, s.status, s.county,
+             s."trialEndsAt", s."createdAt",
+             (SELECT COUNT(*) FROM "Student" st WHERE st."schoolId" = s.id) as "studentCount",
+             (SELECT COUNT(*) FROM "UserAccount" u WHERE u."schoolId" = s.id) as "userCount"
+      FROM "School" s
+      WHERE s.slug != 'platform'
+      ORDER BY s."createdAt" DESC
+      LIMIT 5
+    `).catch(() => [])
+    recentSchools = recentSchools.map(s => ({
+      ...s,
+      _count: {
+        students: Number(s.studentCount) || 0,
+        users: Number(s.userCount) || 0,
+      },
+    }))
+  } catch {}
+
+  // Simple counts — these use the safe() wrapper
   const [
     totalSchools, activeSchools, trialSchools, suspendedSchools, expiredSchools,
     totalUsers, totalStudents, totalStaff, totalInvoices, paymentsAgg,
-    schools, recentSchools,
   ] = await Promise.all([
     safe(db.school.count({ where: tenantWhere }), 0),
     safe(db.school.count({ where: { ...tenantWhere, status: 'Active' } }), 0),
@@ -58,20 +118,6 @@ export async function GET(req: NextRequest) {
     safe(db.staff.count({ where: { schoolId: { not: null }, school: { slug: { not: 'platform' } } } }), 0),
     safe(db.invoice.count({ where: { schoolId: { not: null }, school: { slug: { not: 'platform' } } } }), 0),
     safe(db.payment.aggregate({ where: { school: { slug: { not: 'platform' } } }, _sum: { amount: true }, _count: true }), { _sum: { amount: 0 }, _count: 0 }),
-    safe(db.school.findMany({
-      where: tenantWhere,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        users: { select: { id: true, name: true, email: true, role: true, status: true, lastLoginAt: true }, orderBy: { lastLoginAt: 'desc' } },
-        _count: { select: { students: true, staff: true, invoices: true, payments: true, users: true } },
-      },
-    }), []),
-    safe(db.school.findMany({
-      where: tenantWhere,
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: { id: true, name: true, slug: true, plan: true, status: true, county: true, createdAt: true, trialEndsAt: true, _count: { select: { students: true, users: true } } },
-    }), []),
   ])
 
   const revenueBySchoolRaw = await safe(
