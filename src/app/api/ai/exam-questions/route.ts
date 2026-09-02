@@ -64,8 +64,8 @@ After all questions, provide a MARKING SCHEME summary at the end.
 
 Make the questions appropriate for the ${level} level in Kenya. Use clear, unambiguous language. Ensure the difficulty matches ${level} standards.`
 
-    const ZAI = (await import('z-ai-web-dev-sdk')).default
-    const zai = await ZAI.create()
+    const { getZAI } = await import('@/lib/zai');
+    const zai = await getZAI()
 
     const completion = await zai.chat.completions.create({
       messages: [

@@ -98,8 +98,8 @@ Format:
 TEACHER: [comment]
 PRINCIPAL: [comment]`
 
-    const ZAI = (await import('z-ai-web-dev-sdk')).default
-    const zai = await ZAI.create()
+    const { getZAI } = await import('@/lib/zai');
+    const zai = await getZAI()
 
     const completion = await zai.chat.completions.create({
       messages: [
