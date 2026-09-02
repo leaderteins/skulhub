@@ -69,7 +69,7 @@ Make the questions appropriate for the ${level} level in Kenya. Use clear, unamb
 
     const completion = await zai.chat.completions.create({
       messages: [
-        { role: 'assistant', content: 'You are an expert Kenyan education examiner who creates high-quality exam questions.' },
+        { role: 'system', content: 'You are an expert Kenyan education examiner who creates high-quality exam questions.' },
         { role: 'user', content: prompt },
       ],
       thinking: { type: 'disabled' },

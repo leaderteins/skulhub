@@ -103,7 +103,7 @@ PRINCIPAL: [comment]`
 
     const completion = await zai.chat.completions.create({
       messages: [
-        { role: 'assistant', content: 'You are an experienced Kenyan school teacher and principal who writes thoughtful, personalized report card comments.' },
+        { role: 'system', content: 'You are an experienced Kenyan school teacher and principal who writes thoughtful, personalized report card comments.' },
         { role: 'user', content: prompt },
       ],
       thinking: { type: 'disabled' },

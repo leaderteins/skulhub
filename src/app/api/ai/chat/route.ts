@@ -120,7 +120,7 @@ is specifically requested.`
 
     // Build conversation messages
     const messages: any[] = [
-      { role: 'assistant', content: contextPrompt },
+      { role: 'system', content: contextPrompt },
       ...(body.history || []),
       { role: 'user', content: body.message },
     ]
