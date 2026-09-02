@@ -13,6 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import {
   School,
   ArrowLeft,
@@ -32,6 +33,7 @@ import {
   GraduationCap,
   FileText,
   Send,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth-store'
@@ -163,6 +165,9 @@ export function ParentPortal() {
   const [loading, setLoading] = useState(false)
   const [studentId, setStudentId] = useState<string | null>(null)
   const [schoolName, setSchoolName] = useState<string>('')
+  const [paying, setPaying] = useState<string | null>(null)
+  const [payDialog, setPayDialog] = useState<{ invoiceId: string; amount: number } | null>(null)
+  const [payPhone, setPayPhone] = useState('')
 
   const {
     data: dashboard,
@@ -236,6 +241,51 @@ export function ParentPortal() {
     setAdmissionNo('')
     setPhone('')
     setSchoolName('')
+  }
+
+  // --- M-Pesa payment handler ---
+  const handlePayInvoice = (invoiceId: string) => {
+    const inv = dashboard?.fees?.invoices?.find(i => i.id === invoiceId)
+    if (!inv) return
+    setPayDialog({ invoiceId, amount: inv.balance })
+    setPayPhone(dashboard?.guardian?.phone || phone || '')
+  }
+
+  const confirmPayment = async () => {
+    if (!payDialog || !studentId) return
+    if (!payPhone.trim()) { toast.error('Phone number is required'); return }
+    setPaying(payDialog.invoiceId)
+    try {
+      const res = await fetch('/api/mpesa/parent-pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId,
+          invoiceId: payDialog.invoiceId,
+          phone: payPhone.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+
+      if (data.demo) {
+        toast.success('Payment logged (demo mode)', {
+          description: data.message,
+          duration: 6000,
+        })
+      } else {
+        toast.success('STK Push sent!', {
+          description: `Check your phone (${data.phone}) and enter your M-Pesa PIN to pay KES ${data.amount?.toLocaleString()}.`,
+          duration: 10000,
+        })
+      }
+      setPayDialog(null)
+      setTimeout(() => refetch(), 3000) // refresh after 3s
+    } catch (e: any) {
+      toast.error('Payment failed', { description: e.message })
+    } finally {
+      setPaying(null)
+    }
   }
 
   // --- Dashboard view ---------------------------------------------------
@@ -393,6 +443,7 @@ export function ParentPortal() {
                               <th className="py-2 text-right font-medium">Amount</th>
                               <th className="py-2 text-right font-medium">Balance</th>
                               <th className="py-2 text-left font-medium">Status</th>
+                              <th className="py-2 text-right font-medium">Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -410,6 +461,22 @@ export function ParentPortal() {
                                   >
                                     {inv.status}
                                   </span>
+                                </td>
+                                <td className="py-2 text-right">
+                                  {inv.balance > 0 && inv.status !== 'Paid' && inv.status !== 'Cancelled' && (
+                                    <Button
+                                      size="sm"
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-xs h-7"
+                                      onClick={() => handlePayInvoice(inv.id)}
+                                      disabled={paying === inv.id}
+                                    >
+                                      {paying === inv.id ? (
+                                        <><Loader2 className="mr-1 h-3 w-3 animate-spin" /> Sending...</>
+                                      ) : (
+                                        <><Wallet className="mr-1 h-3 w-3" /> Pay M-Pesa</>
+                                      )}
+                                    </Button>
+                                  )}
                                 </td>
                               </tr>
                             ))}
@@ -646,6 +713,50 @@ export function ParentPortal() {
             </div>
           )}
         </main>
+
+        {/* M-Pesa Payment Dialog */}
+        <Dialog open={!!payDialog} onOpenChange={() => setPayDialog(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-emerald-600" /> Pay via M-Pesa
+              </DialogTitle>
+              <DialogDescription>
+                Amount: <strong>KES {payDialog?.amount.toLocaleString()}</strong>
+                <br />
+                An STK Push will be sent to your phone. Enter your M-Pesa PIN to complete.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="pay-phone">M-Pesa Phone Number</Label>
+                <Input
+                  id="pay-phone"
+                  value={payPhone}
+                  onChange={(e) => setPayPhone(e.target.value)}
+                  placeholder="0712345678 or +254712345678"
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Use the phone number registered with M-Pesa
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPayDialog(null)}>Cancel</Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700"
+                onClick={confirmPayment}
+                disabled={!!paying}
+              >
+                {paying ? (
+                  <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Sending...</>
+                ) : (
+                  <><Wallet className="mr-1.5 h-4 w-4" /> Send STK Push</>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }

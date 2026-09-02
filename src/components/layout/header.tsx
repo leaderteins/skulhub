@@ -43,6 +43,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   bustracking: { title: 'Live Bus Tracking', subtitle: 'Real-time student boarding & alighting' },
   notifications: { title: 'SMS & WhatsApp', subtitle: 'Automated parent notifications via Africa\'s Talking' },
   examanalytics: { title: 'Exam Analytics', subtitle: 'KCSE performance insights & rankings' },
+  aiassistant: { title: 'AI Assistant', subtitle: 'AI-powered tools for parents, teachers & admins' },
   superadmin: { title: 'Super Admin', subtitle: 'Platform-wide school management & analytics' },
   settings: { title: 'Settings', subtitle: 'System configuration' },
 }

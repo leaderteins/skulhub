@@ -12,6 +12,7 @@ import {
   LogOut, Upload, PackagePlus,
   Shield, UserCheck, CalendarClock,
   Fingerprint, Navigation,
+  Sparkles,
 } from 'lucide-react'
 
 interface NavItem {
@@ -54,6 +55,7 @@ const NAV: NavItem[] = [
   { key: 'procurement', label: 'Procurement', icon: ShoppingCart, group: 'Administration' },
   { key: 'facilities', label: 'Facility Booking', icon: Building2, group: 'Administration' },
   { key: 'feedback', label: 'Feedback & Surveys', icon: MessageSquare, group: 'Insights' },
+  { key: 'aiassistant', label: 'AI Assistant', icon: Sparkles, group: 'Insights' },
   { key: 'idcards', label: 'ID Cards', icon: IdCard, group: 'Insights' },
   { key: 'dataimport', label: 'Data Import', icon: Upload, group: 'Insights' },
   { key: 'invrequests', label: 'Inventory Requests', icon: PackagePlus, group: 'Administration' },

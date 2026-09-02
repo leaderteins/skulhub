@@ -39,6 +39,7 @@ export type ModuleKey =
   | 'bustracking'
   | 'notifications'
   | 'examanalytics'
+  | 'aiassistant'
   | 'settings'
   | 'superadmin'
 
