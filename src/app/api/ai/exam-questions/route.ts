@@ -64,8 +64,16 @@ After all questions, provide a MARKING SCHEME summary at the end.
 
 Make the questions appropriate for the ${level} level in Kenya. Use clear, unambiguous language. Ensure the difficulty matches ${level} standards.`
 
-    const { getZAI } = await import('@/lib/zai');
+    const { getZAI } = await import('@/lib/zai')
     const zai = await getZAI()
+
+    // If AI isn't available, return a helpful message
+    if (!zai) {
+      return NextResponse.json({
+        questions: `AI Question Generator is running in limited mode on this deployment.\n\nTo generate ${count} ${level} ${body.subject} questions on "${body.topic}", please:\n1. Set up the Z.AI API key in Vercel environment variables, OR\n2. Run the system locally where the AI SDK is fully configured.\n\nIn the meantime, here are some sample ${body.subject} question topics for ${body.topic}:\n\n1. Define key terms related to ${body.topic}\n2. Explain the main concepts of ${body.topic}\n3. Solve problems involving ${body.topic}\n4. Apply ${body.topic} to real-world scenarios\n5. Analyze the relationship between ${body.topic} and other topics\n\n(Contact your administrator to enable full AI features.)`,
+        fallback: true,
+      })
+    }
 
     const completion = await zai.chat.completions.create({
       messages: [

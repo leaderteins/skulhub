@@ -126,15 +126,24 @@ is specifically requested.`
     ]
 
     // Call the LLM
-    const { getZAI } = await import('@/lib/zai');
+    const { getZAI, getFallbackResponse } = await import('@/lib/zai')
     const zai = await getZAI()
+
+    // If AI isn't available (e.g. on Vercel without API key), return fallback
+    if (!zai) {
+      return NextResponse.json({
+        response: getFallbackResponse(body.message, contextPrompt),
+        fallback: true,
+        timestamp: new Date().toISOString(),
+      })
+    }
 
     const completion = await zai.chat.completions.create({
       messages,
       thinking: { type: 'disabled' },
     })
 
-    const response = completion.choices[0]?.message?.content || 'I apologize, I could not process your request.'
+    const response = completion.choices[0]?.message?.content || getFallbackResponse(body.message)
 
     return NextResponse.json({
       response,

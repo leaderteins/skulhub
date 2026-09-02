@@ -101,6 +101,19 @@ PRINCIPAL: [comment]`
     const { getZAI } = await import('@/lib/zai');
     const zai = await getZAI()
 
+    // If AI isn't available, return template-based comments
+    if (!zai) {
+      const teacherComment = generateTemplateTeacherComment(student.firstName, meanScore, attRate, grades)
+      const principalComment = generateTemplatePrincipalComment(meanScore)
+      return NextResponse.json({
+        teacherComment,
+        principalComment,
+        summary: { meanScore: Math.round(meanScore * 100) / 100, attendanceRate: attRate, totalSubjects: grades.length },
+        fallback: true,
+        generatedAt: new Date().toISOString(),
+      })
+    }
+
     const completion = await zai.chat.completions.create({
       messages: [
         { role: 'system', content: 'You are an experienced Kenyan school teacher and principal who writes thoughtful, personalized report card comments.' },
@@ -136,4 +149,39 @@ PRINCIPAL: [comment]`
       { status: 500 }
     )
   }
+}
+
+// Template-based comment generators (used when AI isn't available)
+function generateTemplateTeacherComment(
+  firstName: string,
+  meanScore: number,
+  attendanceRate: number,
+  grades: any[]
+): string {
+  let comment = `${firstName} has `
+  if (meanScore >= 80) {
+    comment += `demonstrated excellent academic performance this term with a mean score of ${meanScore.toFixed(1)}%. `
+    const topSubject = grades.sort((a, b) => (b.marks || 0) - (a.marks || 0))[0]
+    if (topSubject) comment += `Particularly strong in ${topSubject.subject_name}. Keep up the outstanding work!`
+  } else if (meanScore >= 65) {
+    comment += `shown very good progress with a mean score of ${meanScore.toFixed(1)}%. `
+    comment += `With a little more effort, ${firstName} can achieve excellence.`
+  } else if (meanScore >= 50) {
+    comment += `performed satisfactorily with a mean score of ${meanScore.toFixed(1)}%. `
+    comment += `There is room for improvement — focus on weak areas.`
+  } else {
+    comment += `struggled this term with a mean score of ${meanScore.toFixed(1)}%. `
+    comment += `Remedial classes and more dedicated study time are recommended.`
+  }
+  if (attendanceRate < 80) {
+    comment += ` Note: Attendance rate of ${attendanceRate}% is below the required 80%.`
+  }
+  return comment
+}
+
+function generateTemplatePrincipalComment(meanScore: number): string {
+  if (meanScore >= 80) return 'A model student. We are proud of your achievements. Continue striving for excellence.'
+  if (meanScore >= 65) return 'Good work this term. Aim higher next term.'
+  if (meanScore >= 50) return 'Satisfactory progress. Work harder to reach your full potential.'
+  return 'Needs urgent academic intervention. Parents to see the principal.'
 }
