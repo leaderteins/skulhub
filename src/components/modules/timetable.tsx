@@ -65,7 +65,7 @@ function getSubjectColor(subjectName: string): string {
 }
 
 export function TimetableModule() {
-  const [selectedStream, setSelectedStream] = useState<string>('')
+  const [selectedStream, setSelectedStream] = useState<string>('all')
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [addDay, setAddDay] = useState<string>('')
   const [addStart, setAddStart] = useState<string>('')
@@ -77,7 +77,7 @@ export function TimetableModule() {
   const { data: streamData } = useFetch<{ streams: any[] }>('/api/academics/streams')
   const streams = streamData?.streams || data?.streams || []
 
-  const entries = (data?.entries || []).filter(e => !selectedStream || e.streamId === selectedStream)
+  const entries = (data?.entries || []).filter(e => selectedStream === 'all' || e.streamId === selectedStream)
 
   const handleAdd = async (entryData: any) => {
     try {
@@ -130,7 +130,7 @@ export function TimetableModule() {
           <Select value={selectedStream} onValueChange={setSelectedStream}>
             <SelectTrigger className="w-[200px]"><SelectValue placeholder="All classes" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Classes</SelectItem>
+              <SelectItem value="all">All Classes</SelectItem>
               {streams.map((s: any) => (
                 <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
               ))}
@@ -244,13 +244,13 @@ function AddLessonDialog({ open, onOpenChange, streams, subjects, teachers, defa
   defaultStart: string
   onAdd: (data: any) => void
 }) {
-  const [streamId, setStreamId] = useState('')
-  const [subjectId, setSubjectId] = useState('')
-  const [teacherId, setTeacherId] = useState('')
-  const [day, setDay] = useState(defaultDay || 'Monday')
-  const [startTime, setStartTime] = useState(defaultStart || '07:30')
-  const [endTime, setEndTime] = useState('08:10')
-  const [room, setRoom] = useState('')
+  const [streamId, setStreamId] = useState<string>('')
+  const [subjectId, setSubjectId] = useState<string>('')
+  const [teacherId, setTeacherId] = useState<string>('')
+  const [day, setDay] = useState<string>(defaultDay || 'Monday')
+  const [startTime, setStartTime] = useState<string>(defaultStart || '07:30')
+  const [endTime, setEndTime] = useState<string>('08:10')
+  const [room, setRoom] = useState<string>('')
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async () => {
