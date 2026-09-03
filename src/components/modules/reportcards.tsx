@@ -121,7 +121,7 @@ export function ReportCardsModule() {
         <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="mb-1 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
-              <Trophy className="h-3 w-3" /> {data.exam.name} · {data.exam.term}, {data.exam.academicYear}
+              <Trophy className="h-3 w-3" /> {data?.exam?.name || ''} · {data?.exam?.term || ''}, {data?.exam?.academicYear || ''}
             </div>
             <h2 className="text-2xl font-bold tracking-tight">Report Cards & Merit List</h2>
             <p className="mt-1 max-w-xl text-sm text-white/80">
@@ -462,8 +462,8 @@ function ReportCardDialog({ studentId, examId, onClose }: { studentId: string; e
                 </div>
                 <div className="hidden text-right sm:block">
                   <p className="text-[10px] uppercase tracking-wider text-white/60">Term Report Card</p>
-                  <p className="text-lg font-bold">{data.exam.term}, {data.exam.academicYear}</p>
-                  <p className="text-xs text-white/80">{data.exam.name}</p>
+                  <p className="text-lg font-bold">{data?.exam?.term || ''}, {data?.exam?.academicYear || ''}</p>
+                  <p className="text-xs text-white/80">{data?.exam?.name || ''}</p>
                 </div>
               </div>
             </div>
@@ -475,12 +475,12 @@ function ReportCardDialog({ studentId, examId, onClose }: { studentId: string; e
                   <CardContent className="p-4">
                     <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Student Details</p>
                     <div className="space-y-1 text-sm">
-                      <div className="flex justify-between"><span className="text-muted-foreground">Name:</span><span className="font-medium">{data.student.firstName} {data.student.lastName}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Admission No:</span><span className="font-medium">{data.student.admissionNo}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Class:</span><span className="font-medium">{data.student.classLevel?.name}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Stream:</span><span className="font-medium">{data.student.currentStream?.name}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Gender:</span><span className="font-medium">{data.student.gender}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Type:</span><span className="font-medium">{data.student.boarding ? 'Boarding' : 'Day Scholar'}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Name:</span><span className="font-medium">{data?.student?.firstName || ''} {data?.student?.lastName || ''}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Admission No:</span><span className="font-medium">{data?.student?.admissionNo || ''}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Class:</span><span className="font-medium">{data?.student?.classLevel?.name || ''}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Stream:</span><span className="font-medium">{data?.student?.currentStream?.name || ''}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Gender:</span><span className="font-medium">{data?.student?.gender || ''}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Type:</span><span className="font-medium">{data?.student?.boarding || false ? 'Boarding' : 'Day Scholar'}</span></div>
                     </div>
                   </CardContent>
                 </Card>
@@ -488,10 +488,10 @@ function ReportCardDialog({ studentId, examId, onClose }: { studentId: string; e
                   <CardContent className="p-4">
                     <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-400">Guardian & Contact</p>
                     <div className="space-y-1 text-sm">
-                      <div className="flex items-center justify-between"><span className="text-muted-foreground">Guardian:</span><span className="font-medium">{data.student.guardian?.firstName} {data.student.guardian?.lastName}</span></div>
-                      <div className="flex items-center justify-between"><span className="text-muted-foreground">Phone:</span><span className="font-medium">{data.student.guardian?.phone}</span></div>
-                      <div className="flex items-center justify-between"><span className="text-muted-foreground">County:</span><span className="font-medium">{data.student.county}</span></div>
-                      <div className="flex items-center justify-between"><span className="text-muted-foreground">Nationality:</span><span className="font-medium">{data.student.nationality}</span></div>
+                      <div className="flex items-center justify-between"><span className="text-muted-foreground">Guardian:</span><span className="font-medium">{data?.student?.guardian?.firstName || ''} {data?.student?.guardian?.lastName || ''}</span></div>
+                      <div className="flex items-center justify-between"><span className="text-muted-foreground">Phone:</span><span className="font-medium">{data?.student?.guardian?.phone || ''}</span></div>
+                      <div className="flex items-center justify-between"><span className="text-muted-foreground">County:</span><span className="font-medium">{data?.student?.county || ''}</span></div>
+                      <div className="flex items-center justify-between"><span className="text-muted-foreground">Nationality:</span><span className="font-medium">{data?.student?.nationality || ''}</span></div>
                     </div>
                   </CardContent>
                 </Card>
@@ -515,7 +515,7 @@ function ReportCardDialog({ studentId, examId, onClose }: { studentId: string; e
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {data.grades.map((g: any, i: number) => (
+                      {(data?.grades || []).map((g: any, i: number) => (
                         <TableRow key={i}>
                           <TableCell className="text-xs font-medium">{g.subjectName} <span className="text-muted-foreground">({g.subjectCode})</span></TableCell>
                           <TableCell className="text-xs text-muted-foreground">{g.category}</TableCell>
@@ -534,19 +534,19 @@ function ReportCardDialog({ studentId, examId, onClose }: { studentId: string; e
               <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border bg-muted/30 p-3 text-center">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Marks</p>
-                  <p className="text-xl font-bold tabular-nums">{data.summary.totalMarks}</p>
+                  <p className="text-xl font-bold tabular-nums">{data?.summary?.totalMarks || 0}</p>
                 </div>
                 <div className="rounded-xl border bg-muted/30 p-3 text-center">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total Points</p>
-                  <p className="text-xl font-bold tabular-nums">{data.summary.totalPoints}</p>
+                  <p className="text-xl font-bold tabular-nums">{data?.summary?.totalPoints || 0}</p>
                 </div>
                 <div className="rounded-xl border bg-muted/30 p-3 text-center">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Average</p>
-                  <p className="text-xl font-bold tabular-nums">{data.summary.avgMarks}%</p>
+                  <p className="text-xl font-bold tabular-nums">{data?.summary?.avgMarks || 0}%</p>
                 </div>
                 <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50/60 p-3 text-center dark:bg-emerald-950/30">
                   <p className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Mean Grade</p>
-                  <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{data.summary.meanGrade}</p>
+                  <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{data?.summary?.meanGrade || '—'}</p>
                 </div>
               </div>
 
@@ -560,8 +560,8 @@ function ReportCardDialog({ studentId, examId, onClose }: { studentId: string; e
                         <Trophy className="h-6 w-6" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold">{data.summary.streamRank ? `#${data.summary.streamRank}` : '-'}</p>
-                        <p className="text-xs text-muted-foreground">out of {data.summary.streamSize} students</p>
+                        <p className="text-2xl font-bold">{data?.summary?.streamRank ? `#${data?.summary?.streamRank}` : '-'}</p>
+                        <p className="text-xs text-muted-foreground">out of {data?.summary?.streamSize} students</p>
                       </div>
                     </div>
                   </CardContent>
