@@ -62,12 +62,12 @@ const ALL_MODULES = [
   'hostel', 'finance', 'communications', 'library', 'transport', 'inventory',
   'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom',
   'payroll', 'appraisals', 'feedback', 'idcards', 'dataimport', 'invrequests', 'reports',
-  'biometric', 'bustracking', 'notifications', 'examanalytics', 'aiassistant', 'documents', 'analytics', 'feereminders', 'subscriptions', 'settings',
+  'biometric', 'bustracking', 'notifications', 'examanalytics', 'aiassistant', 'documents', 'analytics', 'feereminders', 'settings',
 ]
 
 // Module VIEW access by role. super_admin sees everything (platform owner).
 export const MODULE_ACCESS: Record<UserRole, string[]> = {
-  super_admin: ['superadmin', 'settings'],
+  super_admin: ['superadmin', 'settings', 'subscriptions'],
   admin: ALL_MODULES,
   principal: ALL_MODULES,
   deputy_principal: ['dashboard', 'admissions', 'students', 'staff', 'staffapprovals', 'academics', 'attendance', 'exams', 'reportcards', 'lessonplans', 'homework', 'timetable', 'health', 'events', 'discipline', 'hostel', 'communications', 'library', 'transport', 'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom', 'payroll', 'appraisals', 'feedback', 'idcards', 'reports', 'biometric', 'bustracking'],

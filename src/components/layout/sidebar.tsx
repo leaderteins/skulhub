@@ -61,7 +61,6 @@ const NAV: NavItem[] = [
   { key: 'invrequests', label: 'Inventory Requests', icon: PackagePlus, group: 'Administration' },
   { key: 'reports', label: 'Reports', icon: BarChart3, group: 'Insights' },
   { key: 'feereminders', label: 'Fee Reminders', icon: Bell, group: 'Administration' },
-  { key: 'subscriptions', label: 'Subscriptions', icon: CreditCard, group: 'Administration' },
   { key: 'documents', label: 'Documents', icon: FileText, group: 'Insights' },
   { key: 'analytics', label: 'Analytics', icon: TrendingUp, group: 'Insights' },
   // Super Admin module is intentionally NOT in the sidebar nav — it's only
