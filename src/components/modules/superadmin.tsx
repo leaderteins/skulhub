@@ -1,5 +1,6 @@
 'use client'
 import { SuperAdminEnhanced } from './superadmin-enhanced'
+import { SuperAdminExtras } from './superadmin-extras'
 import { useState, useMemo } from 'react'
 import { useFetch, apiPut, apiDelete } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -1033,6 +1034,9 @@ export function SuperAdminModule() {
       {/* Platform Insights — trials, analytics, activity feed */}
       <div className="mt-8 border-t pt-6">
         <SuperAdminEnhanced />
+        <div className="mt-8">
+          <SuperAdminExtras />
+        </div>
       </div>
     </div>
   )

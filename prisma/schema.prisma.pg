@@ -500,6 +500,30 @@ model Notification {
   sentAt    DateTime?
 }
 
+// In-app notification center entries (real-time, push-style notifications
+// shown in the bell dropdown + Notifications module).
+// Named `AppNotification` to avoid colliding with the legacy SMS/Email log
+// `Notification` model used by the Communications module.
+model AppNotification {
+  id          String   @id @default(cuid())
+  schoolId    String?
+  userId      String?  // target user; null = broadcast to whole school
+  role        String?  // target role; null = all roles in the school
+  type        String   // fee | attendance | exam | discipline | system | message
+  priority    String   @default("normal") // low | normal | high | urgent
+  title       String
+  message     String
+  metadata    String?  // JSON string (Prisma SQLite has no native JSON type)
+  readAt      DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([schoolId, userId])
+  @@index([schoolId, role])
+  @@index([createdAt])
+  @@index([readAt])
+}
+
 // ---------------------------------------------------------------------------
 // Library
 // ---------------------------------------------------------------------------

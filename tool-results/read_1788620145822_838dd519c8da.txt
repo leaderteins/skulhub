@@ -1,0 +1,924 @@
+     1→'use client'
+     2→import { useCallback, useEffect, useMemo, useState } from 'react'
+     3→import { useFetch } from '@/lib/api'
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     5→import { Badge } from '@/components/ui/badge'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Skeleton } from '@/components/ui/skeleton'
+     8→import { Input } from '@/components/ui/input'
+     9→import {
+    10→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    11→} from '@/components/ui/table'
+    12→import {
+    13→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    14→} from '@/components/ui/select'
+    15→import {
+    16→  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    17→  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+    18→} from '@/components/ui/alert-dialog'
+    19→import {
+    20→  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+    21→} from '@/components/ui/dropdown-menu'
+    22→import {
+    23→  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+    24→  XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, Legend,
+    25→} from 'recharts'
+    26→import {
+    27→  Bell, Inbox, AlertTriangle, CalendarClock, CheckCheck, Trash2,
+    28→  Search, Filter, MoreHorizontal, Check, Archive, Sparkles, Activity,
+    29→  Wallet, ClipboardList, FileEdit, ShieldAlert, Server, MessageCircle,
+    30→  ChevronUp, ChevronDown, Radio, Wifi, WifiOff, RefreshCw,
+    31→} from 'lucide-react'
+    32→import { timeAgo, cn } from '@/lib/format'
+    33→import { toast } from 'sonner'
+    34→
+    35→// ---------------------------------------------------------------------------
+    36→// Types
+    37→// ---------------------------------------------------------------------------
+    38→interface AppNotificationDTO {
+    39→  id: string
+    40→  schoolId: string | null
+    41→  userId: string | null
+    42→  role: string | null
+    43→  type: string         // fee | attendance | exam | discipline | system | message
+    44→  priority: string     // low | normal | high | urgent
+    45→  title: string
+    46→  message: string
+    47→  metadata: Record<string, unknown> | null
+    48→  readAt: string | null
+    49→  archivedAt: string | null
+    50→  createdAt: string
+    51→}
+    52→
+    53→interface NotificationsResponse {
+    54→  notifications: AppNotificationDTO[]
+    55→  stats: {
+    56→    total: number
+    57→    unread: number
+    58→    actionRequired: number
+    59→    today: number
+    60→    byType: Record<string, number>
+    61→  }
+    62→  byDay: Array<{ label: string; count: number }>
+    63→  viewer: { userId: string | null; role: string | null; schoolId: string | null }
+    64→}
+    65→
+    66→// ---------------------------------------------------------------------------
+    67→// Palette — same emerald/teal/amber/rose/slate as SuperAdminModule
+    68→// ---------------------------------------------------------------------------
+    69→const TYPE_META: Record<string, {
+    70→  label: string
+    71→  icon: React.ComponentType<{ className?: string }>
+    72→  color: string       // hex (for recharts)
+    73→  chip: string        // tailwind classes
+    74→}> = {
+    75→  fee: { label: 'Fees', icon: Wallet, color: '#059669', chip: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/20' },
+    76→  attendance: { label: 'Attendance', icon: ClipboardList, color: '#14b8a6', chip: 'bg-teal-500/10 text-teal-700 dark:text-teal-300 ring-teal-500/20' },
+    77→  exam: { label: 'Exams', icon: FileEdit, color: '#06b6d4', chip: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 ring-cyan-500/20' },
+    78→  discipline: { label: 'Discipline', icon: ShieldAlert, color: '#f43f5e', chip: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-rose-500/20' },
+    79→  system: { label: 'System', icon: Server, color: '#64748b', chip: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 ring-slate-500/20' },
+    80→  message: { label: 'Messages', icon: MessageCircle, color: '#f59e0b', chip: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-500/20' },
+    81→}
+    82→
+    83→const PRIORITY_META: Record<string, { label: string; dot: string; chip: string }> = {
+    84→  low: { label: 'Low', dot: 'bg-slate-400', chip: 'bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300 ring-slate-200 dark:ring-slate-700' },
+    85→  normal: { label: 'Normal', dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 ring-emerald-200 dark:ring-emerald-900' },
+    86→  high: { label: 'High', dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 ring-amber-200 dark:ring-amber-900' },
+    87→  urgent: { label: 'Urgent', dot: 'bg-rose-500', chip: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 ring-rose-200 dark:ring-rose-900' },
+    88→}
+    89→
+    90→// ---------------------------------------------------------------------------
+    91→// Small visual helpers (mirrors the SuperAdminModule aesthetic)
+    92→// ---------------------------------------------------------------------------
+    93→function Sparkline({ data, color }: { data: number[]; color: string }) {
+    94→  if (!data.length) return <div className="h-10 w-full" />
+    95→  const chartData = data.map((v, i) => ({ i, v }))
+    96→  const id = `notif-spark-${color.replace('#', '')}-${Math.random().toString(36).slice(2, 8)}`
+    97→  return (
+    98→    <div className="h-10 w-full">
+    99→      <ResponsiveContainer width="100%" height="100%">
+   100→        <AreaChart data={chartData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+   101→          <defs>
+   102→            <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+   103→              <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+   104→              <stop offset="100%" stopColor={color} stopOpacity={0} />
+   105→            </linearGradient>
+   106→          </defs>
+   107→          <Area
+   108→            type="monotone"
+   109→            dataKey="v"
+   110→            stroke={color}
+   111→            strokeWidth={2}
+   112→            fill={`url(#${id})`}
+   113→            isAnimationActive={false}
+   114→            dot={false}
+   115→          />
+   116→        </AreaChart>
+   117→      </ResponsiveContainer>
+   118→    </div>
+   119→  )
+   120→}
+   121→
+   122→function DeltaPill({ delta, label }: { delta: number | null; label?: string }) {
+   123→  if (delta === null || !isFinite(delta)) return null
+   124→  const up = delta >= 0
+   125→  return (
+   126→    <span className={cn(
+   127→      'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+   128→      up ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+   129→        : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400',
+   130→    )}>
+   131→      {up ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+   132→      {Math.abs(delta).toFixed(0)}
+   133→      {label && <span className="ml-1 font-normal opacity-70">{label}</span>}
+   134→    </span>
+   135→  )
+   136→}
+   137→
+   138→function EmptyChartState({ message }: { message: string }) {
+   139→  return (
+   140→    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-center">
+   141→      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+   142→        <Activity className="h-5 w-5 text-muted-foreground" />
+   143→      </div>
+   144→      <p className="text-xs text-muted-foreground">{message}</p>
+   145→    </div>
+   146→  )
+   147→}
+   148→
+   149→function HeroKpi({ icon, label, value, accent }: {
+   150→  icon: React.ReactNode
+   151→  label: string
+   152→  value: string
+   153→  accent: 'emerald' | 'teal' | 'amber' | 'rose'
+   154→}) {
+   155→  const a: Record<string, string> = {
+   156→    emerald: 'text-emerald-300',
+   157→    teal: 'text-teal-300',
+   158→    amber: 'text-amber-300',
+   159→    rose: 'text-rose-300',
+   160→  }
+   161→  return (
+   162→    <div className="rounded-xl bg-white/5 px-4 py-3 ring-1 ring-white/10 backdrop-blur">
+   163→      <div className={cn('flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider', a[accent])}>
+   164→        {icon}
+   165→        {label}
+   166→      </div>
+   167→      <div className="mt-1 text-xl font-bold text-white">{value}</div>
+   168→    </div>
+   169→  )
+   170→}
+   171→
+   172→function StatCard({ label, value, icon: Icon, accent, sub, spark, sparkColor, delta }: {
+   173→  label: string
+   174→  value: string | number
+   175→  icon: React.ComponentType<{ className?: string }>
+   176→  accent: 'emerald' | 'teal' | 'amber' | 'rose'
+   177→  sub?: string
+   178→  spark: number[]
+   179→  sparkColor: string
+   180→  delta?: number | null
+   181→}) {
+   182→  const a: Record<string, string> = {
+   183→    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20',
+   184→    teal: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 ring-teal-500/20',
+   185→    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20',
+   186→    rose: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-rose-500/20',
+   187→  }
+   188→  return (
+   189→    <Card className="overflow-hidden shadow-sm transition-shadow hover:shadow-md">
+   190→      <CardContent className="p-5">
+   191→        <div className="flex items-start justify-between gap-3">
+   192→          <div className="min-w-0 flex-1">
+   193→            <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+   194→            <p className="mt-1 truncate text-xl font-bold tracking-tight md:text-2xl">{value}</p>
+   195→            {sub && <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>}
+   196→          </div>
+   197→          <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1', a[accent])}>
+   198→            <Icon className="h-5 w-5" />
+   199→          </div>
+   200→        </div>
+   201→        <div className="mt-3 flex items-end justify-between gap-3">
+   202→          <div className="h-10 flex-1">
+   203→            <Sparkline data={spark} color={sparkColor} />
+   204→          </div>
+   205→          {delta !== null && delta !== undefined && <DeltaPill delta={delta} />}
+   206→        </div>
+   207→      </CardContent>
+   208→    </Card>
+   209→  )
+   210→}
+   211→
+   212→function TypeBadge({ type }: { type: string }) {
+   213→  const m = TYPE_META[type] || TYPE_META.system
+   214→  const Icon = m.icon
+   215→  return (
+   216→    <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset', m.chip)}>
+   217→      <Icon className="h-3 w-3" />
+   218→      {m.label}
+   219→    </span>
+   220→  )
+   221→}
+   222→
+   223→function PriorityBadge({ priority }: { priority: string }) {
+   224→  const m = PRIORITY_META[priority] || PRIORITY_META.normal
+   225→  return (
+   226→    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset', m.chip)}>
+   227→      <span className={cn('h-1.5 w-1.5 rounded-full', m.dot)} />
+   228→      {m.label}
+   229→    </span>
+   230→  )
+   231→}
+   232→
+   233→// ---------------------------------------------------------------------------
+   234→// Main module
+   235→// ---------------------------------------------------------------------------
+   236→export function NotificationsModule() {
+   237→  const { data, loading, refetch } = useFetch<NotificationsResponse>('/api/notifications?limit=200')
+   238→
+   239→  const [search, setSearch] = useState('')
+   240→  const [typeFilter, setTypeFilter] = useState<string>('all')
+   241→  const [priorityFilter, setPriorityFilter] = useState<string>('all')
+   242→  const [statusFilter, setStatusFilter] = useState<string>('all')
+   243→  const [clearOpen, setClearOpen] = useState(false)
+   244→  const [busy, setBusy] = useState(false)
+   245→  const [seeded, setSeeded] = useState(false)
+   246→
+   247→  // Listen for the realtime 'notifications:refetch' custom event (dispatched
+   248→  // by the useRealtimeNotifications hook) and refetch when it fires.
+   249→  useEffect(() => {
+   250→    const handler = () => refetch()
+   251→    window.addEventListener('notifications:refetch', handler)
+   252→    return () => window.removeEventListener('notifications:refetch', handler)
+   253→  }, [refetch])
+   254→
+   255→  // When the user is signed in, auto-seed demo data the first time so the
+   256→  // redesigned UI has something to show. We only do this if there's no data
+   257→  // AND we've never seeded before in this session.
+   258→  useEffect(() => {
+   259→    if (loading || seeded) return
+   260→    if (data && data.notifications.length === 0 && (data.stats?.total ?? 0) === 0) {
+   261→      setSeeded(true)
+   262→      ;(async () => {
+   263→        try {
+   264→          const res = await fetch('/api/notifications/seed', {
+   265→            method: 'POST',
+   266→            headers: { 'Content-Type': 'application/json' },
+   267→            body: JSON.stringify({}),
+   268→          })
+   269→          if (res.ok) refetch()
+   270→        } catch {}
+   271→      })()
+   272→    }
+   273→  }, [data, loading, refetch, seeded])
+   274→
+   275→  const markAllRead = useCallback(async () => {
+   276→    setBusy(true)
+   277→    try {
+   278→      const res = await fetch('/api/notifications/read-all', {
+   279→        method: 'POST',
+   280→        headers: { 'Content-Type': 'application/json' },
+   281→        body: JSON.stringify({ scope: 'school' }),
+   282→      })
+   283→      if (!res.ok) throw new Error('Failed to mark all read')
+   284→      toast.success('All notifications marked as read')
+   285→      refetch()
+   286→    } catch (e: unknown) {
+   287→      toast.error(e instanceof Error ? e.message : 'Operation failed')
+   288→    } finally {
+   289→      setBusy(false)
+   290→    }
+   291→  }, [refetch])
+   292→
+   293→  const clearAll = useCallback(async () => {
+   294→    setBusy(true)
+   295→    try {
+   296→      const res = await fetch('/api/notifications/seed', { method: 'DELETE' })
+   297→      if (!res.ok) throw new Error('Failed to clear notifications')
+   298→      toast.success('All notifications cleared')
+   299→      setClearOpen(false)
+   300→      refetch()
+   301→    } catch (e: unknown) {
+   302→      toast.error(e instanceof Error ? e.message : 'Operation failed')
+   303→    } finally {
+   304→      setBusy(false)
+   305→    }
+   306→  }, [refetch])
+   307→
+   308→  const markOneRead = useCallback(async (n: AppNotificationDTO) => {
+   309→    try {
+   310→      await fetch(`/api/notifications/${n.id}`, {
+   311→        method: 'PATCH',
+   312→        headers: { 'Content-Type': 'application/json' },
+   313→        body: JSON.stringify({ read: true }),
+   314→      })
+   315→      refetch()
+   316→    } catch {
+   317→      toast.error('Could not mark as read')
+   318→    }
+   319→  }, [refetch])
+   320→
+   321→  const archiveOne = useCallback(async (n: AppNotificationDTO) => {
+   322→    try {
+   323→      await fetch(`/api/notifications/${n.id}`, {
+   324→        method: 'PATCH',
+   325→        headers: { 'Content-Type': 'application/json' },
+   326→        body: JSON.stringify({ archived: true }),
+   327→      })
+   328→      toast.success(`Archived: ${n.title}`)
+   329→      refetch()
+   330→    } catch {
+   331→      toast.error('Could not archive')
+   332→    }
+   333→  }, [refetch])
+   334→
+   335→  const deleteOne = useCallback(async (n: AppNotificationDTO) => {
+   336→    try {
+   337→      await fetch(`/api/notifications/${n.id}`, { method: 'DELETE' })
+   338→      toast.success(`Deleted: ${n.title}`)
+   339→      refetch()
+   340→    } catch {
+   341→      toast.error('Could not delete')
+   342→    }
+   343→  }, [refetch])
+   344→
+   345→  const reseed = useCallback(async () => {
+   346→    setBusy(true)
+   347→    try {
+   348→      const res = await fetch('/api/notifications/seed', {
+   349→        method: 'POST',
+   350→        headers: { 'Content-Type': 'application/json' },
+   351→        body: JSON.stringify({ force: true }),
+   352→      })
+   353→      if (!res.ok) throw new Error('Failed to reseed')
+   354→      toast.success('Demo notifications regenerated')
+   355→      refetch()
+   356→    } catch (e: unknown) {
+   357→      toast.error(e instanceof Error ? e.message : 'Reseed failed')
+   358→    } finally {
+   359→      setBusy(false)
+   360→    }
+   361→  }, [refetch])
+   362→
+   363→  // ---- Loading skeleton mirrors final layout ----
+   364→  if (loading || !data) {
+   365→    return (
+   366→      <div className="space-y-6">
+   367→        <Skeleton className="h-44 w-full rounded-2xl" />
+   368→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   369→          {Array.from({ length: 4 }).map((_, i) => (
+   370→            <Skeleton key={i} className="h-32 rounded-xl" />
+   371→          ))}
+   372→        </div>
+   373→        <div className="grid gap-4 lg:grid-cols-3">
+   374→          <Skeleton className="h-80 rounded-xl lg:col-span-1" />
+   375→          <Skeleton className="h-80 rounded-xl lg:col-span-2" />
+   376→        </div>
+   377→        <Skeleton className="h-96 rounded-xl" />
+   378→      </div>
+   379→    )
+   380→  }
+   381→
+   382→  // ---- Safe defaults ----
+   383→  const notifications = data.notifications ?? []
+   384→  const stats = data.stats ?? { total: 0, unread: 0, actionRequired: 0, today: 0, byType: {} }
+   385→  const byDay = data.byDay ?? []
+   386→  const byType = stats.byType ?? {}
+   387→  const total = stats.total ?? 0
+   388→  const unread = stats.unread ?? 0
+   389→  const actionRequired = stats.actionRequired ?? 0
+   390→  const today = stats.today ?? 0
+   391→
+   392→  // Derive sparkline data from byDay (last 7 days) and type distributions
+   393→  const dailySpark = byDay.map((d) => d.count || 0)
+   394→  const totalDelta = dailySpark.length >= 2 ? ((dailySpark[dailySpark.length - 1] - dailySpark[dailySpark.length - 2]) / Math.max(1, dailySpark[dailySpark.length - 2])) * 100 : null
+   395→
+   396→  // Build donut data
+   397→  const donutData = Object.keys(TYPE_META).map((k) => ({
+   398→    type: k,
+   399→    label: TYPE_META[k].label,
+   400→    value: byType[k] || 0,
+   401→    color: TYPE_META[k].color,
+   402→  })).filter((d) => d.value > 0)
+   403→
+   404→  // Filter the notifications for the table
+   405→  const filtered = notifications.filter((n) => {
+   406→    if (search) {
+   407→      const q = search.toLowerCase()
+   408→      if (!n.title.toLowerCase().includes(q) && !n.message.toLowerCase().includes(q)) return false
+   409→    }
+   410→    if (typeFilter !== 'all' && n.type !== typeFilter) return false
+   411→    if (priorityFilter !== 'all' && n.priority !== priorityFilter) return false
+   412→    if (statusFilter === 'unread' && (n.readAt || n.archivedAt)) return false
+   413→    if (statusFilter === 'read' && (!n.readAt || n.archivedAt)) return false
+   414→    if (statusFilter === 'archived' && !n.archivedAt) return false
+   415→    if (statusFilter === 'all' && n.archivedAt) return false // hide archived from default view
+   416→    return true
+   417→  })
+   418→
+   419→  return (
+   420→    <div className="space-y-6">
+   421→      {/* ============================================================ */}
+   422→      {/* EXECUTIVE HERO                                                 */}
+   423→      {/* ============================================================ */}
+   424→      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-950 p-6 text-white shadow-xl ring-1 ring-white/5 md:p-8">
+   425→        <div
+   426→          className="pointer-events-none absolute inset-0 opacity-[0.06]"
+   427→          style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '22px 22px' }}
+   428→        />
+   429→        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
+   430→        <div className="pointer-events-none absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-teal-500/20 blur-3xl" />
+   431→
+   432→        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+   433→          <div className="min-w-0">
+   434→            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-300 ring-1 ring-white/15 backdrop-blur">
+   435→              <Sparkles className="h-3.5 w-3.5" />
+   436→              Notifications Center
+   437→            </div>
+   438→            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Real-Time Activity &amp; Alerts</h1>
+   439→            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
+   440→              Live in-app notifications for fees, attendance, exams, discipline, and system events.
+   441→              Filter, archive, or act on any alert — new ones push here instantly.
+   442→            </p>
+   443→            {/* Live presence indicator */}
+   444→            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
+   445→              <span className="relative flex h-2 w-2">
+   446→                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+   447→                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+   448→              </span>
+   449→              <Radio className="h-3.5 w-3.5" />
+   450→              Live — streaming via WebSocket
+   451→            </div>
+   452→          </div>
+   453→
+   454→          {/* Hero KPIs */}
+   455→          <div className="flex flex-wrap gap-3">
+   456→            <HeroKpi icon={<Inbox className="h-3.5 w-3.5" />} label="Total" value={String(total)} accent="emerald" />
+   457→            <HeroKpi icon={<Bell className="h-3.5 w-3.5" />} label="Unread" value={String(unread)} accent="rose" />
+   458→            <HeroKpi icon={<AlertTriangle className="h-3.5 w-3.5" />} label="Action Req." value={String(actionRequired)} accent="amber" />
+   459→          </div>
+   460→        </div>
+   461→      </div>
+   462→
+   463→      {/* ============================================================ */}
+   464→      {/* 4 STAT CARDS WITH SPARKLINES                                  */}
+   465→      {/* ============================================================ */}
+   466→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   467→        <StatCard
+   468→          label="Total Notifications"
+   469→          value={total}
+   470→          icon={Inbox}
+   471→          accent="emerald"
+   472→          sub={`${donutData.length} types tracked`}
+   473→          spark={dailySpark.length ? dailySpark : [0, 0, 0, 0, 0, 0, 0]}
+   474→          sparkColor="#10b981"
+   475→          delta={totalDelta}
+   476→        />
+   477→        <StatCard
+   478→          label="Unread"
+   479→          value={unread}
+   480→          icon={Bell}
+   481→          accent="rose"
+   482→          sub={`${actionRequired} marked action-required`}
+   483→          spark={dailySpark.length ? dailySpark : [0, 0, 0, 0, 0, 0, 0]}
+   484→          sparkColor="#f43f5e"
+   485→          delta={null}
+   486→        />
+   487→        <StatCard
+   488→          label="Action Required"
+   489→          value={actionRequired}
+   490→          icon={AlertTriangle}
+   491→          accent="amber"
+   492→          sub="High / urgent priority"
+   493→          spark={dailySpark.length ? dailySpark : [0, 0, 0, 0, 0, 0, 0]}
+   494→          sparkColor="#f59e0b"
+   495→          delta={null}
+   496→        />
+   497→        <StatCard
+   498→          label="Today"
+   499→          value={today}
+   500→          icon={CalendarClock}
+   501→          accent="teal"
+   502→          sub={`Last 7 days: ${dailySpark.reduce((a, b) => a + b, 0)}`}
+   503→          spark={dailySpark.length ? dailySpark : [0, 0, 0, 0, 0, 0, 0]}
+   504→          sparkColor="#14b8a6"
+   505→          delta={null}
+   506→        />
+   507→      </div>
+   508→
+   509→      {/* ============================================================ */}
+   510→      {/* ROW A: BY TYPE (DONUT) + BY DAY (BAR)                         */}
+   511→      {/* ============================================================ */}
+   512→      <div className="grid gap-4 lg:grid-cols-3">
+   513→        {/* By Type — Donut */}
+   514→        <Card className="shadow-sm">
+   515→          <CardHeader className="pb-2">
+   516→            <CardTitle className="flex items-center gap-2 text-base">
+   517→              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+   518→                <Filter className="h-4 w-4" />
+   519→              </span>
+   520→              By Type
+   521→            </CardTitle>
+   522→            <CardDescription>Distribution across the {donutData.length}-type taxonomy</CardDescription>
+   523→          </CardHeader>
+   524→          <CardContent>
+   525→            <div className="h-44">
+   526→              {donutData.length === 0 ? (
+   527→                <EmptyChartState message="No notifications yet" />
+   528→              ) : (
+   529→                <ResponsiveContainer width="100%" height="100%">
+   530→                  <PieChart>
+   531→                    <Pie
+   532→                      data={donutData}
+   533→                      dataKey="value"
+   534→                      nameKey="label"
+   535→                      cx="50%"
+   536→                      cy="50%"
+   537→                      innerRadius={48}
+   538→                      outerRadius={72}
+   539→                      paddingAngle={3}
+   540→                    >
+   541→                      {donutData.map((entry) => (
+   542→                        <Cell key={entry.type} fill={entry.color} stroke="hsl(var(--background))" strokeWidth={2} />
+   543→                      ))}
+   544→                    </Pie>
+   545→                    <RTooltip
+   546→                      formatter={(v: number, n: string) => [`${v} notification${v === 1 ? '' : 's'}`, n]}
+   547→                      contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
+   548→                    />
+   549→                    <Legend
+   550→                      iconType="circle"
+   551→                      iconSize={8}
+   552→                      formatter={(value: string) => <span className="text-xs text-muted-foreground">{value}</span>}
+   553→                    />
+   554→                  </PieChart>
+   555→                </ResponsiveContainer>
+   556→              )}
+   557→            </div>
+   558→            {/* Type breakdown mini-table */}
+   559→            <div className="mt-3 space-y-1.5">
+   560→              {Object.keys(TYPE_META).map((k) => {
+   561→                const meta = TYPE_META[k]
+   562→                const v = byType[k] || 0
+   563→                const totalSum = Object.values(byType).reduce((a, b) => a + (b || 0), 0) || 1
+   564→                const pct = (v / totalSum) * 100
+   565→                return (
+   566→                  <div key={k} className="flex items-center gap-2 text-xs">
+   567→                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: meta.color }} />
+   568→                    <span className="text-muted-foreground">{meta.label}</span>
+   569→                    <div className="ml-auto flex items-center gap-2">
+   570→                      <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
+   571→                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: meta.color }} />
+   572→                      </div>
+   573→                      <span className="w-6 text-right font-semibold tabular-nums">{v}</span>
+   574→                    </div>
+   575→                  </div>
+   576→                )
+   577→              })}
+   578→            </div>
+   579→          </CardContent>
+   580→        </Card>
+   581→
+   582→        {/* By Day — Bar */}
+   583→        <Card className="shadow-sm lg:col-span-2">
+   584→          <CardHeader className="pb-2">
+   585→            <div className="flex items-start justify-between">
+   586→              <div>
+   587→                <CardTitle className="flex items-center gap-2 text-base">
+   588→                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+   589→                    <CalendarClock className="h-4 w-4" />
+   590→                  </span>
+   591→                  Notifications per day
+   592→                </CardTitle>
+   593→                <CardDescription className="mt-1">Activity volume over the last 7 days</CardDescription>
+   594→              </div>
+   595→              <div className="hidden text-right sm:block">
+   596→                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Last 7d</div>
+   597→                <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+   598→                  {dailySpark.reduce((a, b) => a + b, 0)}
+   599→                </div>
+   600→              </div>
+   601→            </div>
+   602→          </CardHeader>
+   603→          <CardContent>
+   604→            <div className="h-64">
+   605→              {byDay.length === 0 || byDay.every((d) => (d.count || 0) === 0) ? (
+   606→                <EmptyChartState message="No notifications in the last 7 days" />
+   607→              ) : (
+   608→                <ResponsiveContainer width="100%" height="100%">
+   609→                  <BarChart data={byDay} margin={{ top: 10, right: 12, left: -8, bottom: 0 }}>
+   610→                    <defs>
+   611→                      <linearGradient id="notifBarGrad" x1="0" y1="0" x2="0" y2="1">
+   612→                        <stop offset="0%" stopColor="#059669" />
+   613→                        <stop offset="100%" stopColor="#14b8a6" />
+   614→                      </linearGradient>
+   615→                    </defs>
+   616→                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+   617→                    <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
+   618→                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={28} tickLine={false} axisLine={false} />
+   619→                    <RTooltip
+   620→                      formatter={(v: number) => [`${v} notification${v === 1 ? '' : 's'}`, 'Volume']}
+   621→                      cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }}
+   622→                      contentStyle={{ borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))' }}
+   623→                      labelStyle={{ color: 'hsl(var(--muted-foreground))', fontWeight: 600 }}
+   624→                    />
+   625→                    <Bar dataKey="count" radius={[8, 8, 0, 0]} maxBarSize={56} fill="url(#notifBarGrad)" />
+   626→                  </BarChart>
+   627→                </ResponsiveContainer>
+   628→              )}
+   629→            </div>
+   630→          </CardContent>
+   631→        </Card>
+   632→      </div>
+   633→
+   634→      {/* ============================================================ */}
+   635→      {/* NOTIFICATIONS TABLE — searchable, filterable                   */}
+   636→      {/* ============================================================ */}
+   637→      <Card id="notifications-table" className="shadow-sm scroll-mt-4">
+   638→        <CardHeader className="pb-3">
+   639→          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   640→            <div>
+   641→              <CardTitle className="flex items-center gap-2 text-base">
+   642→                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+   643→                  <Bell className="h-4 w-4" />
+   644→                </span>
+   645→                Activity Feed
+   646→                <Badge variant="secondary" className="ml-1">{filtered.length}</Badge>
+   647→              </CardTitle>
+   648→              <CardDescription className="mt-1">
+   649→                Live in-app notifications for your school — new ones stream in real-time
+   650→              </CardDescription>
+   651→            </div>
+   652→            <div className="flex flex-wrap gap-2">
+   653→              <Button variant="outline" size="sm" onClick={markAllRead} disabled={busy || unread === 0}>
+   654→                <CheckCheck className="mr-1.5 h-4 w-4" />
+   655→                Mark all read
+   656→              </Button>
+   657→              <Button variant="outline" size="sm" onClick={reseed} disabled={busy}>
+   658→                <RefreshCw className="mr-1.5 h-4 w-4" />
+   659→                Reseed demo
+   660→              </Button>
+   661→              <Button variant="outline" size="sm" className="text-rose-600 hover:text-rose-700" onClick={() => setClearOpen(true)} disabled={busy || total === 0}>
+   662→                <Trash2 className="mr-1.5 h-4 w-4" />
+   663→                Clear all
+   664→              </Button>
+   665→            </div>
+   666→          </div>
+   667→
+   668→          {/* Filter bar */}
+   669→          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+   670→            <div className="relative flex-1">
+   671→              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   672→              <Input
+   673→                placeholder="Search by title or message…"
+   674→                value={search}
+   675→                onChange={(e) => setSearch(e.target.value)}
+   676→                className="pl-9"
+   677→              />
+   678→            </div>
+   679→            <div className="flex flex-wrap gap-2">
+   680→              <Select value={typeFilter} onValueChange={setTypeFilter}>
+   681→                <SelectTrigger className="w-[140px]">
+   682→                  <SelectValue placeholder="All Types" />
+   683→                </SelectTrigger>
+   684→                <SelectContent>
+   685→                  <SelectItem value="all">All Types</SelectItem>
+   686→                  {Object.keys(TYPE_META).map((k) => (
+   687→                    <SelectItem key={k} value={k}>{TYPE_META[k].label}</SelectItem>
+   688→                  ))}
+   689→                </SelectContent>
+   690→              </Select>
+   691→              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+   692→                <SelectTrigger className="w-[140px]">
+   693→                  <SelectValue placeholder="All Priorities" />
+   694→                </SelectTrigger>
+   695→                <SelectContent>
+   696→                  <SelectItem value="all">All Priorities</SelectItem>
+   697→                  {Object.keys(PRIORITY_META).map((k) => (
+   698→                    <SelectItem key={k} value={k}>{PRIORITY_META[k].label}</SelectItem>
+   699→                  ))}
+   700→                </SelectContent>
+   701→              </Select>
+   702→              <Select value={statusFilter} onValueChange={setStatusFilter}>
+   703→                <SelectTrigger className="w-[140px]">
+   704→                  <SelectValue placeholder="Status" />
+   705→                </SelectTrigger>
+   706→                <SelectContent>
+   707→                  <SelectItem value="all">Active</SelectItem>
+   708→                  <SelectItem value="unread">Unread</SelectItem>
+   709→                  <SelectItem value="read">Read</SelectItem>
+   710→                  <SelectItem value="archived">Archived</SelectItem>
+   711→                </SelectContent>
+   712→              </Select>
+   713→            </div>
+   714→          </div>
+   715→        </CardHeader>
+   716→
+   717→        <CardContent className="p-0">
+   718→          {/* Desktop table */}
+   719→          <div className="hidden overflow-x-auto md:block">
+   720→            <Table>
+   721→              <TableHeader>
+   722→                <TableRow className="hover:bg-transparent">
+   723→                  <TableHead className="pl-6 w-[36px]"></TableHead>
+   724→                  <TableHead>Notification</TableHead>
+   725→                  <TableHead>Type</TableHead>
+   726→                  <TableHead>Priority</TableHead>
+   727→                  <TableHead className="hidden lg:table-cell">Status</TableHead>
+   728→                  <TableHead className="hidden md:table-cell">Time</TableHead>
+   729→                  <TableHead className="pr-6 text-right">Actions</TableHead>
+   730→                </TableRow>
+   731→              </TableHeader>
+   732→              <TableBody>
+   733→                {filtered.length === 0 && (
+   734→                  <TableRow>
+   735→                    <TableCell colSpan={7} className="py-16 text-center">
+   736→                      <EmptyRowState onReseed={reseed} busy={busy} total={total} />
+   737→                    </TableCell>
+   738→                  </TableRow>
+   739→                )}
+   740→                {filtered.map((n) => {
+   741→                  const meta = TYPE_META[n.type] || TYPE_META.system
+   742→                  const Icon = meta.icon
+   743→                  return (
+   744→                    <TableRow
+   745→                      key={n.id}
+   746→                      className={cn(
+   747→                        'transition-colors hover:bg-muted/40',
+   748→                        !n.readAt && 'bg-emerald-50/30 dark:bg-emerald-950/10',
+   749→                      )}
+   750→                    >
+   751→                      <TableCell className="pl-6">
+   752→                        <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg ring-1', meta.chip)}>
+   753→                          <Icon className="h-4 w-4" />
+   754→                        </div>
+   755→                      </TableCell>
+   756→                      <TableCell className="min-w-[240px]">
+   757→                        <div className="flex items-center gap-2">
+   758→                          {!n.readAt && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />}
+   759→                          <div className="min-w-0">
+   760→                            <p className="truncate text-sm font-medium">{n.title}</p>
+   761→                            <p className="line-clamp-1 text-xs text-muted-foreground">{n.message}</p>
+   762→                          </div>
+   763→                        </div>
+   764→                      </TableCell>
+   765→                      <TableCell><TypeBadge type={n.type} /></TableCell>
+   766→                      <TableCell><PriorityBadge priority={n.priority} /></TableCell>
+   767→                      <TableCell className="hidden lg:table-cell">
+   768→                        {n.archivedAt ? (
+   769→                          <Badge variant="outline" className="text-[10px] text-slate-500">Archived</Badge>
+   770→                        ) : n.readAt ? (
+   771→                          <Badge variant="outline" className="text-[10px] text-emerald-600 dark:text-emerald-400">Read</Badge>
+   772→                        ) : (
+   773→                          <Badge variant="outline" className="text-[10px] text-rose-600 dark:text-rose-400">Unread</Badge>
+   774→                        )}
+   775→                      </TableCell>
+   776→                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground tabular-nums">
+   777→                        {timeAgo(n.createdAt)}
+   778→                      </TableCell>
+   779→                      <TableCell className="pr-6 text-right">
+   780→                        <DropdownMenu>
+   781→                          <DropdownMenuTrigger asChild>
+   782→                            <Button variant="ghost" size="icon" className="h-8 w-8">
+   783→                              <MoreHorizontal className="h-4 w-4" />
+   784→                            </Button>
+   785→                          </DropdownMenuTrigger>
+   786→                          <DropdownMenuContent align="end" className="w-44">
+   787→                            {!n.readAt && (
+   788→                              <DropdownMenuItem onClick={() => markOneRead(n)}>
+   789→                                <Check className="mr-2 h-3.5 w-3.5" /> Mark as read
+   790→                              </DropdownMenuItem>
+   791→                            )}
+   792→                            <DropdownMenuItem onClick={() => archiveOne(n)}>
+   793→                              <Archive className="mr-2 h-3.5 w-3.5" /> Archive
+   794→                            </DropdownMenuItem>
+   795→                            <DropdownMenuSeparator />
+   796→                            <DropdownMenuItem className="text-rose-600 focus:text-rose-600" onClick={() => deleteOne(n)}>
+   797→                              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+   798→                            </DropdownMenuItem>
+   799→                          </DropdownMenuContent>
+   800→                        </DropdownMenu>
+   801→                      </TableCell>
+   802→                    </TableRow>
+   803→                  )
+   804→                })}
+   805→              </TableBody>
+   806→            </Table>
+   807→          </div>
+   808→
+   809→          {/* Mobile card list */}
+   810→          <div className="divide-y md:hidden">
+   811→            {filtered.length === 0 && (
+   812→              <div className="py-12">
+   813→                <EmptyRowState onReseed={reseed} busy={busy} total={total} />
+   814→              </div>
+   815→            )}
+   816→            {filtered.map((n) => {
+   817→              const meta = TYPE_META[n.type] || TYPE_META.system
+   818→              const Icon = meta.icon
+   819→              return (
+   820→                <div key={n.id} className={cn('p-4', !n.readAt && 'bg-emerald-50/30 dark:bg-emerald-950/10')}>
+   821→                  <div className="flex items-start gap-3">
+   822→                    <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1', meta.chip)}>
+   823→                      <Icon className="h-4 w-4" />
+   824→                    </div>
+   825→                    <div className="min-w-0 flex-1">
+   826→                      <div className="flex items-start justify-between gap-2">
+   827→                        <p className="text-sm font-medium leading-tight">{n.title}</p>
+   828→                        <DropdownMenu>
+   829→                          <DropdownMenuTrigger asChild>
+   830→                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+   831→                              <MoreHorizontal className="h-4 w-4" />
+   832→                            </Button>
+   833→                          </DropdownMenuTrigger>
+   834→                          <DropdownMenuContent align="end" className="w-44">
+   835→                            {!n.readAt && (
+   836→                              <DropdownMenuItem onClick={() => markOneRead(n)}>
+   837→                                <Check className="mr-2 h-3.5 w-3.5" /> Mark as read
+   838→                              </DropdownMenuItem>
+   839→                            )}
+   840→                            <DropdownMenuItem onClick={() => archiveOne(n)}>
+   841→                              <Archive className="mr-2 h-3.5 w-3.5" /> Archive
+   842→                            </DropdownMenuItem>
+   843→                            <DropdownMenuSeparator />
+   844→                            <DropdownMenuItem className="text-rose-600 focus:text-rose-600" onClick={() => deleteOne(n)}>
+   845→                              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+   846→                            </DropdownMenuItem>
+   847→                          </DropdownMenuContent>
+   848→                        </DropdownMenu>
+   849→                      </div>
+   850→                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.message}</p>
+   851→                      <div className="mt-2 flex flex-wrap items-center gap-2">
+   852→                        <TypeBadge type={n.type} />
+   853→                        <PriorityBadge priority={n.priority} />
+   854→                        <span className="text-[10px] text-muted-foreground">{timeAgo(n.createdAt)}</span>
+   855→                      </div>
+   856→                    </div>
+   857→                  </div>
+   858→                </div>
+   859→              )
+   860→            })}
+   861→          </div>
+   862→        </CardContent>
+   863→      </Card>
+   864→
+   865→      {/* Clear all confirmation */}
+   866→      <AlertDialog open={clearOpen} onOpenChange={setClearOpen}>
+   867→        <AlertDialogContent>
+   868→          <AlertDialogHeader>
+   869→            <AlertDialogTitle>Clear all notifications?</AlertDialogTitle>
+   870→            <AlertDialogDescription>
+   871→              This permanently removes all {total} notification(s) for your school. This action cannot be undone.
+   872→              Consider archiving instead if you may need them later.
+   873→            </AlertDialogDescription>
+   874→          </AlertDialogHeader>
+   875→          <AlertDialogFooter>
+   876→            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+   877→            <AlertDialogAction
+   878→              onClick={clearAll}
+   879→              disabled={busy}
+   880→              className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600"
+   881→            >
+   882→              {busy ? <RefreshCw className="mr-1.5 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1.5 h-4 w-4" />}
+   883→              Clear all
+   884→            </AlertDialogAction>
+   885→          </AlertDialogFooter>
+   886→        </AlertDialogContent>
+   887→      </AlertDialog>
+   888→    </div>
+   889→  )
+   890→}
+   891→
+   892→// ---------------------------------------------------------------------------
+   893→// Empty row state — used by both desktop table and mobile list
+   894→// ---------------------------------------------------------------------------
+   895→function EmptyRowState({ onReseed, busy, total }: {
+   896→  onReseed: () => void
+   897→  busy: boolean
+   898→  total: number
+   899→}) {
+   900→  return (
+   901→    <div className="flex flex-col items-center justify-center gap-3 px-4">
+   902→      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+   903→        <Bell className="h-6 w-6" />
+   904→      </div>
+   905→      <div>
+   906→        <p className="text-sm font-semibold">
+   907→          {total === 0 ? 'No notifications yet' : 'No matches with current filters'}
+   908→        </p>
+   909→        <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+   910→          {total === 0
+   911→            ? 'Demo data will appear here automatically, or generate it manually to see the redesigned module in action.'
+   912→            : 'Try widening your search or filter selections.'}
+   913→        </p>
+   914→      </div>
+   915→      {total === 0 && (
+   916→        <Button size="sm" variant="outline" onClick={onReseed} disabled={busy}>
+   917→          <RefreshCw className={cn('mr-1.5 h-4 w-4', busy && 'animate-spin')} />
+   918→          Generate demo notifications
+   919→        </Button>
+   920→      )}
+   921→    </div>
+   922→  )
+   923→}
+   924→

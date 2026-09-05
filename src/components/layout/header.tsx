@@ -1,10 +1,11 @@
 'use client'
 import { useAppStore } from '@/lib/store'
 import { useAuthStore, ROLE_INFO } from '@/lib/auth-store'
-import { Menu, Search, Bell, Moon, Sun, Calendar, ChevronDown, Command, Clock, LogOut, User as UserIcon, Settings as SettingsIcon } from 'lucide-react'
+import { Menu, Search, Bell, Moon, Sun, Calendar, ChevronDown, Command, Clock, LogOut, User as UserIcon, Settings as SettingsIcon, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -12,6 +13,7 @@ import {
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications'
 
 const TITLES: Record<string, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'School-wide overview & key metrics' },
@@ -41,19 +43,47 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   reports: { title: 'Reports & Analytics', subtitle: 'Performance insights & exports' },
   biometric: { title: 'Biometric Attendance', subtitle: 'Fingerprint & RFID taps from gates and buses' },
   bustracking: { title: 'Live Bus Tracking', subtitle: 'Real-time student boarding & alighting' },
-  notifications: { title: 'SMS & WhatsApp', subtitle: 'Automated parent notifications via Africa\'s Talking' },
+  notifications: { title: 'Notifications Center', subtitle: 'Live in-app notifications & activity feed' },
   examanalytics: { title: 'Exam Analytics', subtitle: 'KCSE performance insights & rankings' },
   aiassistant: { title: 'AI Assistant', subtitle: 'AI-powered tools for parents, teachers & admins' },
   superadmin: { title: 'Super Admin', subtitle: 'Platform-wide school management & analytics' },
   settings: { title: 'Settings', subtitle: 'System configuration' },
 }
 
+// ---------------------------------------------------------------------------
+// Lightweight notification fetcher for the header dropdown
+// ---------------------------------------------------------------------------
+interface HeaderNotification {
+  id: string
+  type: string
+  priority: string
+  title: string
+  message: string
+  readAt: string | null
+  createdAt: string
+}
+
+const TYPE_DOT: Record<string, string> = {
+  fee: 'bg-emerald-500',
+  attendance: 'bg-teal-500',
+  exam: 'bg-cyan-500',
+  discipline: 'bg-rose-500',
+  system: 'bg-slate-500',
+  message: 'bg-amber-500',
+}
+
 export function Header() {
-  const { activeModule, toggleSidebar, setCommandPaletteOpen, academic } = useAppStore()
+  const { activeModule, toggleSidebar, setCommandPaletteOpen, academic, unreadNotifications, notificationPulse, clearNotificationPulse } = useAppStore()
   const { user, logout } = useAuthStore()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [now, setNow] = useState(new Date())
+  const [recent, setRecent] = useState<HeaderNotification[]>([])
+  const [loadingRecent, setLoadingRecent] = useState(false)
+
+  // Mount the realtime notifications hook — wires up socket.io, sonner toasts,
+  // and the global unread counter. One mount per signed-in user.
+  useRealtimeNotifications()
 
   // Live clock — updates every second
   useEffect(() => {
@@ -79,10 +109,62 @@ export function Header() {
     return () => window.removeEventListener('keydown', handler)
   }, [setCommandPaletteOpen])
 
+  // Auto-clear the pulse flag after the bell animation has had a chance to
+  // play (1.5s). The Header consumes the flag here so the bell can be
+  // triggered again on the next notification.
+  useEffect(() => {
+    if (notificationPulse) {
+      const id = setTimeout(() => clearNotificationPulse(), 1500)
+      return () => clearTimeout(id)
+    }
+  }, [notificationPulse, clearNotificationPulse])
+
+  // Refetch the header dropdown's recent notifications whenever the
+  // 'notifications:refetch' custom event is dispatched (sent by the realtime
+  // hook when a new notification arrives).
+  const fetchRecent = async () => {
+    setLoadingRecent(true)
+    try {
+      const res = await fetch('/api/notifications?limit=6')
+      if (res.ok) {
+        const data = await res.json()
+        const list = (data?.notifications ?? []) as HeaderNotification[]
+        setRecent(list.slice(0, 6))
+        useAppStore.getState().setUnreadNotifications(data?.stats?.unread ?? 0)
+      }
+    } catch {
+      // Silent — header dropdown is best-effort
+    } finally {
+      setLoadingRecent(false)
+    }
+  }
+  useEffect(() => {
+    if (!user) return
+    fetchRecent()
+    const handler = () => fetchRecent()
+    window.addEventListener('notifications:refetch', handler)
+    return () => window.removeEventListener('notifications:refetch', handler)
+  }, [user?.id])
+
   const meta = TITLES[activeModule] || TITLES.dashboard
   const roleInfo = user ? ROLE_INFO[user.role] : null
   const timeStr = now.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
   const dateStr = now.toLocaleDateString('en-KE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+
+  const unread = unreadNotifications || 0
+  const hasUnread = unread > 0
+
+  const markAllRead = async () => {
+    try {
+      await fetch('/api/notifications/read-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'school' }),
+      })
+      useAppStore.getState().clearUnreadNotifications()
+      fetchRecent()
+    } catch {}
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md md:px-6">
@@ -142,38 +224,88 @@ export function Header() {
         {mounted && theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </Button>
 
-      {/* Notifications */}
+      {/* Notifications bell — live unread count + pulse */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-1.5 top-1.5 flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
-            </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative"
+            aria-label={`Notifications (${unread} unread)`}
+          >
+            <Bell className={cn('h-5 w-5 transition-transform', notificationPulse && 'scale-110 text-emerald-600 dark:text-emerald-400')} />
+            {hasUnread && (
+              <span className="absolute -right-0.5 -top-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-background">
+                {unread > 99 ? '99+' : unread}
+                {notificationPulse && (
+                  <span className="absolute inset-0 -z-10 animate-ping rounded-full bg-rose-400 opacity-75" />
+                )}
+              </span>
+            )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-80">
-          <DropdownMenuLabel className="flex items-center justify-between">
-            <span>Notifications</span>
-            <Badge variant="secondary" className="text-[10px]">3 new</Badge>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="flex flex-col items-start gap-1 py-2">
-            <span className="text-sm font-medium">Fee payment received</span>
-            <span className="text-xs text-muted-foreground">M-Pesa payment of KES 45,000 from a parent</span>
-            <span className="text-[10px] text-muted-foreground/70">2 minutes ago</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem className="flex flex-col items-start gap-1 py-2">
-            <span className="text-sm font-medium">New admission application</span>
-            <span className="text-xs text-muted-foreground">Form 1 transfer request received</span>
-            <span className="text-[10px] text-muted-foreground/70">15 minutes ago</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem className="flex flex-col items-start gap-1 py-2">
-            <span className="text-sm font-medium">Library book overdue</span>
-            <span className="text-xs text-muted-foreground">5 books past due date</span>
-            <span className="text-[10px] text-muted-foreground/70">1 hour ago</span>
-          </DropdownMenuItem>
+        <DropdownMenuContent align="end" className="w-80 p-0">
+          <div className="flex items-center justify-between border-b px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">Notifications</span>
+              {hasUnread && (
+                <Badge variant="secondary" className="bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">
+                  {unread} new
+                </Badge>
+              )}
+            </div>
+            {hasUnread && (
+              <button
+                onClick={markAllRead}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-400"
+              >
+                <Check className="h-3 w-3" /> Mark all read
+              </button>
+            )}
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {loadingRecent && recent.length === 0 ? (
+              <div className="space-y-2 p-2">
+                {[0, 1, 2].map((i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+              </div>
+            ) : recent.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-1 px-4 py-10 text-center">
+                <Bell className="h-6 w-6 text-muted-foreground/40" />
+                <p className="text-sm font-medium text-muted-foreground">You're all caught up</p>
+                <p className="text-xs text-muted-foreground/70">New notifications will appear here in real-time.</p>
+              </div>
+            ) : (
+              recent.map((n) => (
+                <DropdownMenuItem
+                  key={n.id}
+                  className="flex flex-col items-start gap-1 px-3 py-2.5 focus:bg-emerald-50/50 dark:focus:bg-emerald-950/20"
+                >
+                  <div className="flex w-full items-start gap-2">
+                    <span className={cn('mt-1 h-2 w-2 shrink-0 rounded-full', TYPE_DOT[n.type] || 'bg-slate-400')} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{n.title}</p>
+                      <p className="line-clamp-2 text-xs text-muted-foreground">{n.message}</p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground/70">
+                        {new Date(n.createdAt).toLocaleString('en-KE', { hour: '2-digit', minute: '2-digit', hour12: true, day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              ))
+            )}
+          </div>
+          <div className="border-t p-1.5">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault()
+                useAppStore.getState().setActiveModule('notifications')
+              }}
+              className="block rounded-md px-3 py-1.5 text-center text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+            >
+              View all notifications →
+            </a>
+          </div>
         </DropdownMenuContent>
       </DropdownMenu>
 

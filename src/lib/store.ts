@@ -64,6 +64,14 @@ interface AppState {
   academic: AcademicSettings
   /** True while the initial server fetch is in-flight */
   academicLoading: boolean
+  /** Live count of unread in-app notifications (driven by socket.io events).
+   *  Updated by /api/notifications GET and by the useRealtimeNotifications hook. */
+  unreadNotifications: number
+  /** Set to true by SocketManager.onPulse to trigger the bell animation.
+   *  The Header reads this and resets it via clearNotificationPulse(). */
+  notificationPulse: boolean
+  /** Whether the realtime socket is currently connected (UI status dot). */
+  realtimeConnected: boolean
   setActiveModule: (m: ModuleKey) => void
   setSidebarOpen: (open: boolean) => void
   toggleSidebar: () => void
@@ -76,6 +84,18 @@ interface AppState {
   /** Recompute the academic term/year from the CLIENT's date — used as a
    *  fallback if the server endpoint is unreachable. */
   refreshAcademicFromToday: () => void
+  /** Replace the unread count (used after /api/notifications GET). */
+  setUnreadNotifications: (n: number) => void
+  /** Increment the unread count (used by socket 'notification:received'). */
+  incrementUnreadNotifications: () => void
+  /** Mark all read (used by 'Mark all as read' button). */
+  clearUnreadNotifications: () => void
+  /** Trigger the bell pulse animation. */
+  triggerNotificationPulse: () => void
+  /** Clear the pulse flag (called by Header after it consumes the flag). */
+  clearNotificationPulse: () => void
+  /** Update the realtime socket status (drives the status dot). */
+  setRealtimeConnected: (connected: boolean) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -141,12 +161,23 @@ export const useAppStore = create<AppState>()(
       commandPaletteOpen: false,
       academic: buildDefaultAcademic(),
       academicLoading: false,
+      unreadNotifications: 0,
+      notificationPulse: false,
+      realtimeConnected: false,
 
       setActiveModule: (m) => set({ activeModule: m, sidebarOpen: false }),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
       toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
+
+      setUnreadNotifications: (n) => set({ unreadNotifications: Math.max(0, n | 0) }),
+      incrementUnreadNotifications: () =>
+        set((s) => ({ unreadNotifications: s.unreadNotifications + 1, notificationPulse: true })),
+      clearUnreadNotifications: () => set({ unreadNotifications: 0 }),
+      triggerNotificationPulse: () => set({ notificationPulse: true }),
+      clearNotificationPulse: () => set({ notificationPulse: false }),
+      setRealtimeConnected: (connected) => set({ realtimeConnected: connected }),
 
       setAcademic: (settings) =>
         set((s) => ({
