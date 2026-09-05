@@ -164,7 +164,7 @@ export default function Home() {
 
   // Check if user has access to the effective module
   const canAccess = isSuperAdmin
-    ? ['superadmin', 'settings'].includes(effectiveModule)
+    ? ['superadmin', 'settings', 'subscriptions'].includes(effectiveModule)
     : hasAccess(effectiveModule)
 
   return (
