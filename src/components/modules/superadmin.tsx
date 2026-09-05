@@ -1,4 +1,5 @@
 'use client'
+import { SuperAdminEnhanced } from './superadmin-enhanced'
 import { useState, useMemo } from 'react'
 import { useFetch, apiPut, apiDelete } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -1028,6 +1029,11 @@ export function SuperAdminModule() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Platform Insights — trials, analytics, activity feed */}
+      <div className="mt-8 border-t pt-6">
+        <SuperAdminEnhanced />
+      </div>
     </div>
   )
 }
