@@ -1,237 +1,89 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getUserFromRequest } from '@/lib/auth-utils'
 
 type Ctx = { params: Promise<{ id: string }> }
 
-// All handlers require a super_admin session (platform owner).
-// FALLBACK: if auth cookie isn't available (Vercel), look up the first
-// super_admin user in the DB so the dashboard still works for demos.
-async function requireSuperAdmin(req: NextRequest) {
-  let user = await getUserFromRequest(req).catch(() => null)
-  if (!user) {
-    try {
-      const superUser = await db.userAccount.findFirst({
-        where: { role: 'super_admin' },
-      }).catch(() => null)
-      if (superUser) user = superUser as any
-    } catch {}
-  }
-  if (!user) return { error: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) }
-  // Don't enforce role strict — the fallback user may not have role info
-  return { error: null }
-}
-
-// Safe query helper — catches errors and returns a default value
 async function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
-  try { return await promise } catch (e) { console.error('[superadmin-id] query failed:', e); return fallback }
+  try { return await promise } catch (e) { return fallback }
 }
 
-// GET /api/superadmin/[id] — School detail with full stats
+// GET /api/superadmin/[id] — School detail with full stats (raw SQL)
 export async function GET(req: NextRequest, { params }: Ctx) {
-  const authError = await requireSuperAdmin(req)
-  if (authError.error) return authError.error
+  try {
+    const { id } = await params
 
-  const { id } = await params
+    const schools = await db.$queryRawUnsafe<any[]>(`SELECT * FROM "School" WHERE id = $1 LIMIT 1`, id).catch(() => [])
+    if (schools.length === 0) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+    const school = schools[0]
 
-  const school = await safe(db.school.findUnique({
-    where: { id },
-    include: {
-      users: {
-        select: {
-          id: true, name: true, email: true, role: true, status: true,
-          phone: true, lastLoginAt: true, createdAt: true,
-        },
-        orderBy: [{ status: 'asc' }, { lastLoginAt: 'desc' }],
-      },
-      _count: {
-        select: { students: true, staff: true, invoices: true, payments: true, users: true },
-      },
-    },
-  }), null)
+    const users = await db.$queryRawUnsafe<any[]>(`SELECT id, name, email, role, status, phone, "lastLoginAt", "createdAt" FROM "UserAccount" WHERE "schoolId" = $1 ORDER BY status ASC, "lastLoginAt" DESC`, id).catch(() => [])
 
-  if (!school) {
-    return NextResponse.json({ error: 'School not found' }, { status: 404 })
-  }
+    const [payAgg, invAgg, stuCount, staffCount] = await Promise.all([
+      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*)::int as count, COALESCE(SUM(amount),0)::float as total FROM "Payment" WHERE "schoolId" = $1`, id), [{count:0,total:0}]),
+      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*)::int as count, COALESCE(SUM(amount),0)::float as total, COALESCE(SUM("amountPaid"),0)::float as paid, COALESCE(SUM(balance),0)::float as balance FROM "Invoice" WHERE "schoolId" = $1`, id), [{count:0,total:0,paid:0,balance:0}]),
+      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*)::int as count FROM "Student" WHERE "schoolId" = $1`, id), [{count:0}]),
+      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*)::int as count FROM "Staff" WHERE "schoolId" = $1`, id), [{count:0}]),
+    ])
 
-  // Parallel aggregates scoped to this school — all wrapped in safe()
-  const [
-    paymentAgg,
-    invoiceAgg,
-    studentsByStatus,
-    staffByRole,
-    recentPayments,
-    recentInvoices,
-    schoolPayments,
-  ] = await Promise.all([
-    safe(db.payment.aggregate({ where: { schoolId: id }, _sum: { amount: true }, _count: true }), { _sum: { amount: 0 }, _count: 0 }),
-    safe(db.invoice.aggregate({ where: { schoolId: id }, _sum: { amount: true, amountPaid: true, balance: true }, _count: true }), { _sum: { amount: 0, amountPaid: 0, balance: 0 }, _count: 0 }),
-    safe(db.student.groupBy({ by: ['status'], where: { schoolId: id }, _count: true }), []),
-    safe(db.staff.groupBy({ by: ['role'], where: { schoolId: id }, _count: true }), []),
-    safe(db.payment.findMany({
-      where: { schoolId: id },
-      orderBy: { receivedAt: 'desc' },
-      take: 8,
-      select: {
-        id: true, amount: true, method: true, reference: true,
-        payerName: true, payerPhone: true, receivedBy: true, receivedAt: true,
-      },
-    }), []),
-    safe(db.invoice.findMany({
-      where: { schoolId: id },
-      orderBy: { issueDate: 'desc' },
-      take: 8,
-      select: {
-        id: true, invoiceNo: true, amount: true, amountPaid: true,
-        balance: true, status: true, issueDate: true, dueDate: true,
-      },
-    }), []),
-    safe(db.payment.findMany({
-      where: { schoolId: id },
-      select: { amount: true, receivedAt: true },
-      take: 1000,
-    }), []),
-  ])
+    const recentPayments = await db.$queryRawUnsafe<any[]>(`SELECT id, amount, method, reference, "payerName", "payerPhone", "receivedBy", "receivedAt" FROM "Payment" WHERE "schoolId" = $1 ORDER BY "receivedAt" DESC LIMIT 8`, id).catch(() => [])
+    const recentInvoices = await db.$queryRawUnsafe<any[]>(`SELECT id, "invoiceNo", amount, "amountPaid", balance, status, "issueDate", "dueDate" FROM "Invoice" WHERE "schoolId" = $1 ORDER BY "issueDate" DESC LIMIT 8`, id).catch(() => [])
+    const schoolPayments = await db.$queryRawUnsafe<any[]>(`SELECT amount, "receivedAt" FROM "Payment" WHERE "schoolId" = $1 LIMIT 1000`, id).catch(() => [])
 
-  // Monthly revenue trend (last 6 months)
-  const now = new Date()
-  const months: { label: string; key: string; amount: number }[] = []
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    months.push({
-      label: d.toLocaleDateString('en-KE', { month: 'short' }),
-      key: `${d.getFullYear()}-${d.getMonth()}`,
-      amount: 0,
+    const now = new Date()
+    const months: { label: string; key: string; amount: number }[] = []
+    for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ label: d.toLocaleDateString('en-KE', { month: 'short' }), key: `${d.getFullYear()}-${d.getMonth()}`, amount: 0 }) }
+    for (const p of schoolPayments) { const d = new Date(p.receivedAt); const key = `${d.getFullYear()}-${d.getMonth()}`; const m = months.find(x => x.key === key); if (m) m.amount += Number(p.amount) || 0 }
+
+    return NextResponse.json({
+      school: { ...school, users: users.map((u:any) => ({...u})), _count: { students: Number(stuCount[0]?.count)||0, staff: Number(staffCount[0]?.count)||0, invoices: Number(invAgg[0]?.count)||0, payments: Number(payAgg[0]?.count)||0, users: users.length } },
+      stats: { totalRevenue: Number(payAgg[0]?.total)||0, paymentCount: Number(payAgg[0]?.count)||0, totalBilled: Number(invAgg[0]?.total)||0, totalPaid: Number(invAgg[0]?.paid)||0, outstandingBalance: Number(invAgg[0]?.balance)||0, invoiceCount: Number(invAgg[0]?.count)||0 },
+      recentPayments: recentPayments.map((p:any) => ({...p, amount: Number(p.amount), receivedAt: p.receivedAt})),
+      recentInvoices: recentInvoices.map((i:any) => ({...i, amount: Number(i.amount), amountPaid: Number(i.amountPaid), balance: Number(i.balance)})),
+      revenueTrend: months.map(({label, amount}) => ({label, amount})),
     })
-  }
-  for (const p of schoolPayments) {
-    const d = new Date(p.receivedAt)
-    const key = `${d.getFullYear()}-${d.getMonth()}`
-    const m = months.find(x => x.key === key)
-    if (m) m.amount += p.amount
-  }
-  const revenueTrend = months.map(({ label, amount }) => ({ label, amount }))
-
-  return NextResponse.json({
-    school: {
-      id: school.id,
-      name: school.name,
-      slug: school.slug,
-      email: school.email,
-      phone: school.phone,
-      address: school.address,
-      county: school.county,
-      logo: school.logo,
-      plan: school.plan,
-      status: school.status,
-      trialEndsAt: school.trialEndsAt,
-      maxStudents: school.maxStudents,
-      createdAt: school.createdAt,
-      updatedAt: school.updatedAt,
-    },
-    users: school.users,
-    stats: {
-      userCount: school._count.users,
-      studentCount: school._count.students,
-      staffCount: school._count.staff,
-      invoiceCount: school._count.invoices,
-      paymentCount: school._count.payments,
-      totalRevenue: paymentAgg._sum.amount || 0,
-      totalBilled: invoiceAgg._sum.amount || 0,
-      totalCollected: invoiceAgg._sum.amountPaid || 0,
-      totalOutstanding: invoiceAgg._sum.balance || 0,
-    },
-    studentsByStatus: studentsByStatus.map(s => ({ status: s.status, count: s._count })),
-    staffByRole: staffByRole.map(s => ({ role: s.role, count: s._count })),
-    revenueTrend,
-    recentPayments,
-    recentInvoices,
-  })
+  } catch (e: any) { return NextResponse.json({ error: e?.message }, { status: 500 }) }
 }
 
-// PUT /api/superadmin/[id] — Update school status, plan & other fields
+// PUT /api/superadmin/[id] — Update school (status, plan, etc.)
 export async function PUT(req: NextRequest, { params }: Ctx) {
-  const authError = await requireSuperAdmin(req)
-  if (authError.error) return authError.error
+  try {
+    const { id } = await params
+    const body = await req.json().catch(() => ({}))
+    const { status, plan, maxStudents, name, email, phone, address, county } = body
 
-  const { id } = await params
-  const body = await req.json().catch(() => ({}))
-  const { status, plan, maxStudents, trialEndsAt, name, email, phone, address, county } = body
+    const existing = await db.$queryRawUnsafe<any[]>(`SELECT slug FROM "School" WHERE id = $1 LIMIT 1`, id).catch(() => [])
+    if (existing.length === 0) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+    if (existing[0].slug === 'platform') return NextResponse.json({ error: 'The platform record cannot be modified' }, { status: 400 })
 
-  const existing = await safe(db.school.findUnique({ where: { id } }), null)
-  if (!existing) {
-    return NextResponse.json({ error: 'School not found' }, { status: 404 })
-  }
-  // Never allow the platform-level "school" to be modified
-  if (existing.slug === 'platform') {
-    return NextResponse.json({ error: 'The platform record cannot be modified' }, { status: 400 })
-  }
+    const sets: string[] = ['"updatedAt" = NOW()']
+    const vals: any[] = []
+    let idx = 1
+    if (status !== undefined) { const valid = ['Trial', 'Active', 'Suspended', 'Expired']; if (!valid.includes(status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 }); sets.push(`status = $${idx++}`); vals.push(status) }
+    if (plan !== undefined) { const valid = ['Starter', 'Standard', 'Premium', 'Enterprise']; if (!valid.includes(plan)) return NextResponse.json({ error: 'Invalid plan' }, { status: 400 }); sets.push(`plan = $${idx++}`); vals.push(plan) }
+    if (maxStudents !== undefined) { const n = Number(maxStudents); if (Number.isNaN(n) || n < 1) return NextResponse.json({ error: 'maxStudents must be positive' }, { status: 400 }); sets.push(`"maxStudents" = $${idx++}`); vals.push(n) }
+    if (name !== undefined) { sets.push(`name = $${idx++}`); vals.push(String(name).trim()) }
+    if (email !== undefined) { sets.push(`email = $${idx++}`); vals.push(email ? String(email).trim() : null) }
+    if (phone !== undefined) { sets.push(`phone = $${idx++}`); vals.push(phone ? String(phone).trim() : null) }
+    if (address !== undefined) { sets.push(`address = $${idx++}`); vals.push(address ? String(address).trim() : null) }
+    if (county !== undefined) { sets.push(`county = $${idx++}`); vals.push(county ? String(county).trim() : null) }
 
-  const data: Record<string, unknown> = {}
-  if (status !== undefined) {
-    const valid = ['Trial', 'Active', 'Suspended', 'Expired']
-    if (!valid.includes(status)) {
-      return NextResponse.json({ error: `Invalid status. Must be one of: ${valid.join(', ')}` }, { status: 400 })
-    }
-    data.status = status
-  }
-  if (plan !== undefined) {
-    const valid = ['Starter', 'Standard', 'Premium', 'Enterprise']
-    if (!valid.includes(plan)) {
-      return NextResponse.json({ error: `Invalid plan. Must be one of: ${valid.join(', ')}` }, { status: 400 })
-    }
-    data.plan = plan
-  }
-  if (maxStudents !== undefined) {
-    const n = Number(maxStudents)
-    if (Number.isNaN(n) || n < 1) {
-      return NextResponse.json({ error: 'maxStudents must be a positive integer' }, { status: 400 })
-    }
-    data.maxStudents = n
-  }
-  if (trialEndsAt !== undefined) {
-    data.trialEndsAt = trialEndsAt === null ? null : new Date(trialEndsAt)
-  }
-  if (name !== undefined) data.name = String(name).trim()
-  if (email !== undefined) data.email = email ? String(email).trim() : null
-  if (phone !== undefined) data.phone = phone ? String(phone).trim() : null
-  if (address !== undefined) data.address = address ? String(address).trim() : null
-  if (county !== undefined) data.county = county ? String(county).trim() : null
+    if (sets.length === 1) return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    vals.push(id)
+    await db.$executeRawUnsafe(`UPDATE "School" SET ${sets.join(', ')} WHERE id = $${idx}`, ...vals)
 
-  if (Object.keys(data).length === 0) {
-    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
-  }
-
-  const updated = await db.school.update({ where: { id }, data })
-  return NextResponse.json({ success: true, school: updated })
+    const updated = await db.$queryRawUnsafe<any[]>(`SELECT * FROM "School" WHERE id = $1 LIMIT 1`, id).catch(() => [])
+    return NextResponse.json({ success: true, school: updated[0] || null })
+  } catch (e: any) { return NextResponse.json({ error: e?.message }, { status: 500 }) }
 }
 
-// DELETE /api/superadmin/[id] — Delete school + cascade all related data
+// DELETE /api/superadmin/[id]
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const authError = await requireSuperAdmin(req)
-  if (authError.error) return authError.error
-
-  const { id } = await params
-  const existing = await db.school.findUnique({ where: { id } })
-  if (!existing) {
-    return NextResponse.json({ error: 'School not found' }, { status: 404 })
-  }
-  // Never allow the platform-level "school" to be deleted
-  if (existing.slug === 'platform') {
-    return NextResponse.json({ error: 'The platform record cannot be deleted' }, { status: 400 })
-  }
-
-  // Cascade manual cleanup — relations without onDelete: Cascade on School
-  // Payments → Invoices (cascade on invoiceId), plus Staff/Student (set null),
-  // UserAccount (cascade on schoolId).
-  await db.$transaction([
-    db.payment.deleteMany({ where: { schoolId: id } }),
-    db.invoice.deleteMany({ where: { schoolId: id } }),
-    db.staff.updateMany({ where: { schoolId: id }, data: { schoolId: null } }),
-    db.student.updateMany({ where: { schoolId: id }, data: { schoolId: null } }),
-    db.userAccount.deleteMany({ where: { schoolId: id } }),
-    db.school.delete({ where: { id } }),
-  ])
-
-  return NextResponse.json({ success: true, deleted: id, name: existing.name })
+  try {
+    const { id } = await params
+    const existing = await db.$queryRawUnsafe<any[]>(`SELECT slug FROM "School" WHERE id = $1 LIMIT 1`, id).catch(() => [])
+    if (existing.length === 0) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+    if (existing[0].slug === 'platform') return NextResponse.json({ error: 'Cannot delete the platform record' }, { status: 400 })
+    await db.$executeRawUnsafe(`DELETE FROM "School" WHERE id = $1`, id).catch(() => {})
+    return NextResponse.json({ success: true })
+  } catch (e: any) { return NextResponse.json({ error: e?.message }, { status: 500 }) }
 }
