@@ -17,8 +17,8 @@ export async function GET() {
     const trials = await db.$queryRawUnsafe<any[]>(`
       SELECT s.id, s.name, s.slug, s.plan, s.status, s."trialEndsAt", s."createdAt",
              s."maxStudents",
-             (SELECT COUNT(*) FROM "UserAccount" u WHERE u."schoolId" = s.id) as user_count,
-             (SELECT COUNT(*) FROM "Student" st WHERE st."schoolId" = s.id) as student_count
+             (SELECT COUNT(*)::int FROM "UserAccount" u WHERE u."schoolId" = s.id) as user_count,
+             (SELECT COUNT(*)::int FROM "Student" st WHERE st."schoolId" = s.id) as student_count
       FROM "School" s
       WHERE s.slug != 'platform'
       ORDER BY s."trialEndsAt" ASC
@@ -44,8 +44,8 @@ export async function GET() {
             ...t,
             daysLeft,
             urgency: daysLeft <= 3 ? 'critical' : daysLeft <= 7 ? 'urgent' : 'ok',
-            userCount: Number(t.user_count::int) || 0,
-            studentCount: Number(t.student_count::int) || 0,
+            userCount: Number(t.user_count) || 0,
+            studentCount: Number(t.student_count) || 0,
           })
         } else {
           expired++
@@ -53,8 +53,8 @@ export async function GET() {
             ...t,
             daysLeft: 0,
             urgency: 'expired',
-            userCount: Number(t.user_count::int) || 0,
-            studentCount: Number(t.student_count::int) || 0,
+            userCount: Number(t.user_count) || 0,
+            studentCount: Number(t.student_count) || 0,
           })
         }
       } else if (t.status === 'Active' || t.status === 'Suspended') {
