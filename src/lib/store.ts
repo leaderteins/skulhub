@@ -40,6 +40,10 @@ export type ModuleKey =
   | 'notifications'
   | 'examanalytics'
   | 'aiassistant'
+  | 'feereminders'
+  | 'subscriptions'
+  | 'documents'
+  | 'analytics'
   | 'settings'
   | 'superadmin'
 

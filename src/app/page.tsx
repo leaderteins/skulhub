@@ -51,6 +51,11 @@ import { BusTrackingModule } from '@/components/modules/bus-tracking'
 import { NotificationsModule } from '@/components/modules/notifications'
 import { ExamAnalyticsModule } from '@/components/modules/exam-analytics'
 import { AIAssistantModule } from '@/components/modules/ai-assistant'
+import { ErrorBoundary } from '@/components/error-boundary'
+import { FeeRemindersModule } from '@/components/modules/fee-reminders'
+import { SubscriptionsModule } from '@/components/modules/subscriptions'
+import { DocumentsModule } from '@/components/modules/documents'
+import { AnalyticsModule } from '@/components/modules/analytics'
 import { SettingsModule } from '@/components/modules/settings'
 import { SuperAdminModule } from '@/components/modules/superadmin'
 import { Card, CardContent } from '@/components/ui/card'
@@ -224,6 +229,10 @@ export default function Home() {
               {effectiveModule === 'notifications' && <NotificationsModule />}
               {effectiveModule === 'examanalytics' && <ExamAnalyticsModule />}
               {effectiveModule === 'aiassistant' && <AIAssistantModule />}
+              {effectiveModule === 'feereminders' && <FeeRemindersModule />}
+              {effectiveModule === 'subscriptions' && <SubscriptionsModule />}
+              {effectiveModule === 'documents' && <DocumentsModule />}
+              {effectiveModule === 'analytics' && <AnalyticsModule />}
               {effectiveModule === 'superadmin' && <SuperAdminModule />}
               {effectiveModule === 'settings' && <SettingsModule />}
             </>
