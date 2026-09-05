@@ -62,7 +62,7 @@ const ALL_MODULES = [
   'hostel', 'finance', 'communications', 'library', 'transport', 'inventory',
   'cafeteria', 'procurement', 'facilities', 'visitors', 'staffroom',
   'payroll', 'appraisals', 'feedback', 'idcards', 'dataimport', 'invrequests', 'reports',
-  'biometric', 'bustracking', 'notifications', 'examanalytics', 'aiassistant', 'documents', 'analytics', 'settings',
+  'biometric', 'bustracking', 'notifications', 'examanalytics', 'aiassistant', 'documents', 'analytics', 'feereminders', 'subscriptions', 'settings',
 ]
 
 // Module VIEW access by role. super_admin sees everything (platform owner).
