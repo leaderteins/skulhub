@@ -66,6 +66,7 @@ const NAV: NavItem[] = [
   // Super Admin module is intentionally NOT in the sidebar nav — it's only
   // accessible to the platform owner via the hidden Ctrl+Shift+A shortcut on
   // the login screen, and auto-loads when they log in.
+  { key: 'subscriptions', label: 'Subscriptions', icon: CreditCard, group: 'Insights' },
   { key: 'settings', label: 'Settings', icon: Settings, group: 'Insights' },
 ]
 
