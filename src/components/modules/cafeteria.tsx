@@ -75,7 +75,7 @@ export function CafeteriaModule() {
     )
   }
 
-  const display = filtered || data!
+  const display = filtered || data || { stats: {}, dormitories: [], items: [], menus: [], assets: [], meals: [] }
   const stats = display.stats
 
   return (
