@@ -78,6 +78,7 @@ import {
   Plug,
   BookOpen,
   Activity,
+  Layers,
   Server,
   Database,
   Wifi,
@@ -659,6 +660,62 @@ export function SettingsModule() {
         {/* Academic */}
         {/* ----------------------------------------------------------------- */}
         <TabsContent value="academic" className="space-y-4">
+          {/* Academic Calendar (also on General tab, but duplicated here for convenience) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Calendar className="h-4.5 w-4.5 text-teal-600" /> Academic Calendar
+              </CardTitle>
+              <CardDescription>Current academic year and term settings</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="set-year">Academic Year</Label>
+                  <Input id="set-year" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="set-term">Current Term</Label>
+                  <Select value={currentTerm} onValueChange={setCurrentTerm}>
+                    <SelectTrigger id="set-term"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Term 1">Term 1</SelectItem>
+                      <SelectItem value="Term 2">Term 2</SelectItem>
+                      <SelectItem value="Term 3">Term 3</SelectItem>
+                      <SelectItem value="Holiday">Holiday</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="set-t-start">Term Start</Label>
+                  <Input id="set-t-start" type="date" value={termStart} onChange={(e) => setTermStart(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="set-t-end">Term End</Label>
+                  <Input id="set-t-end" type="date" value={termEnd} onChange={(e) => setTermEnd(e.target.value)} />
+                </div>
+              </div>
+              <div className="rounded-md bg-emerald-50 p-3 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                <p className="flex items-center gap-1.5 font-medium"><CheckCircle2 className="h-3.5 w-3.5" /> Active term</p>
+                <p className="mt-0.5">{currentTerm}, {academicYear} · {termStart} → {termEnd}</p>
+                <p className="mt-1.5 flex items-center gap-1 text-[10px] text-emerald-600/80 dark:text-emerald-400/80">
+                  {academic.auto ? '🟢 Auto-derived from today\'s date — updates automatically' : '🔒 Manually overridden — click "Reset to auto" to re-enable'}
+                </p>
+              </div>
+              <div className="flex items-center justify-end pt-1">
+                <Button type="button" variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-emerald-600" onClick={handleResetAcademicToAuto} disabled={academic.auto}>
+                  <RefreshCw className="mr-1.5 h-3 w-3" /> Reset to auto (today)
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Class Levels & Subjects — fetched from /api/academics */}
+          <ClassLevelsSubjectsCard />
+
+          {/* KCSE Grading System */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -2078,5 +2135,101 @@ function DatabaseSetupTab() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Class Levels & Subjects Card — fetched from /api/academics
+// Shows all class levels with their streams + all subjects
+// ---------------------------------------------------------------------------
+function ClassLevelsSubjectsCard() {
+  const [data, setData] = useState<{classLevels?: any[]; subjects?: any[]} | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/academics').then(r => r.json()).then(d => {
+      setData(d)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="h-32 animate-pulse rounded-lg bg-muted" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const classLevels = data?.classLevels || []
+  const subjects = data?.subjects || []
+
+  return (
+    <>
+      {/* Class Levels */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Layers className="h-4.5 w-4.5 text-teal-600" /> Class Levels &amp; Streams
+          </CardTitle>
+          <CardDescription>Classes configured for this school</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {classLevels.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">No class levels configured yet. Use the Onboarding Wizard to auto-create them, or add them in the Academics module.</p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {classLevels.map((cl: any) => (
+                <div key={cl.id} className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">{cl.name}</p>
+                    <Badge variant="outline" className="text-[10px]">{cl.stage || '—'}</Badge>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {cl.streams?.map((s: any) => (
+                      <Badge key={s.id} variant="secondary" className="text-[10px]">{s.name}</Badge>
+                    )) || <span className="text-xs text-muted-foreground">No streams</span>}
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {cl.streams?.length || 0} streams · {cl._count?.enrollments || 0} students
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 rounded-md bg-blue-50 p-3 text-xs text-blue-700 dark:bg-blue-950/20 dark:text-blue-400">
+            <p>To add or edit class levels and streams, go to the <strong>Academics</strong> module → Classes tab.</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Subjects */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BookOpen className="h-4.5 w-4.5 text-teal-600" /> Subjects
+          </CardTitle>
+          <CardDescription>Subjects taught at this school</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {subjects.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">No subjects configured yet. Use the Onboarding Wizard to auto-create them, or add them in the Academics module.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {subjects.map((s: any) => (
+                <Badge key={s.id} variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                  {s.name} <span className="ml-1 text-[10px] opacity-60">({s.code})</span>
+                </Badge>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 rounded-md bg-blue-50 p-3 text-xs text-blue-700 dark:bg-blue-950/20 dark:text-blue-400">
+            <p>To add or edit subjects, go to the <strong>Academics</strong> module → Subjects tab.</p>
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 }
