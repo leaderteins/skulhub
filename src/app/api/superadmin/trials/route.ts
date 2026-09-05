@@ -44,8 +44,8 @@ export async function GET() {
             ...t,
             daysLeft,
             urgency: daysLeft <= 3 ? 'critical' : daysLeft <= 7 ? 'urgent' : 'ok',
-            userCount: Number(t.user_count) || 0,
-            studentCount: Number(t.student_count) || 0,
+            userCount: Number(t.user_count::int) || 0,
+            studentCount: Number(t.student_count::int) || 0,
           })
         } else {
           expired++
@@ -53,8 +53,8 @@ export async function GET() {
             ...t,
             daysLeft: 0,
             urgency: 'expired',
-            userCount: Number(t.user_count) || 0,
-            studentCount: Number(t.student_count) || 0,
+            userCount: Number(t.user_count::int) || 0,
+            studentCount: Number(t.student_count::int) || 0,
           })
         }
       } else if (t.status === 'Active' || t.status === 'Suspended') {
