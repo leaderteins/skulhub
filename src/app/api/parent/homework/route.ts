@@ -95,6 +95,13 @@ export async function GET(req: NextRequest) {
       homework: homework.map(h => ({
         ...h,
         dueDate: h.dueDate.toISOString(),
+        // Ensure parent signature fields are exposed to the parent portal
+        // (these exist on the model but Prisma's `include` already surfaces
+        // scalar fields — kept here for explicitness / future-proofing).
+        parentSigned: h.parentSigned,
+        parentSignedAt: h.parentSignedAt ? h.parentSignedAt.toISOString() : null,
+        parentSignedBy: h.parentSignedBy,
+        parentSignedPhone: h.parentSignedPhone,
         comments: h.comments.map(c => ({ ...c, createdAt: c.createdAt.toISOString() })),
       })),
       grades: grades.map(g => ({

@@ -77,9 +77,11 @@ export async function POST(req: NextRequest) {
     // Use raw SQL to insert the biometric log — bypasses Prisma's schema
     // validation which may not know about the new tables on Vercel
     const logId = `bio_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    // SQLite-compatible: omit timestamp & createdAt (both have @default(now()))
+    // (PostgreSQL NOW() fails on SQLite — would silently break inside the route)
     await db.$executeRaw`
-      INSERT INTO "BiometricLog" (id, "schoolId", "deviceId", "personId", "personType", action, location, gps, verified, timestamp, "createdAt")
-      VALUES (${logId}, ${schoolId}, ${deviceId}, ${body.personId}, ${body.personType || 'student'}, ${body.action}, ${body.location || null}, ${body.gps || null}, ${body.verified ?? true}, NOW(), NOW())
+      INSERT INTO "BiometricLog" (id, "schoolId", "deviceId", "personId", "personType", action, location, gps, verified)
+      VALUES (${logId}, ${schoolId}, ${deviceId}, ${body.personId}, ${body.personType || 'student'}, ${body.action}, ${body.location || null}, ${body.gps || null}, ${body.verified ?? true})
     `
 
     // --- Bus tracking integration ---
@@ -98,9 +100,10 @@ export async function POST(req: NextRequest) {
           const tripId = activeTrips[0].id
           const boardingId = `board_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
           const boardingAction = body.action === 'board_bus' ? 'board' : 'alight'
+          // SQLite-compatible: omit timestamp & createdAt (both have @default(now()))
           await db.$executeRawUnsafe(`
-            INSERT INTO "BusBoarding" (id, "schoolId", "tripId", "studentId", action, "stopName", gps, timestamp, "createdAt")
-            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+            INSERT INTO "BusBoarding" (id, "schoolId", "tripId", "studentId", action, "stopName", gps)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (id) DO NOTHING
           `, boardingId, schoolId, tripId, body.personId, boardingAction, body.location || null, body.gps || null).catch(() => {})
 

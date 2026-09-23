@@ -12,15 +12,17 @@ export async function POST(req: NextRequest) {
 
     let affected = 0
     for (const id of schoolIds) {
+      // SQLite-compatible: datetime('now') instead of PostgreSQL NOW()
       if (action === 'suspend') {
-        await db.$executeRawUnsafe(`UPDATE "School" SET status = 'Suspended', "updatedAt" = NOW() WHERE id = $1 AND slug != 'platform'`, id).catch(() => {})
+        await db.$executeRawUnsafe(`UPDATE "School" SET status = 'Suspended', "updatedAt" = datetime('now') WHERE id = $1 AND slug != 'platform'`, id).catch(() => {})
       } else if (action === 'activate') {
-        await db.$executeRawUnsafe(`UPDATE "School" SET status = 'Active', "updatedAt" = NOW() WHERE id = $1 AND slug != 'platform'`, id).catch(() => {})
+        await db.$executeRawUnsafe(`UPDATE "School" SET status = 'Active', "updatedAt" = datetime('now') WHERE id = $1 AND slug != 'platform'`, id).catch(() => {})
       } else if (action === 'upgrade' && plan) {
         const maxStudents: Record<string, number> = { Starter: 200, Standard: 500, Premium: 2000, Enterprise: 10000 }
-        await db.$executeRawUnsafe(`UPDATE "School" SET plan = $1, "maxStudents" = $2, status = 'Active', "updatedAt" = NOW() WHERE id = $3 AND slug != 'platform'`, plan, maxStudents[plan] || 200, id).catch(() => {})
+        await db.$executeRawUnsafe(`UPDATE "School" SET plan = $1, "maxStudents" = $2, status = 'Active', "updatedAt" = datetime('now') WHERE id = $3 AND slug != 'platform'`, plan, maxStudents[plan] || 200, id).catch(() => {})
       } else if (action === 'extend_trial') {
-        await db.$executeRawUnsafe(`UPDATE "School" SET "trialEndsAt" = NOW() + INTERVAL '30 days', status = 'Trial', "updatedAt" = NOW() WHERE id = $1 AND slug != 'platform'`, id).catch(() => {})
+        // SQLite-compatible: datetime('now','+30 days') instead of NOW()+INTERVAL '30 days'
+        await db.$executeRawUnsafe(`UPDATE "School" SET "trialEndsAt" = datetime('now','+30 days'), status = 'Trial', "updatedAt" = datetime('now') WHERE id = $1 AND slug != 'platform'`, id).catch(() => {})
       }
       affected++
     }

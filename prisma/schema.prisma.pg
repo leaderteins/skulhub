@@ -315,6 +315,39 @@ model Exam {
   createdAt    DateTime @default(now())
 
   grades Grade[]
+  papers ExamPaper[]
+}
+
+// ---------------------------------------------------------------------------
+// Exam Papers / Past Papers (JESMA, KNEC, Kaspnet, publisher exams)
+// Kenyan schools frequently purchase exam papers from publishers.
+// ---------------------------------------------------------------------------
+
+model ExamPaper {
+  id          String   @id @default(cuid())
+  title       String   // e.g. "JESMA Mathematics Paper 1 — Form 3 End Term 2 2024"
+  subject     String   // e.g. "Mathematics", "English", "Kiswahili"
+  classLevel  String   // e.g. "Form 1", "Form 4", "Grade 6", "PP2"
+  paperType   String   @default("exam_paper") // "past_paper" | "exam_paper" | "marking_scheme" | "revision_notes"
+  publisher   String?  // e.g. "JESMA", "KNEC", "Kaspnet", "Achievers", "School"
+  year        String?  // e.g. "2024"
+  term        String?  // e.g. "Term 1", "Term 2", "Term 3"
+  description String?
+
+  // File storage — base64 data URL (for PDFs up to ~5MB)
+  fileData    String   // base64-encoded file content (data URL format)
+  fileName    String?  // original filename
+  fileSize    Int?     // file size in bytes
+  fileType    String   @default("application/pdf") // MIME type
+
+  // Metadata
+  uploadedBy  String?  // user name who uploaded
+  examId      String?  // link to an Exam record (optional)
+  exam        Exam?    @relation(fields: [examId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([subject, classLevel])
+  @@index([publisher, year])
 }
 
 model Grade {
@@ -1154,6 +1187,12 @@ model Homework {
   status      String   @default("Active") // "Active" | "Closed" | "Graded"
   createdBy   String?
   createdAt   DateTime @default(now())
+
+  // Parent digital signature (replaces physical diary acknowledgment)
+  parentSigned      Boolean   @default(false)
+  parentSignedAt   DateTime?
+  parentSignedBy   String?  // guardian name who signed
+  parentSignedPhone String? // guardian phone who signed (for verification)
 
   comments HomeworkComment[]
 }

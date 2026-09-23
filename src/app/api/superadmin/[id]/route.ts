@@ -18,11 +18,12 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
     const users = await db.$queryRawUnsafe<any[]>(`SELECT id, name, email, role, status, phone, "lastLoginAt", "createdAt" FROM "UserAccount" WHERE "schoolId" = $1 ORDER BY status ASC, "lastLoginAt" DESC`, id).catch(() => [])
 
+    // SQLite-compatible: no ::int / ::float casts (PG-only).
     const [payAgg, invAgg, stuCount, staffCount] = await Promise.all([
-      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*)::int as count, COALESCE(SUM(amount),0)::float as total FROM "Payment" WHERE "schoolId" = $1`, id), [{count:0,total:0}]),
-      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*)::int as count, COALESCE(SUM(amount),0)::float as total, COALESCE(SUM("amountPaid"),0)::float as paid, COALESCE(SUM(balance),0)::float as balance FROM "Invoice" WHERE "schoolId" = $1`, id), [{count:0,total:0,paid:0,balance:0}]),
-      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*)::int as count FROM "Student" WHERE "schoolId" = $1`, id), [{count:0}]),
-      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*)::int as count FROM "Staff" WHERE "schoolId" = $1`, id), [{count:0}]),
+      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*) as count, COALESCE(SUM(amount),0) as total FROM "Payment" WHERE "schoolId" = $1`, id), [{count:0,total:0}]),
+      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*) as count, COALESCE(SUM(amount),0) as total, COALESCE(SUM("amountPaid"),0) as paid, COALESCE(SUM(balance),0) as balance FROM "Invoice" WHERE "schoolId" = $1`, id), [{count:0,total:0,paid:0,balance:0}]),
+      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*) as count FROM "Student" WHERE "schoolId" = $1`, id), [{count:0}]),
+      safe(db.$queryRawUnsafe<any[]>(`SELECT COUNT(*) as count FROM "Staff" WHERE "schoolId" = $1`, id), [{count:0}]),
     ])
 
     const recentPayments = await db.$queryRawUnsafe<any[]>(`SELECT id, amount, method, reference, "payerName", "payerPhone", "receivedBy", "receivedAt" FROM "Payment" WHERE "schoolId" = $1 ORDER BY "receivedAt" DESC LIMIT 8`, id).catch(() => [])
@@ -55,7 +56,8 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     if (existing.length === 0) return NextResponse.json({ error: 'School not found' }, { status: 404 })
     if (existing[0].slug === 'platform') return NextResponse.json({ error: 'The platform record cannot be modified' }, { status: 400 })
 
-    const sets: string[] = ['"updatedAt" = NOW()']
+    // SQLite-compatible: datetime('now') instead of PostgreSQL NOW()
+    const sets: string[] = ["\"updatedAt\" = datetime('now')"]
     const vals: any[] = []
     let idx = 1
     if (status !== undefined) { const valid = ['Trial', 'Active', 'Suspended', 'Expired']; if (!valid.includes(status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 }); sets.push(`status = $${idx++}`); vals.push(status) }

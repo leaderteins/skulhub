@@ -1,0 +1,1111 @@
+     1→'use client'
+     2→import { useState, useEffect } from 'react'
+     3→import { Button } from '@/components/ui/button'
+     4→import { Input } from '@/components/ui/input'
+     5→import { Label } from '@/components/ui/label'
+     6→import {
+     7→  Card,
+     8→  CardContent,
+     9→  CardHeader,
+    10→  CardTitle,
+    11→  CardDescription,
+    12→} from '@/components/ui/card'
+    13→import { Badge } from '@/components/ui/badge'
+    14→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    15→import { Skeleton } from '@/components/ui/skeleton'
+    16→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+    17→import {
+    18→  School,
+    19→  ArrowLeft,
+    20→  ArrowRight,
+    21→  User,
+    22→  Phone,
+    23→  Building2,
+    24→  Wallet,
+    25→  AlertCircle,
+    26→  CalendarDays,
+    27→  BookOpen,
+    28→  Megaphone,
+    29→  CalendarClock,
+    30→  RefreshCw,
+    31→  LogOut,
+    32→  Sparkles,
+    33→  GraduationCap,
+    34→  FileText,
+    35→  Send,
+    36→  Loader2,
+    37→} from 'lucide-react'
+    38→import { toast } from 'sonner'
+    39→import { useAuthStore } from '@/lib/auth-store'
+    40→import { useFetch } from '@/lib/api'
+    41→import {
+    42→  formatKES,
+    43→  formatDate,
+    44→  initials,
+    45→  statusColor,
+    46→  gradeColor,
+    47→} from '@/lib/format'
+    48→
+    49→// ---------------------------------------------------------------------------
+    50→// Types
+    51→// ---------------------------------------------------------------------------
+    52→
+    53→interface LookupResult {
+    54→  student: {
+    55→    id: string
+    56→    name: string
+    57→    admissionNo: string
+    58→    classLevel: string
+    59→    stream: string
+    60→    photo: string | null
+    61→  }
+    62→  schoolName: string
+    63→}
+    64→
+    65→interface DashboardData {
+    66→  student: {
+    67→    id: string
+    68→    admissionNo: string
+    69→    name: string
+    70→    firstName: string
+    71→    lastName: string
+    72→    gender: string
+    73→    boarding: boolean
+    74→    photo: string | null
+    75→    classLevel: string
+    76→    stream: string
+    77→    status: string
+    78→  }
+    79→  school: { id: string; name: string; slug: string } | null
+    80→  guardian: {
+    81→    name: string
+    82→    phone: string
+    83→    relation: string
+    84→  } | null
+    85→  fees: {
+    86→    totalBilled: number
+    87→    totalPaid: number
+    88→    totalBalance: number
+    89→    invoices: Array<{
+    90→      id: string
+    91→      invoiceNo: string
+    92→      academicYear: string
+    93→      term: string
+    94→      amount: number
+    95→      amountPaid: number
+    96→      balance: number
+    97→      status: string
+    98→      dueDate: string
+    99→      issueDate: string
+   100→    }>
+   101→  }
+   102→  attendance: Array<{ id: string; date: string; status: string }>
+   103→  grades: Array<{
+   104→    id: string
+   105→    subject: string
+   106→    marks: number
+   107→    grade: string
+   108→    points: number
+   109→    remarks: string | null
+   110→    exam: string
+   111→    examType: string
+   112→    term: string
+   113→  }>
+   114→  announcements: Array<{
+   115→    id: string
+   116→    title: string
+   117→    body: string
+   118→    priority: string
+   119→    pinned: boolean
+   120→    publishedAt: string
+   121→    authorName: string | null
+   122→  }>
+   123→  events: Array<{
+   124→    id: string
+   125→    title: string
+   126→    description: string | null
+   127→    category: string
+   128→    startDate: string
+   129→    endDate: string | null
+   130→    location: string | null
+   131→    status: string
+   132→  }>
+   133→}
+   134→
+   135→const ATTENDANCE_BADGE: Record<string, string> = {
+   136→  Present:
+   137→    'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
+   138→  Late: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
+   139→  Absent: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400',
+   140→  Excused:
+   141→    'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400',
+   142→  Sick: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400',
+   143→}
+   144→
+   145→const EVENT_CATEGORY_COLOR: Record<string, string> = {
+   146→  Academic: 'text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950',
+   147→  Sports: 'text-orange-700 bg-orange-50 dark:text-orange-400 dark:bg-orange-950',
+   148→  Cultural: 'text-pink-700 bg-pink-50 dark:text-pink-400 dark:bg-pink-950',
+   149→  Meeting: 'text-violet-700 bg-violet-50 dark:text-violet-400 dark:bg-violet-950',
+   150→  Trip: 'text-cyan-700 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-950',
+   151→  Holiday: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
+   152→  Exam: 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-400',
+   153→  General: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
+   154→}
+   155→
+   156→// ---------------------------------------------------------------------------
+   157→// Component
+   158→// ---------------------------------------------------------------------------
+   159→
+   160→export function ParentPortal() {
+   161→  const { setAuthView } = useAuthStore()
+   162→  const [schoolCode, setSchoolCode] = useState('')
+   163→  const [admissionNo, setAdmissionNo] = useState('')
+   164→  const [phone, setPhone] = useState('')
+   165→  const [loading, setLoading] = useState(false)
+   166→  const [studentId, setStudentId] = useState<string | null>(null)
+   167→  const [schoolName, setSchoolName] = useState<string>('')
+   168→  const [paying, setPaying] = useState<string | null>(null)
+   169→  const [payDialog, setPayDialog] = useState<{ invoiceId: string; amount: number } | null>(null)
+   170→  const [payPhone, setPayPhone] = useState('')
+   171→
+   172→  const {
+   173→    data: dashboard,
+   174→    loading: dashLoading,
+   175→    error,
+   176→    refetch,
+   177→  } = useFetch<DashboardData>(studentId ? `/api/parent/${studentId}` : null)
+   178→
+   179→  // --- Step 1: verify identity ------------------------------------------
+   180→  const handleLookup = async (e: React.FormEvent) => {
+   181→    e.preventDefault()
+   182→    if (!schoolCode.trim() || !admissionNo.trim() || !phone.trim()) {
+   183→      toast.error('All fields are required')
+   184→      return
+   185→    }
+   186→    setLoading(true)
+   187→    try {
+   188→      const res = await fetch('/api/parent/lookup', {
+   189→        method: 'POST',
+   190→        headers: { 'Content-Type': 'application/json' },
+   191→        body: JSON.stringify({
+   192→          schoolCode: schoolCode.trim(),
+   193→          admissionNo: admissionNo.trim(),
+   194→          phone: phone.trim(),
+   195→        }),
+   196→      })
+   197→      const data = await res.json().catch(() => ({}))
+   198→      if (!res.ok) {
+   199→        toast.error('Lookup failed', {
+   200→          description: data?.error || 'Please try again.',
+   201→        })
+   202→        setLoading(false)
+   203→        return
+   204→      }
+   205→      const result = data as LookupResult
+   206→      toast.success('Verified', {
+   207→        description: `${result.student.name} · ${result.schoolName}`,
+   208→      })
+   209→      setStudentId(result.student.id)
+   210→      setSchoolName(result.schoolName)
+   211→    } catch {
+   212→      toast.error('Lookup failed', { description: 'Please try again.' })
+   213→    }
+   214→    setLoading(false)
+   215→  }
+   216→
+   217→  const fillDemo = async () => {
+   218→    try {
+   219→      const res = await fetch('/api/parent/demo')
+   220→      const data = await res.json().catch(() => ({}))
+   221→      if (!res.ok) {
+   222→        toast.error('No demo data available', {
+   223→          description: data?.error || 'Seed the database first.',
+   224→        })
+   225→        return
+   226→      }
+   227→      setSchoolCode(data.schoolCode)
+   228→      setAdmissionNo(data.admissionNo)
+   229→      setPhone(data.phone)
+   230→      toast.success('Demo credentials filled', {
+   231→        description: `${data.studentName} at ${data.schoolName}`,
+   232→      })
+   233→    } catch {
+   234→      toast.error('Could not load demo credentials')
+   235→    }
+   236→  }
+   237→
+   238→  const exitPortal = () => {
+   239→    setStudentId(null)
+   240→    setSchoolCode('')
+   241→    setAdmissionNo('')
+   242→    setPhone('')
+   243→    setSchoolName('')
+   244→  }
+   245→
+   246→  // --- M-Pesa payment handler ---
+   247→  const handlePayInvoice = (invoiceId: string) => {
+   248→    const inv = dashboard?.fees?.invoices?.find(i => i.id === invoiceId)
+   249→    if (!inv) return
+   250→    setPayDialog({ invoiceId, amount: inv.balance })
+   251→    setPayPhone(dashboard?.guardian?.phone || phone || '')
+   252→  }
+   253→
+   254→  const confirmPayment = async () => {
+   255→    if (!payDialog || !studentId) return
+   256→    if (!payPhone.trim()) { toast.error('Phone number is required'); return }
+   257→    setPaying(payDialog.invoiceId)
+   258→    try {
+   259→      const res = await fetch('/api/mpesa/parent-pay', {
+   260→        method: 'POST',
+   261→        headers: { 'Content-Type': 'application/json' },
+   262→        body: JSON.stringify({
+   263→          studentId,
+   264→          invoiceId: payDialog.invoiceId,
+   265→          phone: payPhone.trim(),
+   266→        }),
+   267→      })
+   268→      const data = await res.json()
+   269→      if (!res.ok) throw new Error(data.error)
+   270→
+   271→      if (data.demo) {
+   272→        toast.success('Payment logged (demo mode)', {
+   273→          description: data.message,
+   274→          duration: 6000,
+   275→        })
+   276→      } else {
+   277→        toast.success('STK Push sent!', {
+   278→          description: `Check your phone (${data.phone}) and enter your M-Pesa PIN to pay KES ${data.amount?.toLocaleString()}.`,
+   279→          duration: 10000,
+   280→        })
+   281→      }
+   282→      setPayDialog(null)
+   283→      setTimeout(() => refetch(), 3000) // refresh after 3s
+   284→    } catch (e: any) {
+   285→      toast.error('Payment failed', { description: e.message })
+   286→    } finally {
+   287→      setPaying(null)
+   288→    }
+   289→  }
+   290→
+   291→  // --- Dashboard view ---------------------------------------------------
+   292→  if (studentId) {
+   293→    return (
+   294→      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950">
+   295→        <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur dark:bg-slate-900/80">
+   296→          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+   297→            <div className="flex items-center gap-3">
+   298→              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+   299→                <School className="h-5 w-5" />
+   300→              </div>
+   301→              <div>
+   302→                <p className="text-sm font-bold text-foreground">Parent Portal</p>
+   303→                <p className="text-xs text-muted-foreground">
+   304→                  {schoolName || dashboard?.school?.name || 'SkulHub'}
+   305→                </p>
+   306→              </div>
+   307→            </div>
+   308→            <div className="flex flex-wrap items-center gap-2">
+   309→              <Button
+   310→                variant="outline"
+   311→                size="sm"
+   312→                onClick={refetch}
+   313→                disabled={dashLoading}
+   314→              >
+   315→                <RefreshCw
+   316→                  className={`mr-2 h-3.5 w-3.5 ${dashLoading ? 'animate-spin' : ''}`}
+   317→                />
+   318→                Refresh
+   319→              </Button>
+   320→              <Button
+   321→                variant="outline"
+   322→                size="sm"
+   323→                onClick={() => setAuthView('login')}
+   324→              >
+   325→                <ArrowLeft className="mr-2 h-3.5 w-3.5" /> To login
+   326→              </Button>
+   327→              <Button variant="ghost" size="sm" onClick={exitPortal}>
+   328→                <LogOut className="mr-2 h-3.5 w-3.5" /> Exit
+   329→              </Button>
+   330→            </div>
+   331→          </div>
+   332→        </header>
+   333→
+   334→        <main className="mx-auto max-w-6xl px-4 py-6">
+   335→          {dashLoading && !dashboard && (
+   336→            <div className="flex items-center justify-center py-20">
+   337→              <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500/20 border-t-emerald-600" />
+   338→            </div>
+   339→          )}
+   340→
+   341→          {error && !dashLoading && (
+   342→            <Card>
+   343→              <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+   344→                <AlertCircle className="h-8 w-8 text-rose-500" />
+   345→                <p className="text-sm font-semibold">Failed to load dashboard</p>
+   346→                <p className="text-xs text-muted-foreground">{error}</p>
+   347→                <Button size="sm" variant="outline" onClick={refetch}>
+   348→                  Retry
+   349→                </Button>
+   350→              </CardContent>
+   351→            </Card>
+   352→          )}
+   353→
+   354→          {dashboard && (
+   355→            <div className="space-y-6">
+   356→              {/* Student header */}
+   357→              <Card className="border-0 shadow-md">
+   358→                <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+   359→                  <Avatar className="h-16 w-16 border-2 border-emerald-200">
+   360→                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-lg font-bold text-white">
+   361→                      {initials(dashboard.student?.firstName, dashboard.student?.lastName)}
+   362→                    </AvatarFallback>
+   363→                  </Avatar>
+   364→                  <div className="flex-1">
+   365→                    <div className="flex flex-wrap items-center gap-2">
+   366→                      <h2 className="text-xl font-bold text-foreground">
+   367→                        {dashboard.student?.name || 'Student'}
+   368→                      </h2>
+   369→                      <Badge variant="outline" className={statusColor(dashboard.student?.status || 'Active')}>
+   370→                        {dashboard.student?.status || 'Active'}
+   371→                      </Badge>
+   372→                      <Badge
+   373→                        variant="outline"
+   374→                        className={
+   375→                          dashboard.student?.boarding
+   376→                            ? 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400'
+   377→                            : 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400'
+   378→                        }
+   379→                      >
+   380→                        {dashboard.student?.boarding ? 'Boarding' : 'Day Scholar'}
+   381→                      </Badge>
+   382→                    </div>
+   383→                    <p className="mt-1 text-sm text-muted-foreground">
+   384→                      Admission No:{' '}
+   385→                      <span className="font-medium text-foreground">
+   386→                        {dashboard.student?.admissionNo || '—'}
+   387→                      </span>
+   388→                      {' · '}Class:{' '}
+   389→                      <span className="font-medium text-foreground">
+   390→                        {dashboard.student?.classLevel || '—'}
+   391→                      </span>
+   392→                      {' · '}Stream:{' '}
+   393→                      <span className="font-medium text-foreground">
+   394→                        {dashboard.student?.stream || '—'}
+   395→                      </span>
+   396→                    </p>
+   397→                    {dashboard.guardian && (
+   398→                      <p className="mt-1 text-xs text-muted-foreground">
+   399→                        Guardian: {dashboard.guardian.name} ({dashboard.guardian.relation}) ·{' '}
+   400→                        {dashboard.guardian.phone}
+   401→                      </p>
+   402→                    )}
+   403→                  </div>
+   404→                </CardContent>
+   405→              </Card>
+   406→
+   407→              <div className="grid gap-6 lg:grid-cols-3">
+   408→                {/* Fee summary */}
+   409→                <Card className="lg:col-span-2">
+   410→                  <CardHeader>
+   411→                    <CardTitle className="flex items-center gap-2 text-base">
+   412→                      <Wallet className="h-4 w-4 text-emerald-600" /> Fee Summary
+   413→                    </CardTitle>
+   414→                  </CardHeader>
+   415→                  <CardContent>
+   416→                    <div className="grid grid-cols-3 gap-3">
+   417→                      <div className="rounded-xl border bg-slate-50/50 p-3 dark:bg-slate-900/30">
+   418→                        <p className="text-xs text-muted-foreground">Total Billed</p>
+   419→                        <p className="text-base font-bold text-foreground sm:text-lg">
+   420→                          {formatKES(dashboard.fees.totalBilled)}
+   421→                        </p>
+   422→                      </div>
+   423→                      <div className="rounded-xl border bg-emerald-50/50 p-3 dark:bg-emerald-950/20">
+   424→                        <p className="text-xs text-muted-foreground">Paid</p>
+   425→                        <p className="text-base font-bold text-emerald-700 dark:text-emerald-400 sm:text-lg">
+   426→                          {formatKES(dashboard.fees.totalPaid)}
+   427→                        </p>
+   428→                      </div>
+   429→                      <div className="rounded-xl border bg-rose-50/50 p-3 dark:bg-rose-950/20">
+   430→                        <p className="text-xs text-muted-foreground">Balance</p>
+   431→                        <p className="text-base font-bold text-rose-700 dark:text-rose-400 sm:text-lg">
+   432→                          {formatKES(dashboard.fees.totalBalance)}
+   433→                        </p>
+   434→                      </div>
+   435→                    </div>
+   436→                    {dashboard.fees.invoices.length > 0 ? (
+   437→                      <div className="mt-4 max-h-64 overflow-y-auto pr-1">
+   438→                        <table className="w-full text-sm">
+   439→                          <thead>
+   440→                            <tr className="border-b text-xs text-muted-foreground">
+   441→                              <th className="py-2 text-left font-medium">Invoice</th>
+   442→                              <th className="py-2 text-left font-medium">Term</th>
+   443→                              <th className="py-2 text-right font-medium">Amount</th>
+   444→                              <th className="py-2 text-right font-medium">Balance</th>
+   445→                              <th className="py-2 text-left font-medium">Status</th>
+   446→                              <th className="py-2 text-right font-medium">Action</th>
+   447→                            </tr>
+   448→                          </thead>
+   449→                          <tbody>
+   450→                            {dashboard.fees.invoices.map(inv => (
+   451→                              <tr key={inv.id} className="border-b last:border-0">
+   452→                                <td className="py-2 font-mono text-xs">{inv.invoiceNo}</td>
+   453→                                <td className="py-2 text-xs">
+   454→                                  {inv.term} {inv.academicYear}
+   455→                                </td>
+   456→                                <td className="py-2 text-right">{formatKES(inv.amount)}</td>
+   457→                                <td className="py-2 text-right">{formatKES(inv.balance)}</td>
+   458→                                <td className="py-2">
+   459→                                  <span
+   460→                                    className={`rounded px-2 py-0.5 text-xs ${statusColor(inv.status)}`}
+   461→                                  >
+   462→                                    {inv.status}
+   463→                                  </span>
+   464→                                </td>
+   465→                                <td className="py-2 text-right">
+   466→                                  {inv.balance > 0 && inv.status !== 'Paid' && inv.status !== 'Cancelled' && (
+   467→                                    <Button
+   468→                                      size="sm"
+   469→                                      className="bg-emerald-600 hover:bg-emerald-700 text-xs h-7"
+   470→                                      onClick={() => handlePayInvoice(inv.id)}
+   471→                                      disabled={paying === inv.id}
+   472→                                    >
+   473→                                      {paying === inv.id ? (
+   474→                                        <><Loader2 className="mr-1 h-3 w-3 animate-spin" /> Sending...</>
+   475→                                      ) : (
+   476→                                        <><Wallet className="mr-1 h-3 w-3" /> Pay M-Pesa</>
+   477→                                      )}
+   478→                                    </Button>
+   479→                                  )}
+   480→                                </td>
+   481→                              </tr>
+   482→                            ))}
+   483→                          </tbody>
+   484→                        </table>
+   485→                      </div>
+   486→                    ) : (
+   487→                      <p className="mt-4 text-sm text-muted-foreground">No invoices yet.</p>
+   488→                    )}
+   489→                  </CardContent>
+   490→                </Card>
+   491→
+   492→                {/* Recent attendance */}
+   493→                <Card>
+   494→                  <CardHeader>
+   495→                    <CardTitle className="flex items-center gap-2 text-base">
+   496→                      <CalendarDays className="h-4 w-4 text-teal-600" /> Recent Attendance
+   497→                    </CardTitle>
+   498→                  </CardHeader>
+   499→                  <CardContent>
+   500→                    {dashboard.attendance.length === 0 ? (
+   501→                      <p className="text-sm text-muted-foreground">No records yet.</p>
+   502→                    ) : (
+   503→                      <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+   504→                        {dashboard.attendance.map(a => (
+   505→                          <div
+   506→                            key={a.id}
+   507→                            className="flex items-center justify-between gap-2 rounded-lg border p-2"
+   508→                          >
+   509→                            <span className="text-sm text-muted-foreground">
+   510→                              {formatDate(a.date, { weekday: 'short', month: 'short', day: 'numeric' })}
+   511→                            </span>
+   512→                            <span
+   513→                              className={`rounded px-2 py-0.5 text-xs font-medium ${
+   514→                                ATTENDANCE_BADGE[a.status] ||
+   515→                                'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+   516→                              }`}
+   517→                            >
+   518→                              {a.status}
+   519→                            </span>
+   520→                          </div>
+   521→                        ))}
+   522→                      </div>
+   523→                    )}
+   524→                  </CardContent>
+   525→                </Card>
+   526→              </div>
+   527→
+   528→              <div className="grid gap-6 lg:grid-cols-2">
+   529→                {/* Recent grades with teacher remarks */}
+   530→                <Card>
+   531→                  <CardHeader>
+   532→                    <CardTitle className="flex items-center gap-2 text-base">
+   533→                      <BookOpen className="h-4 w-4 text-emerald-600" /> Recent Grades & Remarks
+   534→                    </CardTitle>
+   535→                  </CardHeader>
+   536→                  <CardContent>
+   537→                    {dashboard.grades.length === 0 ? (
+   538→                      <p className="text-sm text-muted-foreground">
+   539→                        No grades published yet.
+   540→                      </p>
+   541→                    ) : (
+   542→                      <div className="space-y-3">
+   543→                        {dashboard.grades.map(g => (
+   544→                          <div key={g.id} className="rounded-lg border p-3">
+   545→                            <div className="flex items-center justify-between gap-2">
+   546→                              <div className="min-w-0">
+   547→                                <p className="truncate text-sm font-medium">{g.subject}</p>
+   548→                                <p className="truncate text-xs text-muted-foreground">
+   549→                                  {g.exam} · {g.term}
+   550→                                </p>
+   551→                              </div>
+   552→                              <div className="flex items-center gap-2">
+   553→                                <span className="text-sm font-semibold text-foreground">
+   554→                                  {g.marks}
+   555→                                </span>
+   556→                                <span
+   557→                                  className={`rounded border px-2 py-0.5 text-xs font-bold ${gradeColor(
+   558→                                    g.grade
+   559→                                  )}`}
+   560→                                >
+   561→                                  {g.grade}
+   562→                                </span>
+   563→                              </div>
+   564→                            </div>
+   565→                            {g.remarks && (
+   566→                              <div className="mt-2 rounded bg-muted/50 p-2">
+   567→                                <p className="text-[10px] font-semibold uppercase text-muted-foreground">Teacher's Remark</p>
+   568→                                <p className="text-xs text-foreground">{g.remarks}</p>
+   569→                              </div>
+   570→                            )}
+   571→                          </div>
+   572→                        ))}
+   573→                      </div>
+   574→                    )}
+   575→                  </CardContent>
+   576→                </Card>
+   577→
+   578→                {/* Homework + Comments Diary */}
+   579→                <ParentHomeworkSection admissionNo={lookup?.student.admissionNo || ''} />
+   580→
+   581→
+   582→                {/* Timetable */}
+   583→                <Card>
+   584→                  <CardHeader>
+   585→                    <CardTitle className="flex items-center gap-2 text-base">
+   586→                      <CalendarClock className="h-4 w-4 text-cyan-600" /> Weekly Timetable
+   587→                    </CardTitle>
+   588→                  </CardHeader>
+   589→                  <CardContent>
+   590→                    {dashboard.timetable && dashboard.timetable.length > 0 ? (
+   591→                      <div className="overflow-x-auto">
+   592→                        <table className="w-full text-xs">
+   593→                          <thead>
+   594→                            <tr className="border-b">
+   595→                              <th className="p-1.5 text-left text-[10px] text-muted-foreground">Time</th>
+   596→                              {['Mon','Tue','Wed','Thu','Fri'].map(d => (
+   597→                                <th key={d} className="p-1.5 text-center text-[10px] font-medium text-muted-foreground">{d}</th>
+   598→                              ))}
+   599→                            </tr>
+   600→                          </thead>
+   601→                          <tbody>
+   602→                            {Array.from(new Set(dashboard.timetable.map((t: any) => t.startTime))).map(time => (
+   603→                              <tr key={time} className="border-b border-muted/30">
+   604→                                <td className="p-1.5 text-[10px] font-medium text-muted-foreground whitespace-nowrap">{time}</td>
+   605→                                {['Monday','Tuesday','Wednesday','Thursday','Friday'].map(day => {
+   606→                                  const entry = dashboard.timetable.find((t: any) => t.dayOfWeek === day && t.startTime === time)
+   607→                                  return (
+   608→                                    <td key={day} className="p-1 text-center">
+   609→                                      {entry ? (
+   610→                                        <div className="rounded-md bg-emerald-50 px-1.5 py-1 dark:bg-emerald-950/20">
+   611→                                          <p className="text-[9px] font-semibold text-emerald-700 dark:text-emerald-400">{entry.subject?.name || '—'}</p>
+   612→                                          <p className="text-[8px] text-muted-foreground">{entry.room || ''}</p>
+   613→                                        </div>
+   614→                                      ) : <span className="text-[9px] text-muted-foreground/30">—</span>}
+   615→                                    </td>
+   616→                                  )
+   617→                                })}
+   618→                              </tr>
+   619→                            ))}
+   620→                          </tbody>
+   621→                        </table>
+   622→                      </div>
+   623→                    ) : (
+   624→                      <p className="text-sm text-muted-foreground">No timetable available.</p>
+   625→                    )}
+   626→                  </CardContent>
+   627→                </Card>
+   628→
+   629→                {/* Announcements */}
+   630→                <Card>
+   631→                  <CardHeader>
+   632→                    <CardTitle className="flex items-center gap-2 text-base">
+   633→                      <Megaphone className="h-4 w-4 text-amber-600" /> Announcements
+   634→                    </CardTitle>
+   635→                  </CardHeader>
+   636→                  <CardContent>
+   637→                    {dashboard.announcements.length === 0 ? (
+   638→                      <p className="text-sm text-muted-foreground">No announcements.</p>
+   639→                    ) : (
+   640→                      <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+   641→                        {dashboard.announcements.map(a => (
+   642→                          <div key={a.id} className="rounded-lg border p-3">
+   643→                            <div className="flex items-center gap-2">
+   644→                              <p className="flex-1 text-sm font-semibold">{a.title}</p>
+   645→                              {a.pinned && (
+   646→                                <Badge
+   647→                                  variant="outline"
+   648→                                  className="text-amber-600 dark:text-amber-400"
+   649→                                >
+   650→                                  Pinned
+   651→                                </Badge>
+   652→                              )}
+   653→                            </div>
+   654→                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+   655→                              {a.body}
+   656→                            </p>
+   657→                            <p className="mt-1 text-[10px] text-muted-foreground">
+   658→                              {a.authorName} · {formatDate(a.publishedAt)}
+   659→                            </p>
+   660→                          </div>
+   661→                        ))}
+   662→                      </div>
+   663→                    )}
+   664→                  </CardContent>
+   665→                </Card>
+   666→              </div>
+   667→
+   668→              {/* Upcoming events */}
+   669→              <Card>
+   670→                <CardHeader>
+   671→                  <CardTitle className="flex items-center gap-2 text-base">
+   672→                    <CalendarClock className="h-4 w-4 text-violet-600" /> Upcoming Events
+   673→                  </CardTitle>
+   674→                </CardHeader>
+   675→                <CardContent>
+   676→                  {dashboard.events.length === 0 ? (
+   677→                    <p className="text-sm text-muted-foreground">
+   678→                      No upcoming events scheduled.
+   679→                    </p>
+   680→                  ) : (
+   681→                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   682→                      {dashboard.events.map(e => (
+   683→                        <div key={e.id} className="rounded-lg border p-3">
+   684→                          <div className="mb-1 flex items-center justify-between gap-2">
+   685→                            <p className="text-sm font-semibold">{e.title}</p>
+   686→                            <span
+   687→                              className={`rounded px-2 py-0.5 text-[10px] font-medium ${
+   688→                                EVENT_CATEGORY_COLOR[e.category] || EVENT_CATEGORY_COLOR.General
+   689→                              }`}
+   690→                            >
+   691→                              {e.category}
+   692→                            </span>
+   693→                          </div>
+   694→                          <p className="text-xs text-muted-foreground">
+   695→                            {formatDate(e.startDate, {
+   696→                              weekday: 'short',
+   697→                              month: 'short',
+   698→                              day: 'numeric',
+   699→                            })}
+   700→                            {e.location ? ` · ${e.location}` : ''}
+   701→                          </p>
+   702→                          {e.description && (
+   703→                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+   704→                              {e.description}
+   705→                            </p>
+   706→                          )}
+   707→                        </div>
+   708→                      ))}
+   709→                    </div>
+   710→                  )}
+   711→                </CardContent>
+   712→              </Card>
+   713→            </div>
+   714→          )}
+   715→        </main>
+   716→
+   717→        {/* M-Pesa Payment Dialog */}
+   718→        <Dialog open={!!payDialog} onOpenChange={() => setPayDialog(null)}>
+   719→          <DialogContent className="sm:max-w-md">
+   720→            <DialogHeader>
+   721→              <DialogTitle className="flex items-center gap-2">
+   722→                <Wallet className="h-5 w-5 text-emerald-600" /> Pay via M-Pesa
+   723→              </DialogTitle>
+   724→              <DialogDescription>
+   725→                Amount: <strong>KES {payDialog?.amount.toLocaleString()}</strong>
+   726→                <br />
+   727→                An STK Push will be sent to your phone. Enter your M-Pesa PIN to complete.
+   728→              </DialogDescription>
+   729→            </DialogHeader>
+   730→            <div className="space-y-3">
+   731→              <div>
+   732→                <Label htmlFor="pay-phone">M-Pesa Phone Number</Label>
+   733→                <Input
+   734→                  id="pay-phone"
+   735→                  value={payPhone}
+   736→                  onChange={(e) => setPayPhone(e.target.value)}
+   737→                  placeholder="0712345678 or +254712345678"
+   738→                />
+   739→                <p className="mt-1 text-[10px] text-muted-foreground">
+   740→                  Use the phone number registered with M-Pesa
+   741→                </p>
+   742→              </div>
+   743→            </div>
+   744→            <DialogFooter>
+   745→              <Button variant="outline" onClick={() => setPayDialog(null)}>Cancel</Button>
+   746→              <Button
+   747→                className="bg-emerald-600 hover:bg-emerald-700"
+   748→                onClick={confirmPayment}
+   749→                disabled={!!paying}
+   750→              >
+   751→                {paying ? (
+   752→                  <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Sending...</>
+   753→                ) : (
+   754→                  <><Wallet className="mr-1.5 h-4 w-4" /> Send STK Push</>
+   755→                )}
+   756→              </Button>
+   757→            </DialogFooter>
+   758→          </DialogContent>
+   759→        </Dialog>
+   760→      </div>
+   761→    )
+   762→  }
+   763→
+   764→  // --- Login view -------------------------------------------------------
+   765→  return (
+   766→    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-4 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950">
+   767→      {/* Decorative blobs */}
+   768→      <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-emerald-300/30 blur-3xl" />
+   769→      <div className="absolute -bottom-20 -right-20 h-72 w-72 rounded-full bg-teal-300/30 blur-3xl" />
+   770→
+   771→      <div className="relative z-10 grid w-full max-w-5xl gap-6 lg:grid-cols-2">
+   772→        {/* Left: Branding (desktop only) */}
+   773→        <div className="hidden flex-col justify-center p-8 lg:flex">
+   774→          <div className="mb-6 flex items-center gap-3">
+   775→            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-500/30">
+   776→              <School className="h-7 w-7" />
+   777→            </div>
+   778→            <div>
+   779→              <h1 className="text-3xl font-bold tracking-tight text-foreground">SkulHub</h1>
+   780→              <p className="text-sm text-muted-foreground">Parent Portal</p>
+   781→            </div>
+   782→          </div>
+   783→          <h2 className="mb-2 text-2xl font-bold text-foreground">
+   784→            Stay close to your child&apos;s school life.
+   785→          </h2>
+   786→          <p className="mb-6 max-w-md text-sm text-muted-foreground">
+   787→            View fee balances, recent attendance, latest grades, school announcements and
+   788→            upcoming events — all in one secure dashboard. No staff account required.
+   789→          </p>
+   790→          <div className="grid grid-cols-2 gap-3">
+   791→            {[
+   792→              {
+   793→                icon: Wallet,
+   794→                title: 'Fee Summary',
+   795→                desc: 'Billed, paid & outstanding balance',
+   796→              },
+   797→              {
+   798→                icon: CalendarDays,
+   799→                title: 'Attendance',
+   800→                desc: 'Last 10 school days at a glance',
+   801→              },
+   802→              {
+   803→                icon: BookOpen,
+   804→                title: 'Grades',
+   805→                desc: 'Latest exam results per subject',
+   806→              },
+   807→              {
+   808→                icon: CalendarClock,
+   809→                title: 'Timetable',
+   810→                desc: "Child's weekly class schedule",
+   811→              },
+   812→              {
+   813→                icon: GraduationCap,
+   814→                title: 'School Updates',
+   815→                desc: 'Announcements & upcoming events',
+   816→              },
+   817→            ].map(f => (
+   818→              <div
+   819→                key={f.title}
+   820→                className="rounded-xl border bg-card/60 p-3 backdrop-blur"
+   821→              >
+   822→                <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+   823→                  <f.icon className="h-4 w-4" />
+   824→                </div>
+   825→                <p className="text-sm font-semibold text-foreground">{f.title}</p>
+   826→                <p className="text-xs text-muted-foreground">{f.desc}</p>
+   827→              </div>
+   828→            ))}
+   829→          </div>
+   830→        </div>
+   831→
+   832→        {/* Right: Login card */}
+   833→        <Card className="border-0 shadow-2xl">
+   834→          <CardHeader className="space-y-1 pb-4">
+   835→            <button
+   836→              type="button"
+   837→              onClick={() => setAuthView('login')}
+   838→              className="mb-2 inline-flex w-fit items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+   839→            >
+   840→              <ArrowLeft className="h-3.5 w-3.5" /> Back to login
+   841→            </button>
+   842→            <div className="mb-2 flex items-center gap-2 lg:hidden">
+   843→              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+   844→                <School className="h-5 w-5" />
+   845→              </div>
+   846→              <div>
+   847→                <CardTitle className="text-lg">Parent Portal</CardTitle>
+   848→                <CardDescription>View your child&apos;s record securely.</CardDescription>
+   849→              </div>
+   850→            </div>
+   851→            <CardTitle className="hidden text-xl lg:block">View your child&apos;s record</CardTitle>
+   852→            <CardDescription className="hidden lg:block">
+   853→              Enter the school code, admission number and the guardian phone on file.
+   854→            </CardDescription>
+   855→          </CardHeader>
+   856→          <CardContent>
+   857→            <form onSubmit={handleLookup} className="space-y-4">
+   858→              <div className="space-y-2">
+   859→                <Label htmlFor="pp-schoolCode">School code</Label>
+   860→                <div className="relative">
+   861→                  <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   862→                  <Input
+   863→                    id="pp-schoolCode"
+   864→                    value={schoolCode}
+   865→                    onChange={e => setSchoolCode(e.target.value)}
+   866→                    placeholder="SKH-2024-001"
+   867→                    className="pl-9 uppercase tracking-wider"
+   868→                    required
+   869→                  />
+   870→                </div>
+   871→              </div>
+   872→              <div className="space-y-2">
+   873→                <Label htmlFor="pp-admission">Admission number</Label>
+   874→                <div className="relative">
+   875→                  <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   876→                  <Input
+   877→                    id="pp-admission"
+   878→                    value={admissionNo}
+   879→                    onChange={e => setAdmissionNo(e.target.value)}
+   880→                    placeholder="ADM/5000"
+   881→                    className="pl-9"
+   882→                    required
+   883→                  />
+   884→                </div>
+   885→              </div>
+   886→              <div className="space-y-2">
+   887→                <Label htmlFor="pp-phone">Guardian phone</Label>
+   888→                <div className="relative">
+   889→                  <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   890→                  <Input
+   891→                    id="pp-phone"
+   892→                    type="tel"
+   893→                    value={phone}
+   894→                    onChange={e => setPhone(e.target.value)}
+   895→                    placeholder="0712 345 678 or +254712345678"
+   896→                    className="pl-9"
+   897→                    required
+   898→                  />
+   899→                </div>
+   900→                <p className="text-xs text-muted-foreground">
+   901→                  We verify the phone against the guardian on record.
+   902→                </p>
+   903→              </div>
+   904→              <Button
+   905→                type="submit"
+   906→                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+   907→                disabled={loading}
+   908→              >
+   909→                {loading ? (
+   910→                  'Verifying...'
+   911→                ) : (
+   912→                  <>
+   913→                    View My Child&apos;s Record <ArrowRight className="ml-2 h-4 w-4" />
+   914→                  </>
+   915→                )}
+   916→              </Button>
+   917→            </form>
+   918→          </CardContent>
+   919→        </Card>
+   920→      </div>
+   921→    </div>
+   922→  )
+   923→}
+   924→
+   925→// ---------------------------------------------------------------------------
+   926→// ParentHomeworkSection — shows homework assignments + comment diary
+   927→// ---------------------------------------------------------------------------
+   928→function ParentHomeworkSection({ admissionNo }: { admissionNo: string }) {
+   929→  const [data, setData] = useState<{ homework: any[]; grades: any[] } | null>(null)
+   930→  const [loading, setLoading] = useState(true)
+   931→  const [expandedHw, setExpandedHw] = useState<string | null>(null)
+   932→  const [commentText, setCommentText] = useState('')
+   933→  const [posting, setPosting] = useState(false)
+   934→
+   935→  useEffect(() => {
+   936→    let cancelled = false
+   937→    const raf = requestAnimationFrame(() => {
+   938→      if (!admissionNo) {
+   939→        setLoading(false)
+   940→        return
+   941→      }
+   942→      fetch(`/api/parent/homework?admissionNo=${encodeURIComponent(admissionNo)}`)
+   943→        .then(r => r.json())
+   944→        .then(d => { if (!cancelled) { setData(d); setLoading(false) } })
+   945→        .catch(() => { if (!cancelled) { setData({ homework: [], grades: [] }); setLoading(false) } })
+   946→    })
+   947→    return () => { cancelled = true; cancelAnimationFrame(raf) }
+   948→  }, [admissionNo])
+   949→
+   950→  const handlePostComment = async (hwId: string) => {
+   951→    if (!commentText.trim()) return
+   952→    setPosting(true)
+   953→    try {
+   954→      const res = await fetch(`/api/homework/${hwId}/comments`, {
+   955→        method: 'POST',
+   956→        headers: { 'Content-Type': 'application/json' },
+   957→        body: JSON.stringify({ authorName: 'Guardian', authorRole: 'parent', message: commentText.trim() }),
+   958→      })
+   959→      if (res.ok) {
+   960→        setCommentText('')
+   961→        // Refresh data
+   962→        fetch(`/api/parent/homework?admissionNo=${encodeURIComponent(admissionNo)}`)
+   963→          .then(r => r.json())
+   964→          .then(d => setData(d))
+   965→      }
+   966→    } catch {}
+   967→    setPosting(false)
+   968→  }
+   969→
+   970→  if (loading) {
+   971→    return (
+   972→      <Card>
+   973→        <CardHeader>
+   974→          <CardTitle className="flex items-center gap-2 text-base">
+   975→            <FileText className="h-4 w-4 text-amber-600" /> Homework & Diary
+   976→          </CardTitle>
+   977→        </CardHeader>
+   978→        <CardContent>
+   979→          <Skeleton className="h-24 w-full" />
+   980→        </CardContent>
+   981→      </Card>
+   982→    )
+   983→  }
+   984→
+   985→  const homework = data?.homework || []
+   986→
+   987→  return (
+   988→    <Card>
+   989→      <CardHeader>
+   990→        <CardTitle className="flex items-center gap-2 text-base">
+   991→          <FileText className="h-4 w-4 text-amber-600" /> Homework & Communication Diary
+   992→        </CardTitle>
+   993→      </CardHeader>
+   994→      <CardContent>
+   995→        {homework.length === 0 ? (
+   996→          <p className="text-sm text-muted-foreground">No homework assigned currently.</p>
+   997→        ) : (
+   998→          <div className="space-y-3">
+   999→            {homework.map(hw => (
+  1000→              <div key={hw.id} className="rounded-lg border p-3">
+  1001→                {/* Homework header */}
+  1002→                <button
+  1003→                  onClick={() => setExpandedHw(expandedHw === hw.id ? null : hw.id)}
+  1004→                  className="flex w-full items-start justify-between gap-2 text-left"
+  1005→                >
+  1006→                  <div className="min-w-0">
+  1007→                    <p className="text-sm font-semibold">{hw.title}</p>
+  1008→                    <p className="text-xs text-muted-foreground">
+  1009→                      {hw.subject?.name || 'General'} · Due {new Date(hw.dueDate).toLocaleDateString()}
+  1010→                    </p>
+  1011→                  </div>
+  1012→                  <Badge variant="outline" className={`shrink-0 text-[9px] ${hw.status === 'Active' ? 'border-emerald-300 text-emerald-700' : 'text-muted-foreground'}`}>
+  1013→                    {hw.status}
+  1014→                  </Badge>
+  1015→                </button>
+  1016→
+  1017→                {/* Expanded content */}
+  1018→                {expandedHw === hw.id && (
+  1019→                  <div className="mt-3 space-y-3 border-t pt-3">
+  1020→                    {/* Description */}
+  1021→                    <div>
+  1022→                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">Description</p>
+  1023→                      <p className="text-sm">{hw.description}</p>
+  1024→                    </div>
+  1025→
+  1026→                    {/* Comments diary */}
+  1027→                    <div>
+  1028→                      <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+  1029→                        Communication ({hw.comments?.length || 0})
+  1030→                      </p>
+  1031→                      {hw.comments && hw.comments.length > 0 ? (
+  1032→                        <div className="mt-1 space-y-2">
+  1033→                          {hw.comments.map((c: any) => (
+  1034→                            <div key={c.id} className={`rounded-lg p-2 text-xs ${c.authorRole === 'teacher' ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'bg-blue-50 dark:bg-blue-950/20'}`}>
+  1035→                              <div className="flex items-center justify-between">
+  1036→                                <span className="font-semibold">
+  1037→                                  {c.authorRole === 'teacher' ? '👨‍🏫 ' : '👤 '}
+  1038→                                  {c.authorName}
+  1039→                                </span>
+  1040→                                <span className="text-[9px] text-muted-foreground">
+  1041→                                  {new Date(c.createdAt).toLocaleString()}
+  1042→                                </span>
+  1043→                              </div>
+  1044→                              <p className="mt-1">{c.message}</p>
+  1045→                            </div>
+  1046→                          ))}
+  1047→                        </div>
+  1048→                      ) : (
+  1049→                        <p className="mt-1 text-xs text-muted-foreground">No messages yet.</p>
+  1050→                      )}
+  1051→
+  1052→                      {/* Add comment */}
+  1053→                      <div className="mt-2 flex gap-2">
+  1054→                        <Input
+  1055→                          value={expandedHw === hw.id ? commentText : ''}
+  1056→                          onChange={e => setCommentText(e.target.value)}
+  1057→                          placeholder="Write a message to the teacher..."
+  1058→                          className="h-8 text-xs"
+  1059→                          onKeyDown={e => { if (e.key === 'Enter') handlePostComment(hw.id) }}
+  1060→                        />
+  1061→                        <Button size="sm" className="h-8 shrink-0 bg-emerald-600 hover:bg-emerald-700" onClick={() => handlePostComment(hw.id)} disabled={posting || !commentText.trim()}>
+  1062→                          <Send className="h-3 w-3" />
+  1063→                        </Button>
+  1064→                      </div>
+  1065→                    </div>
+  1066→                  </div>
+  1067→                )}
+  1068→              </div>
+  1069→            ))}
+  1070→          </div>
+  1071→        )}
+  1072→
+  1073→        {/* Grades with teacher remarks */}
+  1074→        {data?.grades && data.grades.length > 0 && (
+  1075→          <div className="mt-4 border-t pt-3">
+  1076→            <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+  1077→              <GraduationCap className="h-4 w-4 text-emerald-600" /> Exam Marks & Teacher Remarks
+  1078→            </p>
+  1079→            <div className="space-y-2">
+  1080→              {data.grades.map((g: any) => (
+  1081→                <div key={g.id} className="rounded-lg border p-2.5">
+  1082→                  <div className="flex items-center justify-between gap-2">
+  1083→                    <div className="min-w-0">
+  1084→                      <p className="truncate text-sm font-medium">{g.subject?.name || 'Subject'}</p>
+  1085→                      <p className="truncate text-[10px] text-muted-foreground">{g.exam?.name || ''} · {g.exam?.examType || ''}</p>
+  1086→                    </div>
+  1087→                    <div className="flex items-center gap-2">
+  1088→                      <span className="text-sm font-bold">{g.marks}</span>
+  1089→                      <Badge variant="outline" className={`text-[9px] font-bold ${gradeColor(g.grade)}`}>{g.grade}</Badge>
+  1090→                    </div>
+  1091→                  </div>
+  1092→                  {(g.remarks || g.teacherComment) && (
+  1093→                    <div className="mt-2 rounded bg-muted/50 p-2">
+  1094→                      {g.teacherComment && (
+  1095→                        <p className="text-xs"><span className="font-semibold">Teacher Comment:</span> {g.teacherComment}</p>
+  1096→                      )}
+  1097→                      {g.remarks && !g.teacherComment && (
+  1098→                        <p className="text-xs"><span className="font-semibold">Remark:</span> {g.remarks}</p>
+  1099→                      )}
+  1100→                    </div>
+  1101→                  )}
+  1102→                </div>
+  1103→              ))}
+  1104→            </div>
+  1105→          </div>
+  1106→        )}
+  1107→      </CardContent>
+  1108→    </Card>
+  1109→  )
+  1110→}
+  1111→

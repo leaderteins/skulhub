@@ -58,8 +58,9 @@ export async function GET() {
     }
 
     // 3. Plan distribution
+    // SQLite-compatible: no ::int cast (PG-only). COUNT(*) returns bigint — converted via Number() below.
     const planDistribution = await db.$queryRawUnsafe<any[]>(`
-      SELECT plan, COUNT(*)::int as count,
+      SELECT plan, COUNT(*) as count,
              (SELECT COALESCE(SUM(p.amount), 0) FROM "Payment" p
               JOIN "School" s2 ON s2.id = p."schoolId" WHERE s2.plan = s.plan) as revenue
       FROM "School" s WHERE slug != 'platform'
@@ -71,7 +72,7 @@ export async function GET() {
       SELECT s.id, s.name, s.plan, s.status,
              (SELECT COUNT(*) FROM "Student" st WHERE st."schoolId" = s.id) as student_count,
              (SELECT COALESCE(SUM(p.amount), 0) FROM "Payment" p WHERE p."schoolId" = s.id) as revenue,
-             (SELECT COUNT(*) FROM "UserAccount" u WHERE u."schoolId" = s.id AND u."lastLoginAt" > NOW() - INTERVAL '7 days') as active_users_7d
+             (SELECT COUNT(*) FROM "UserAccount" u WHERE u."schoolId" = s.id AND u."lastLoginAt" > datetime('now','-7 days')) as active_users_7d
       FROM "School" s WHERE s.slug != 'platform'
       ORDER BY revenue DESC LIMIT 10
     `).catch(() => [])

@@ -3765,3 +3765,145 @@ Stage Summary:
 - ✅ Mobile-first responsive (single column on mobile, scales up to lg:grid-cols-3
   / lg:grid-cols-4)
 - ✅ Graceful empty/null handling for every API field
+
+---
+Task ID: FIX-SQL-BUGS
+Agent: full-stack-developer
+Task: Fix PostgreSQL-only SQL syntax that breaks silently on SQLite in
+biometric and super admin API routes.
+
+CONTEXT
+- The project uses SQLite (better-sqlite3 via Prisma).
+- PostgreSQL-only syntax (NOW(), ::int, ::float, ::text, INTERVAL, ANY($1::text[]))
+  was used inside raw SQL strings wrapped in .catch(() => []) — so when the
+  SQLite driver rejected the SQL, the rejection was silently swallowed and
+  routes returned empty data (e.g. /api/superadmin/health → {schools:[]}).
+- This is the silent-failure bug class noted in the worklog (PG-only syntax
+  failing through .catch swallows).
+
+FIXES APPLIED
+
+BIOMETRIC (NOW() → datetime('now') / omit @default(now()) columns):
+
+1. src/app/api/biometric/devices/route.ts
+   - POST INSERT: dropped "createdAt" from column list (schema has
+     @default(now())); replaced `NOW()` for "updatedAt" with `datetime('now')`
+     (updatedAt is @updatedAt with no INSERT-side default).
+   - PUT: replaced `'"updatedAt" = NOW()'` with `'"updatedAt" = datetime(\'now\')'`
+     and `'"lastSeen" = NOW()'` with `'"lastSeen" = datetime(\'now\')'`.
+
+2. src/app/api/biometric/sync/route.ts
+   - INSERT BiometricLog: dropped timestamp & "createdAt" columns (both have
+     @default(now())); removed the trailing `NOW(), NOW()` literals.
+   - INSERT BusBoarding: same — dropped timestamp & "createdAt" columns.
+
+3. src/app/api/biometric/logs/route.ts
+   - INSERT BiometricTemplate: dropped "enrolledAt" & "createdAt" columns
+     (both have @default(now())); removed `NOW(), NOW()` literals.
+
+SUPER ADMIN (::int / ::float → toNum helper, NOW()/INTERVAL → datetime()):
+
+4. src/app/api/superadmin/health/route.ts
+   - Removed 4x `COUNT(*)::int` and 1x `SUM(amount)::float` casts from the
+     per-school aggregate subqueries.
+   - Added a `toNum` helper that handles null, bigint (via `.toString()`),
+     and plain numbers.
+   - Safe-coerced `lastLogin` before passing to `new Date()` to avoid
+     `new Date(bigint)` crashes; ALSO override `lastLogin` in the response
+     object so the spread `...s` doesn't leak a bigint into JSON
+     (would throw "Do not know how to serialize a BigInt").
+   - Verified: `curl /api/superadmin/health` now returns 1 school with
+     users=5, students=426, lastLogin=1788618131367 (epoch ms),
+     daysSinceLogin=18, health='warning' — previously returned {} because
+     the .catch swallowed the syntax error.
+
+5. src/app/api/superadmin/compare/route.ts
+   - Removed 7x `::int` casts and 2x `::float` casts (total 9 casts removed).
+   - Replaced `WHERE s.id = ANY($1::text[])` (PG array literal) with a
+     parameterized IN clause: `WHERE s.id IN ($1,$2,...)` built via
+     `ids.map((_, i) => '$' + (i + 1)).join(',')` and spread `...ids`.
+   - Wrapped all numeric fields (students, staff, users, invoices, payments,
+     revenue, outstanding, biometricTaps, busTrips) in `toNum()` so the
+     response is JSON-serializable on SQLite (which returns bigint for
+     COUNT/SUM via $queryRawUnsafe).
+   - Verified: `curl /api/superadmin/compare?ids=X,X` returns both rows.
+
+6. src/app/api/superadmin/churn/route.ts
+   - Removed 1x `COUNT(*)::int` cast on the student-count subquery.
+
+7. src/app/api/superadmin/[id]/route.ts
+   - Removed `::int` / `::float` casts from the 4 aggregate queries
+     (payAgg, invAgg, stuCount, staffCount) — affects COUNT, SUM(amount),
+     SUM(amountPaid), SUM(balance).
+   - PUT handler: replaced `'"updatedAt" = NOW()'` with
+     `'"updatedAt" = datetime(\'now\')'`.
+   - Verified: `curl -X PUT /api/superadmin/<id> -d '{"maxStudents":1500}'`
+     returns success + updated school record.
+
+8. src/app/api/superadmin/bulk/route.ts
+   - All 4 UPDATE statements rewritten for SQLite:
+       suspend    → `datetime('now')` for "updatedAt"
+       activate   → `datetime('now')` for "updatedAt"
+       upgrade    → `datetime('now')` for "updatedAt"
+       extend_trial → `datetime('now','+30 days')` for "trialEndsAt" AND
+                     `datetime('now')` for "updatedAt"
+     (PostgreSQL `NOW() + INTERVAL '30 days'` is not valid SQLite syntax;
+     SQLite uses comma-separated modifiers to datetime().)
+
+9. src/app/api/superadmin/platform-stats/route.ts
+   - Removed 1x `COUNT(*)::int` cast in the plan-distribution query.
+   - Replaced `NOW() - INTERVAL '7 days'` in the active-users-7d subquery
+     with `datetime('now','-7 days')`.
+
+10. src/app/api/superadmin/trials/route.ts
+    - Removed 2x `COUNT(*)::int` casts (user_count, student_count).
+    - Both trialDetail.push() objects now override `user_count` and
+      `student_count` with their Number()-coerced values so the spread `...t`
+      doesn't leak a bigint into the JSON response (avoids the "Do not know
+      how to serialize a BigInt" error observed on /health before the
+      analogous override was applied there).
+
+VERIFICATION
+- `bun run lint` → exit 0, no warnings/errors.
+- `rg -n 'NOW\(\)|::int|::float|::text|ANY\(\$|INTERVAL' src/app/api/biometric src/app/api/superadmin`
+  → returns ONLY comment lines referencing the SQLite fix. No live SQL uses
+  PG-only syntax.
+- Smoke tests (all on dev server, port 3000):
+  - GET /api/superadmin/health       → summary{totalSchools:1, warning:1} +
+                                       schools[0]{users:5, students:426,
+                                       lastLogin:1788618131367, health:'warning'} ✓
+  - GET /api/superadmin/platform-stats → totals{schools:1, students:426,
+                                       staff:33, users:5, invoices:1,
+                                       payments:3, totalRevenue:14500,
+                                       totalBilled:15000} ✓
+  - GET /api/superadmin/trials       → summary{converted:1, conversionRate:100} ✓
+  - GET /api/superadmin/churn        → summary{totalChurned:0,...} ✓
+  - GET /api/superadmin/<id>         → full school record returned ✓
+  - GET /api/superadmin/compare?ids=X,X → 2 schools with all counts/revenue ✓
+  - PUT /api/superadmin/<id> (maxStudents=1500) → {success:true, school:{...}} ✓
+  - POST /api/biometric/devices     → 201 + device persisted with both
+                                       createdAt and updatedAt set via
+                                       datetime('now') / @default(now()) ✓
+  - POST /api/biometric/sync         → 201 + BiometricLog persisted with
+                                       timestamp + createdAt set via
+                                       @default(now()) ✓
+  - GET /api/biometric/devices      → device list returns the persisted device ✓
+  - GET /api/biometric/logs?limit=3 → returns the synced log with timestamps ✓
+
+Stage Summary:
+- ✅ 10 files fixed (3 biometric + 7 superadmin) — minimal edits per task brief
+- ✅ All PostgreSQL-only SQL constructs removed (NOW(), ::int, ::float,
+  ::text, ANY($1::text[]), INTERVAL '30 days', INTERVAL '7 days')
+- ✅ SQLite-native replacements: datetime('now'), datetime('now','+30 days'),
+  datetime('now','-7 days'), omit @default(now()) columns on INSERT, or
+  parameterized IN clause for ANY(array)
+- ✅ toNum helper added in files that touch COUNT/SUM results, plus
+  override-raw-fields-in-spread to keep JSON serialization safe (SQLite
+  returns bigint for COUNT/SUM via $queryRawUnsafe)
+- ✅ Safe bigint → Number coercion for date columns before new Date() (avoids
+  `new Date(bigint)` crash)
+- ✅ `bun run lint` passes clean (exit 0)
+- ✅ Grep verification confirms NO live PG-only syntax remains in either
+  biometric or superadmin route trees (only comment references)
+- ✅ Live API smoke tests all return real data instead of empty/errored
+  responses — confirming the silent-failure bug class is resolved
