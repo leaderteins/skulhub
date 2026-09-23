@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useFetch, apiPost, apiPut } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ import {
   ClipboardCheck, FileQuestion, ClipboardList, Plus, ChevronRight,
   BookOpen, Clock, CheckCircle2, Award, TrendingUp, X, ListChecks,
   ClipboardEdit, FilePlus, Edit3, Upload, Save, Loader2,
+  FileText, Download, Trash2, RefreshCw,
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -152,9 +153,10 @@ export function ExamsModule() {
       </div>
 
       <Tabs defaultValue="questions" className="space-y-4">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-md grid-cols-3">
           <TabsTrigger value="questions" className="gap-1.5"><FileQuestion className="h-4 w-4" /> Question Bank</TabsTrigger>
           <TabsTrigger value="assessments" className="gap-1.5"><ClipboardList className="h-4 w-4" /> Assessments</TabsTrigger>
+          <TabsTrigger value="papers" className="gap-1.5"><FileText className="h-4 w-4" /> Past Papers</TabsTrigger>
         </TabsList>
 
         {/* Questions Tab */}
@@ -386,6 +388,11 @@ export function ExamsModule() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        {/* Past Papers Tab */}
+        <TabsContent value="papers" className="space-y-4">
+          <PastPapersTab />
         </TabsContent>
       </Tabs>
 
@@ -1065,6 +1072,464 @@ function ChangeSubjectDialog({ assessment, onClose }: { assessment: any; onClose
             <Button size="sm" onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Change Subject
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// PastPapersTab — publisher exam papers (JESMA, KNEC, Kaspnet, Achievers)
+// ---------------------------------------------------------------------------
+const PAPER_SUBJECTS = [
+  'Mathematics', 'English', 'Kiswahili', 'Chemistry', 'Biology', 'Physics',
+  'History', 'Geography', 'CRE', 'IRE', 'Home Science', 'Business Studies',
+  'Computer Studies', 'Agriculture', 'Science',
+]
+const PAPER_CLASS_LEVELS = [
+  'Form 1', 'Form 2', 'Form 3', 'Form 4',
+  'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6',
+  'Grade 7', 'Grade 8', 'Grade 9', 'PP1', 'PP2',
+]
+const PAPER_TYPES = [
+  { value: 'past_paper', label: 'Past Paper' },
+  { value: 'exam_paper', label: 'Exam Paper' },
+  { value: 'marking_scheme', label: 'Marking Scheme' },
+  { value: 'revision_notes', label: 'Revision Notes' },
+]
+const PAPER_PUBLISHERS = ['JESMA', 'KNEC', 'Kaspnet', 'Achievers', 'Mentor', 'School']
+const PAPER_TERMS = ['Term 1', 'Term 2', 'Term 3']
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+
+interface ExamPaperMeta {
+  id: string
+  title: string
+  subject: string
+  classLevel: string
+  paperType: string
+  publisher: string | null
+  year: string | null
+  term: string | null
+  description: string | null
+  fileName: string | null
+  fileSize: number | null
+  fileType: string
+  uploadedBy: string | null
+  createdAt: string
+}
+
+function formatBytes(bytes: number | null | undefined): string {
+  if (bytes == null) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+}
+
+function PastPapersTab() {
+  const [papers, setPapers] = useState<ExamPaperMeta[]>([])
+  const [loading, setLoading] = useState(true)
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const [filters, setFilters] = useState({
+    subject: 'all',
+    classLevel: 'all',
+    publisher: 'all',
+    paperType: 'all',
+  })
+
+  // Build a query string from the active filters
+  const buildQuery = () => {
+    const p = new URLSearchParams()
+    if (filters.subject && filters.subject !== 'all') p.set('subject', filters.subject)
+    if (filters.classLevel && filters.classLevel !== 'all') p.set('classLevel', filters.classLevel)
+    if (filters.publisher && filters.publisher !== 'all') p.set('publisher', filters.publisher)
+    if (filters.paperType && filters.paperType !== 'all') p.set('paperType', filters.paperType)
+    return p.toString()
+  }
+
+  const fetchPapers = useCallback(async () => {
+    setLoading(true)
+    try {
+      const qs = buildQuery()
+      const res = await fetch(`/api/exam-papers${qs ? `?${qs}` : ''}`)
+      const data = await res.json().catch(() => ({ papers: [] }))
+      setPapers(data.papers || [])
+    } catch {
+      setPapers([])
+    } finally {
+      setLoading(false)
+    }
+  }, [filters.subject, filters.classLevel, filters.publisher, filters.paperType])
+
+  useEffect(() => {
+    fetchPapers()
+  }, [fetchPapers])
+
+  const handleDownload = async (p: ExamPaperMeta) => {
+    try {
+      const res = await fetch(`/api/exam-papers/${p.id}`)
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.paper?.fileData) {
+        toast.error('Could not download paper', { description: data?.error || 'Please try again' })
+        return
+      }
+      // Create a temporary <a> element with the data URL to trigger a download.
+      const a = document.createElement('a')
+      a.href = data.paper.fileData
+      a.download = p.fileName || `${p.title}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      toast.success('Download started', { description: p.fileName || p.title })
+    } catch (e: any) {
+      toast.error(e?.message || 'Download failed')
+    }
+  }
+
+  const handleDelete = async (p: ExamPaperMeta) => {
+    if (!confirm(`Delete "${p.title}"? This cannot be undone.`)) return
+    try {
+      const res = await fetch(`/api/exam-papers/${p.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || 'Failed to delete paper')
+      }
+      toast.success('Paper deleted')
+      fetchPapers()
+    } catch (e: any) {
+      toast.error(e?.message || 'Delete failed')
+    }
+  }
+
+  const resetFilters = () => setFilters({
+    subject: 'all', classLevel: 'all', publisher: 'all', paperType: 'all',
+  })
+
+  return (
+    <div className="space-y-4">
+      {/* Heading */}
+      <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 dark:border-emerald-900/50 dark:from-emerald-950/30 dark:to-teal-950/30">
+        <CardContent className="p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="flex items-center gap-2 text-base font-semibold text-emerald-800 dark:text-emerald-300">
+                <FileText className="h-5 w-5" /> Publisher Past Papers
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Browse and distribute publisher exam papers from JESMA, KNEC, Kaspnet, Achievers and Mentor.
+                Supports PDF, image scans and Word documents (max 5&nbsp;MB).
+              </p>
+            </div>
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setUploadOpen(true)}>
+              <Upload className="mr-1.5 h-4 w-4" /> Upload Paper
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:flex-wrap">
+          <Select value={filters.subject} onValueChange={v => setFilters(f => ({ ...f, subject: v }))}>
+            <SelectTrigger className="w-full md:w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Subjects</SelectItem>
+              {PAPER_SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filters.classLevel} onValueChange={v => setFilters(f => ({ ...f, classLevel: v }))}>
+            <SelectTrigger className="w-full md:w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Classes</SelectItem>
+              {PAPER_CLASS_LEVELS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filters.publisher} onValueChange={v => setFilters(f => ({ ...f, publisher: v }))}>
+            <SelectTrigger className="w-full md:w-40"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Publishers</SelectItem>
+              {PAPER_PUBLISHERS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filters.paperType} onValueChange={v => setFilters(f => ({ ...f, paperType: v }))}>
+            <SelectTrigger className="w-full md:w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {PAPER_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={resetFilters}>
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Reset
+          </Button>
+          <div className="flex-1" />
+          <span className="text-xs font-medium text-muted-foreground">
+            Exam Papers ({papers.length})
+          </span>
+        </CardContent>
+      </Card>
+
+      {/* Papers list */}
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
+        </div>
+      ) : papers.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <FileText className="mb-2 h-10 w-10 text-muted-foreground/40" />
+            <p className="text-sm font-medium">No exam papers found</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Try adjusting the filters or upload a new paper.
+            </p>
+            <Button size="sm" variant="outline" className="mt-4" onClick={() => setUploadOpen(true)}>
+              <Upload className="mr-1.5 h-4 w-4" /> Upload Paper
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {papers.map(p => (
+            <Card key={p.id} className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{p.title}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <Badge variant="outline" className="border-emerald-300 bg-emerald-50/50 text-[10px] text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
+                        {p.subject}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">{p.classLevel}</Badge>
+                      {p.publisher && (
+                        <Badge variant="outline" className="border-teal-300 bg-teal-50/50 text-[10px] text-teal-700 dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-400">
+                          {p.publisher}
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="text-[10px] capitalize">
+                        {PAPER_TYPES.find(t => t.value === p.paperType)?.label || p.paperType.replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+                      {p.year && <span>Year: <strong>{p.year}</strong></span>}
+                      {p.term && <span>Term: <strong>{p.term}</strong></span>}
+                      {p.fileName && <span className="truncate">File: {p.fileName}</span>}
+                      <span>Size: {formatBytes(p.fileSize)}</span>
+                    </div>
+                    {p.description && (
+                      <p className="mt-2 line-clamp-2 text-[11px] text-muted-foreground">{p.description}</p>
+                    )}
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <div className="text-[10px] text-muted-foreground">
+                        {p.uploadedBy && <span>by {p.uploadedBy} · </span>}
+                        {formatDateTime(p.createdAt)}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button size="sm" variant="outline" className="h-8 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30" onClick={() => handleDownload(p)}>
+                          <Download className="mr-1 h-3 w-3" /> Download
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30" onClick={() => handleDelete(p)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {uploadOpen && (
+        <UploadPaperDialog
+          onClose={() => setUploadOpen(false)}
+          onUploaded={() => { setUploadOpen(false); fetchPapers() }}
+        />
+      )}
+    </div>
+  )
+}
+
+function UploadPaperDialog({ onClose, onUploaded }: { onClose: () => void; onUploaded: () => void }) {
+  const [form, setForm] = useState({
+    title: '',
+    subject: 'Mathematics',
+    classLevel: 'Form 1',
+    paperType: 'past_paper',
+    publisher: 'JESMA',
+    year: String(new Date().getFullYear()),
+    term: 'Term 1',
+    description: '',
+  })
+  const [file, setFile] = useState<File | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const handleFile = (f: File | null) => {
+    setFileError(null)
+    if (!f) { setFile(null); return }
+    if (f.size > MAX_FILE_SIZE) {
+      setFileError(`File too large (${formatBytes(f.size)}). Maximum is 5 MB.`)
+      return
+    }
+    setFile(f)
+  }
+
+  const readFileAsDataURL = (f: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error('Could not read file'))
+      reader.readAsDataURL(f)
+    })
+
+  const handleSubmit = async () => {
+    if (!form.title.trim()) { toast.error('Title is required'); return }
+    if (!form.subject) { toast.error('Subject is required'); return }
+    if (!form.classLevel) { toast.error('Class level is required'); return }
+    if (!file) { toast.error('Please choose a file to upload'); return }
+    setSaving(true)
+    try {
+      const fileData = await readFileAsDataURL(file)
+      const res = await fetch('/api/exam-papers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          fileData,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type || 'application/octet-stream',
+          uploadedBy: 'Teacher',
+        }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || 'Upload failed')
+      toast.success('Paper uploaded', { description: form.title })
+      onUploaded()
+    } catch (e: any) {
+      toast.error(e?.message || 'Upload failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto scrollbar-thin">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5 text-emerald-500" /> Upload Exam Paper
+          </DialogTitle>
+          <DialogDescription>
+            Upload a JESMA / KNEC / Kaspnet / Achievers paper. Max 5&nbsp;MB.
+            Accepted: PDF, PNG, JPG, DOC, DOCX.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Title *</Label>
+            <Input
+              value={form.title}
+              onChange={e => setForm({ ...form, title: e.target.value })}
+              placeholder="e.g. JESMA Mathematics Paper 1 — Form 3 End Term 2 2024"
+              className="mt-1"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Subject *</Label>
+              <Select value={form.subject} onValueChange={v => setForm({ ...form, subject: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {PAPER_SUBJECTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Class Level *</Label>
+              <Select value={form.classLevel} onValueChange={v => setForm({ ...form, classLevel: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {PAPER_CLASS_LEVELS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Paper Type</Label>
+              <Select value={form.paperType} onValueChange={v => setForm({ ...form, paperType: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAPER_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Publisher</Label>
+              <Input
+                list="publisher-suggestions"
+                value={form.publisher}
+                onChange={e => setForm({ ...form, publisher: e.target.value })}
+                placeholder="JESMA, KNEC, Kaspnet, Achievers, Mentor, School"
+                className="mt-1"
+              />
+              <datalist id="publisher-suggestions">
+                {PAPER_PUBLISHERS.map(p => <option key={p} value={p} />)}
+              </datalist>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Year</Label>
+              <Input value={form.year} onChange={e => setForm({ ...form, year: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Term</Label>
+              <Select value={form.term} onValueChange={v => setForm({ ...form, term: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAPER_TERMS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Description</Label>
+            <Textarea
+              value={form.description}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              placeholder="Optional: brief description of what's covered"
+              className="mt-1"
+              rows={2}
+            />
+          </div>
+          <div>
+            <Label className="text-xs">File * (.pdf, .png, .jpg, .doc, .docx — max 5 MB)</Label>
+            <Input
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+              onChange={e => handleFile(e.target.files?.[0] || null)}
+              className="mt-1"
+            />
+            {file && !fileError && (
+              <p className="mt-1 text-[10px] text-emerald-700 dark:text-emerald-400">
+                Selected: <strong>{file.name}</strong> · {formatBytes(file.size)}
+              </p>
+            )}
+            {fileError && (
+              <p className="mt-1 text-[10px] text-rose-600">{fileError}</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button size="sm" onClick={handleSubmit} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+              {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Upload className="mr-1.5 h-4 w-4" />}
+              {saving ? 'Uploading...' : 'Upload Paper'}
             </Button>
           </div>
         </div>

@@ -83,10 +83,10 @@ export async function POST(req: NextRequest) {
 
     const templateId = `tmpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 
-    // Use raw SQL — Prisma client on Vercel doesn't know about BiometricTemplate table
+    // SQLite-compatible: omit enrolledAt & createdAt (both have @default(now()))
     await db.$executeRawUnsafe(`
-      INSERT INTO "BiometricTemplate" (id, "schoolId", "personId", "personType", "templateHash", "fingerIndex", "isActive", "enrolledAt", "enrolledBy", "createdAt")
-      VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), $7, NOW())
+      INSERT INTO "BiometricTemplate" (id, "schoolId", "personId", "personType", "templateHash", "fingerIndex", "isActive", "enrolledBy")
+      VALUES ($1, $2, $3, $4, $5, $6, true, $7)
       ON CONFLICT (id) DO NOTHING
     `, templateId, schoolId, body.personId, body.personType, templateHash, body.fingerIndex || 0, user.id).catch((e) => {
       throw new Error('Failed to enroll: ' + e.message)

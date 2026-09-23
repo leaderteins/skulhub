@@ -1,0 +1,1075 @@
+     1→'use client'
+     2→import { useState } from 'react'
+     3→import { useFetch, apiPost, apiPut } from '@/lib/api'
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     5→import { Button } from '@/components/ui/button'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Skeleton } from '@/components/ui/skeleton'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Label } from '@/components/ui/label'
+    10→import { Textarea } from '@/components/ui/textarea'
+    11→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    13→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+    14→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    15→import { cn } from '@/lib/utils'
+    16→import { formatDate, formatDateTime, statusColor } from '@/lib/format'
+    17→import { toast } from 'sonner'
+    18→import {
+    19→  ClipboardCheck, FileQuestion, ClipboardList, Plus, ChevronRight,
+    20→  BookOpen, Clock, CheckCircle2, Award, TrendingUp, X, ListChecks,
+    21→  ClipboardEdit, FilePlus, Edit3, Upload, Save, Loader2,
+    22→} from 'lucide-react'
+    23→import {
+    24→  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+    25→} from 'recharts'
+    26→
+    27→interface ExamsData {
+    28→  stats: { totalQuestions: number; totalAssessments: number; published: number; completed: number; graded: number; drafts: number }
+    29→  questions: Array<{
+    30→    id: string; question: string; questionType: string; correctAnswer: string | null; marks: number
+    31→    difficulty: string; topic: string | null; bloomLevel: string | null; createdBy: string | null
+    32→    subjectName: string; subjectCode: string; optionsArray: string[] | null
+    33→  }>
+    34→  assessments: Array<{
+    35→    id: string; title: string; assessmentType: string; term: string; academicYear: string
+    36→    totalMarks: number; weight: number; duration: number | null; startDate: string; endDate: string | null
+    37→    status: string; rubric: string | null; instructions: string | null; createdBy: string | null
+    38→    subjectName: string; subjectCode: string; classLevelName: string
+    39→  }>
+    40→  bySubject: Array<{ name: string; count: number }>
+    41→  byDifficulty: Array<{ name: string; count: number }>
+    42→  byQuestionType: Array<{ name: string; count: number }>
+    43→  byAssessmentType: Array<{ name: string; count: number }>
+    44→  byStatus: Array<{ name: string; count: number }>
+    45→  subjects: Array<{ id: string; name: string; code: string }>
+    46→}
+    47→
+    48→const DIFFICULTY_BADGE: Record<string, string> = {
+    49→  Easy: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400',
+    50→  Medium: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400',
+    51→  Hard: 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-400',
+    52→}
+    53→const ASSESSMENT_TYPE_COLORS: Record<string, string> = { CAT: '#10b981', Quiz: '#06b6d4', Assignment: '#8b5cf6', Project: '#f59e0b', Mock: '#ef4444', Practical: '#14b8a6' }
+    54→const QTYPE_COLORS: Record<string, string> = { 'Multiple Choice': '#10b981', 'True/False': '#06b6d4', 'Short Answer': '#f59e0b', Essay: '#8b5cf6', 'Fill in the Blank': '#ef4444' }
+    55→
+    56→export function ExamsModule() {
+    57→  const { data, loading } = useFetch<ExamsData>('/api/exams')
+    58→  const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null)
+    59→  const [selectedAssessment, setSelectedAssessment] = useState<string | null>(null)
+    60→  const [showQuestionDialog, setShowQuestionDialog] = useState(false)
+    61→  const [showAssessmentDialog, setShowAssessmentDialog] = useState(false)
+    62→  const [qSubject, setQSubject] = useState('all')
+    63→  const [qDifficulty, setQDifficulty] = useState('all')
+    64→  const [aSubject, setASubject] = useState('all')
+    65→  const [aStatus, setAStatus] = useState('all')
+    66→
+    67→  if (loading && !data) {
+    68→    return (
+    69→      <div className="space-y-6">
+    70→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    71→          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
+    72→        </div>
+    73→        <Skeleton className="h-96 w-full rounded-xl" />
+    74→      </div>
+    75→    )
+    76→  }
+    77→
+    78→  const d = data!
+    79→  const filteredQuestions = d.questions.filter(q =>
+    80→    (qSubject === 'all' || q.subjectName === d.subjects.find(s => s.id === qSubject)?.name) &&
+    81→    (qDifficulty === 'all' || q.difficulty === qDifficulty)
+    82→  )
+    83→  const filteredAssessments = d.assessments.filter(a =>
+    84→    (aSubject === 'all' || d.subjects.find(s => s.name === a.subjectName)?.id === aSubject) &&
+    85→    (aStatus === 'all' || a.status === aStatus)
+    86→  )
+    87→
+    88→  return (
+    89→    <div className="space-y-6">
+    90→      {/* Header banner */}
+    91→      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 p-6 text-white shadow-xl">
+    92→        <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+    93→        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    94→          <div>
+    95→            <div className="mb-1 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+    96→              <ClipboardCheck className="h-3 w-3" /> {d.stats.totalQuestions} questions · {d.stats.totalAssessments} assessments
+    97→            </div>
+    98→            <h2 className="text-2xl font-bold tracking-tight">Examinations & Assessments</h2>
+    99→            <p className="mt-1 max-w-xl text-sm text-white/80">
+   100→              Question banks, continuous assessment tests (CATs), and grading rubrics for all subjects.
+   101→            </p>
+   102→          </div>
+   103→        </div>
+   104→      </div>
+   105→
+   106→      {/* Stat cards */}
+   107→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   108→        <Card className="stat-card">
+   109→          <CardContent className="flex items-center gap-3 p-5">
+   110→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20">
+   111→              <FileQuestion className="h-5 w-5" />
+   112→            </div>
+   113→            <div>
+   114→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Question Bank</p>
+   115→              <p className="text-2xl font-bold">{d.stats.totalQuestions}</p>
+   116→            </div>
+   117→          </CardContent>
+   118→        </Card>
+   119→        <Card className="stat-card">
+   120→          <CardContent className="flex items-center gap-3 p-5">
+   121→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 ring-1 ring-teal-500/20">
+   122→              <ClipboardList className="h-5 w-5" />
+   123→            </div>
+   124→            <div>
+   125→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Assessments</p>
+   126→              <p className="text-2xl font-bold">{d.stats.totalAssessments}</p>
+   127→            </div>
+   128→          </CardContent>
+   129→        </Card>
+   130→        <Card className="stat-card">
+   131→          <CardContent className="flex items-center gap-3 p-5">
+   132→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20">
+   133→              <Clock className="h-5 w-5" />
+   134→            </div>
+   135→            <div>
+   136→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Published</p>
+   137→              <p className="text-2xl font-bold">{d.stats.published}</p>
+   138→            </div>
+   139→          </CardContent>
+   140→        </Card>
+   141→        <Card className="stat-card">
+   142→          <CardContent className="flex items-center gap-3 p-5">
+   143→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 ring-1 ring-violet-500/20">
+   144→              <Award className="h-5 w-5" />
+   145→            </div>
+   146→            <div>
+   147→              <p className="text-xs uppercase tracking-wide text-muted-foreground">Graded</p>
+   148→              <p className="text-2xl font-bold">{d.stats.graded}</p>
+   149→            </div>
+   150→          </CardContent>
+   151→        </Card>
+   152→      </div>
+   153→
+   154→      <Tabs defaultValue="questions" className="space-y-4">
+   155→        <TabsList className="grid w-full max-w-md grid-cols-2">
+   156→          <TabsTrigger value="questions" className="gap-1.5"><FileQuestion className="h-4 w-4" /> Question Bank</TabsTrigger>
+   157→          <TabsTrigger value="assessments" className="gap-1.5"><ClipboardList className="h-4 w-4" /> Assessments</TabsTrigger>
+   158→        </TabsList>
+   159→
+   160→        {/* Questions Tab */}
+   161→        <TabsContent value="questions" className="space-y-4">
+   162→          {/* Charts */}
+   163→          <div className="grid gap-4 lg:grid-cols-3">
+   164→            <Card>
+   165→              <CardHeader className="pb-2"><CardTitle className="text-base">By Difficulty</CardTitle></CardHeader>
+   166→              <CardContent>
+   167→                <ResponsiveContainer width="100%" height={160}>
+   168→                  <PieChart>
+   169→                    <Pie data={d.byDifficulty} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3}>
+   170→                      {d.byDifficulty.map(diff => <Cell key={diff.name} fill={diff.name === 'Easy' ? '#10b981' : diff.name === 'Medium' ? '#f59e0b' : '#ef4444'} />)}
+   171→                    </Pie>
+   172→                    <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} />
+   173→                  </PieChart>
+   174→                </ResponsiveContainer>
+   175→              </CardContent>
+   176→            </Card>
+   177→            <Card>
+   178→              <CardHeader className="pb-2"><CardTitle className="text-base">By Question Type</CardTitle></CardHeader>
+   179→              <CardContent>
+   180→                <ResponsiveContainer width="100%" height={160}>
+   181→                  <BarChart data={d.byQuestionType} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 0 }}>
+   182→                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.01 150)" horizontal={false} />
+   183→                    <XAxis type="number" tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" />
+   184→                    <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} stroke="oklch(0.5 0.02 160)" width={100} />
+   185→                    <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} cursor={{ fill: 'oklch(0.96 0.01 150)' }} />
+   186→                    <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={20}>
+   187→                      {d.byQuestionType.map(t => <Cell key={t.name} fill={QTYPE_COLORS[t.name] || '#94a3b8'} />)}
+   188→                    </Bar>
+   189→                  </BarChart>
+   190→                </ResponsiveContainer>
+   191→              </CardContent>
+   192→            </Card>
+   193→            <Card>
+   194→              <CardHeader className="pb-2"><CardTitle className="text-base">By Subject</CardTitle></CardHeader>
+   195→              <CardContent>
+   196→                <ResponsiveContainer width="100%" height={160}>
+   197→                  <BarChart data={d.bySubject} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+   198→                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.01 150)" vertical={false} />
+   199→                    <XAxis dataKey="name" tick={{ fontSize: 9 }} stroke="oklch(0.5 0.02 160)" angle={-20} textAnchor="end" height={60} />
+   200→                    <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" />
+   201→                    <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} cursor={{ fill: 'oklch(0.96 0.01 150)' }} />
+   202→                    <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={40} fill="#10b981" />
+   203→                  </BarChart>
+   204→                </ResponsiveContainer>
+   205→              </CardContent>
+   206→            </Card>
+   207→          </div>
+   208→
+   209→          {/* Filter + Add */}
+   210→          <Card>
+   211→            <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
+   212→              <Select value={qSubject} onValueChange={setQSubject}>
+   213→                <SelectTrigger className="w-full md:w-48"><SelectValue placeholder="Subject" /></SelectTrigger>
+   214→                <SelectContent>
+   215→                  <SelectItem value="all">All Subjects</SelectItem>
+   216→                  {d.subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+   217→                </SelectContent>
+   218→              </Select>
+   219→              <Select value={qDifficulty} onValueChange={setQDifficulty}>
+   220→                <SelectTrigger className="w-full md:w-40"><SelectValue placeholder="Difficulty" /></SelectTrigger>
+   221→                <SelectContent>
+   222→                  <SelectItem value="all">All Difficulties</SelectItem>
+   223→                  <SelectItem value="Easy">Easy</SelectItem>
+   224→                  <SelectItem value="Medium">Medium</SelectItem>
+   225→                  <SelectItem value="Hard">Hard</SelectItem>
+   226→                </SelectContent>
+   227→              </Select>
+   228→              <div className="flex-1" />
+   229→              <Button size="sm" onClick={() => setShowQuestionDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
+   230→                <Plus className="mr-1.5 h-4 w-4" /> Add Question
+   231→              </Button>
+   232→            </CardContent>
+   233→          </Card>
+   234→
+   235→          {/* Questions table */}
+   236→          <Card>
+   237→            <CardHeader className="pb-3">
+   238→              <CardTitle className="text-base">Question Bank ({filteredQuestions.length})</CardTitle>
+   239→            </CardHeader>
+   240→            <CardContent className="p-0">
+   241→              <div className="overflow-x-auto">
+   242→                <Table>
+   243→                  <TableHeader>
+   244→                    <TableRow className="bg-muted/40">
+   245→                      <TableHead className="text-xs">Question</TableHead>
+   246→                      <TableHead className="text-xs">Subject</TableHead>
+   247→                      <TableHead className="text-xs">Type</TableHead>
+   248→                      <TableHead className="text-xs">Topic</TableHead>
+   249→                      <TableHead className="text-center text-xs">Marks</TableHead>
+   250→                      <TableHead className="text-center text-xs">Difficulty</TableHead>
+   251→                      <TableHead className="text-right text-xs">Action</TableHead>
+   252→                    </TableRow>
+   253→                  </TableHeader>
+   254→                  <TableBody>
+   255→                    {filteredQuestions.slice(0, 30).map(q => (
+   256→                      <TableRow key={q.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedQuestion(q.id)}>
+   257→                        <TableCell className="max-w-xs">
+   258→                          <p className="truncate text-xs font-medium">{q.question}</p>
+   259→                          {q.optionsArray && <p className="text-[10px] text-muted-foreground">Options: {q.optionsArray.join(', ')}</p>}
+   260→                        </TableCell>
+   261→                        <TableCell><Badge variant="outline" className="text-[10px]">{q.subjectName}</Badge></TableCell>
+   262→                        <TableCell className="text-xs">{q.questionType}</TableCell>
+   263→                        <TableCell className="text-xs text-muted-foreground">{q.topic || '—'}</TableCell>
+   264→                        <TableCell className="text-center text-xs font-semibold">{q.marks}</TableCell>
+   265→                        <TableCell className="text-center"><Badge variant="outline" className={cn('text-[10px]', DIFFICULTY_BADGE[q.difficulty])}>{q.difficulty}</Badge></TableCell>
+   266→                        <TableCell className="text-right">
+   267→                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); setSelectedQuestion(q.id) }}>
+   268→                            View <ChevronRight className="ml-0.5 h-3 w-3" />
+   269→                          </Button>
+   270→                        </TableCell>
+   271→                      </TableRow>
+   272→                    ))}
+   273→                  </TableBody>
+   274→                </Table>
+   275→              </div>
+   276→            </CardContent>
+   277→          </Card>
+   278→        </TabsContent>
+   279→
+   280→        {/* Assessments Tab */}
+   281→        <TabsContent value="assessments" className="space-y-4">
+   282→          {/* Charts */}
+   283→          <div className="grid gap-4 lg:grid-cols-2">
+   284→            <Card>
+   285→              <CardHeader className="pb-2"><CardTitle className="text-base">Assessments by Type</CardTitle></CardHeader>
+   286→              <CardContent>
+   287→                <ResponsiveContainer width="100%" height={180}>
+   288→                  <PieChart>
+   289→                    <Pie data={d.byAssessmentType} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3}>
+   290→                      {d.byAssessmentType.map(t => <Cell key={t.name} fill={ASSESSMENT_TYPE_COLORS[t.name] || '#94a3b8'} />)}
+   291→                    </Pie>
+   292→                    <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} />
+   293→                  </PieChart>
+   294→                </ResponsiveContainer>
+   295→                <div className="mt-2 flex flex-wrap justify-center gap-2 text-[10px]">
+   296→                  {d.byAssessmentType.map(t => (
+   297→                    <div key={t.name} className="flex items-center gap-1">
+   298→                      <span className="h-2 w-2 rounded-full" style={{ background: ASSESSMENT_TYPE_COLORS[t.name] }} />
+   299→                      <span className="font-medium">{t.name}</span><span className="text-muted-foreground">{t.count}</span>
+   300→                    </div>
+   301→                  ))}
+   302→                </div>
+   303→              </CardContent>
+   304→            </Card>
+   305→            <Card>
+   306→              <CardHeader className="pb-2"><CardTitle className="text-base">Assessment Status</CardTitle></CardHeader>
+   307→              <CardContent>
+   308→                <ResponsiveContainer width="100%" height={180}>
+   309→                  <BarChart data={d.byStatus} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+   310→                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.01 150)" vertical={false} />
+   311→                    <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" />
+   312→                    <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" />
+   313→                    <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} cursor={{ fill: 'oklch(0.96 0.01 150)' }} />
+   314→                    <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={50}>
+   315→                      {d.byStatus.map(s => <Cell key={s.name} fill={s.name === 'Graded' ? '#10b981' : s.name === 'Completed' ? '#14b8a6' : s.name === 'Published' ? '#f59e0b' : '#94a3b8'} />)}
+   316→                    </Bar>
+   317→                  </BarChart>
+   318→                </ResponsiveContainer>
+   319→              </CardContent>
+   320→            </Card>
+   321→          </div>
+   322→
+   323→          {/* Filter + Add */}
+   324→          <Card>
+   325→            <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
+   326→              <Select value={aSubject} onValueChange={setASubject}>
+   327→                <SelectTrigger className="w-full md:w-48"><SelectValue placeholder="Subject" /></SelectTrigger>
+   328→                <SelectContent>
+   329→                  <SelectItem value="all">All Subjects</SelectItem>
+   330→                  {d.subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+   331→                </SelectContent>
+   332→              </Select>
+   333→              <Select value={aStatus} onValueChange={setAStatus}>
+   334→                <SelectTrigger className="w-full md:w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+   335→                <SelectContent>
+   336→                  <SelectItem value="all">All Statuses</SelectItem>
+   337→                  <SelectItem value="Draft">Draft</SelectItem>
+   338→                  <SelectItem value="Published">Published</SelectItem>
+   339→                  <SelectItem value="Completed">Completed</SelectItem>
+   340→                  <SelectItem value="Graded">Graded</SelectItem>
+   341→                </SelectContent>
+   342→              </Select>
+   343→              <div className="flex-1" />
+   344→              <Button size="sm" onClick={() => setShowAssessmentDialog(true)} className="bg-teal-600 hover:bg-teal-700">
+   345→                <Plus className="mr-1.5 h-4 w-4" /> Create Assessment
+   346→              </Button>
+   347→            </CardContent>
+   348→          </Card>
+   349→
+   350→          {/* Assessments grid */}
+   351→          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+   352→            {filteredAssessments.map(a => (
+   353→              <Card key={a.id} className="stat-card cursor-pointer transition-all hover:shadow-lg" onClick={() => setSelectedAssessment(a.id)}>
+   354→                <CardContent className="p-4">
+   355→                  <div className="flex items-start justify-between gap-2">
+   356→                    <div className="flex items-center gap-2">
+   357→                      <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: `${ASSESSMENT_TYPE_COLORS[a.assessmentType]}15` }}>
+   358→                        <ClipboardList className="h-5 w-5" style={{ color: ASSESSMENT_TYPE_COLORS[a.assessmentType] }} />
+   359→                      </div>
+   360→                      <div className="min-w-0">
+   361→                        <p className="truncate text-sm font-semibold">{a.title}</p>
+   362→                        <p className="truncate text-[10px] text-muted-foreground">{a.subjectName} · {a.classLevelName}</p>
+   363→                      </div>
+   364→                    </div>
+   365→                    <Badge variant="outline" className={cn('shrink-0 text-[10px]', statusColor(a.status))}>{a.status}</Badge>
+   366→                  </div>
+   367→                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+   368→                    <div className="rounded-lg bg-muted/40 p-1.5">
+   369→                      <p className="text-[9px] uppercase text-muted-foreground">Type</p>
+   370→                      <p className="text-xs font-bold">{a.assessmentType}</p>
+   371→                    </div>
+   372→                    <div className="rounded-lg bg-muted/40 p-1.5">
+   373→                      <p className="text-[9px] uppercase text-muted-foreground">Marks</p>
+   374→                      <p className="text-xs font-bold">{a.totalMarks}</p>
+   375→                    </div>
+   376→                    <div className="rounded-lg bg-muted/40 p-1.5">
+   377→                      <p className="text-[9px] uppercase text-muted-foreground">Weight</p>
+   378→                      <p className="text-xs font-bold">{a.weight}%</p>
+   379→                    </div>
+   380→                  </div>
+   381→                  <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
+   382→                    <Clock className="h-2.5 w-2.5" /><span>{a.duration ? `${a.duration} min` : 'No time limit'}</span>
+   383→                    <span>·</span><span>{formatDate(a.startDate)}</span>
+   384→                  </div>
+   385→                </CardContent>
+   386→              </Card>
+   387→            ))}
+   388→          </div>
+   389→        </TabsContent>
+   390→      </Tabs>
+   391→
+   392→      {/* Dialogs */}
+   393→      {selectedQuestion && <QuestionDetailDialog questionId={selectedQuestion} onClose={() => setSelectedQuestion(null)} />}
+   394→      {selectedAssessment && <AssessmentDetailDialog assessmentId={selectedAssessment} onClose={() => setSelectedAssessment(null)} />}
+   395→      {showQuestionDialog && <AddQuestionDialog onClose={() => setShowQuestionDialog(false)} subjects={d.subjects} />}
+   396→      {showAssessmentDialog && <AddAssessmentDialog onClose={() => setShowAssessmentDialog(false)} subjects={d.subjects} />}
+   397→    </div>
+   398→  )
+   399→}
+   400→
+   401→function QuestionDetailDialog({ questionId, onClose }: { questionId: string; onClose: () => void }) {
+   402→  const { data: q, loading } = useFetch<any>(`/api/exams/${questionId}?type=question`)
+   403→  return (
+   404→    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+   405→      <DialogContent className="max-w-lg">
+   406→        {loading || !q ? <Skeleton className="h-48 w-full" /> : (
+   407→          <>
+   408→            <DialogHeader>
+   409→              <DialogTitle className="flex items-center gap-2"><FileQuestion className="h-5 w-5 text-emerald-500" /> Question Details</DialogTitle>
+   410→              <DialogDescription>{q.subject?.name} · {q.questionType}</DialogDescription>
+   411→            </DialogHeader>
+   412→            <div className="space-y-3">
+   413→              <div className="rounded-xl bg-emerald-50/50 p-4 dark:bg-emerald-950/20">
+   414→                <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Question</p>
+   415→                <p className="mt-1 text-sm font-medium">{q.question}</p>
+   416→              </div>
+   417→              {q.optionsArray && (
+   418→                <div>
+   419→                  <p className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground">Options</p>
+   420→                  <div className="space-y-1">
+   421→                    {q.optionsArray.map((opt: string, i: number) => (
+   422→                      <div key={i} className={cn('flex items-center gap-2 rounded-lg border p-2 text-sm', opt === q.correctAnswer ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950' : '')}>
+   423→                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold">{String.fromCharCode(65 + i)}</span>
+   424→                        <span>{opt}</span>
+   425→                        {opt === q.correctAnswer && <CheckCircle2 className="ml-auto h-4 w-4 text-emerald-600" />}
+   426→                      </div>
+   427→                    ))}
+   428→                  </div>
+   429→                </div>
+   430→              )}
+   431→              {q.correctAnswer && !q.optionsArray && (
+   432→                <div className="rounded-lg border-l-4 border-emerald-400 bg-emerald-50/50 p-3 dark:bg-emerald-950/20">
+   433→                  <p className="text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-400">Correct Answer</p>
+   434→                  <p className="mt-0.5 text-sm">{q.correctAnswer}</p>
+   435→                </div>
+   436→              )}
+   437→              <div className="grid grid-cols-3 gap-2 text-center">
+   438→                <div className="rounded-lg border p-2"><p className="text-[10px] uppercase text-muted-foreground">Marks</p><p className="text-sm font-bold">{q.marks}</p></div>
+   439→                <div className="rounded-lg border p-2"><p className="text-[10px] uppercase text-muted-foreground">Difficulty</p><Badge variant="outline" className={cn('text-[10px]', DIFFICULTY_BADGE[q.difficulty])}>{q.difficulty}</Badge></div>
+   440→                <div className="rounded-lg border p-2"><p className="text-[10px] uppercase text-muted-foreground">Bloom</p><p className="text-[10px] font-bold">{q.bloomLevel || '—'}</p></div>
+   441→              </div>
+   442→              {q.topic && <p className="text-xs text-muted-foreground">Topic: {q.topic}</p>}
+   443→            </div>
+   444→          </>
+   445→        )}
+   446→      </DialogContent>
+   447→    </Dialog>
+   448→  )
+   449→}
+   450→
+   451→function AssessmentDetailDialog({ assessmentId, onClose }: { assessmentId: string; onClose: () => void }) {
+   452→  const { data: a, loading } = useFetch<any>(`/api/exams/${assessmentId}?type=assessment`)
+   453→  const [showGradeEntry, setShowGradeEntry] = useState(false)
+   454→  const [showExternalMarks, setShowExternalMarks] = useState(false)
+   455→  const [showChangeSubject, setShowChangeSubject] = useState(false)
+   456→
+   457→  return (
+   458→    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+   459→      <DialogContent className="max-w-xl max-h-[92vh] overflow-y-auto scrollbar-thin">
+   460→        {loading || !a ? <Skeleton className="h-48 w-full" /> : (
+   461→          <>
+   462→            <DialogHeader>
+   463→              <DialogTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-teal-500" /> Assessment Details</DialogTitle>
+   464→              <DialogDescription>
+   465→                {a.subject?.name} · {a.classLevel?.name} · {a.assessmentType}
+   466→                <button
+   467→                  onClick={() => setShowChangeSubject(true)}
+   468→                  className="ml-2 inline-flex items-center gap-1 text-[10px] text-teal-600 hover:underline"
+   469→                >
+   470→                  <Edit3 className="h-3 w-3" /> Change subject
+   471→                </button>
+   472→              </DialogDescription>
+   473→            </DialogHeader>
+   474→            <div className="space-y-3">
+   475→              <div className="rounded-xl bg-gradient-to-r from-teal-50 to-cyan-50 p-4 dark:from-teal-950/30 dark:to-cyan-950/30">
+   476→                <p className="text-base font-bold">{a.title}</p>
+   477→                <div className="mt-1 flex flex-wrap gap-2">
+   478→                  <Badge variant="outline" className="text-[10px]">{a.assessmentType}</Badge>
+   479→                  <Badge variant="outline" className={cn('text-[10px]', statusColor(a.status))}>{a.status}</Badge>
+   480→                  <Badge variant="outline" className="text-[10px]">{a.term} {a.academicYear}</Badge>
+   481→                </div>
+   482→              </div>
+   483→              <div className="grid grid-cols-4 gap-2 text-center">
+   484→                <div className="rounded-lg border p-2"><p className="text-[10px] uppercase text-muted-foreground">Marks</p><p className="text-sm font-bold">{a.totalMarks}</p></div>
+   485→                <div className="rounded-lg border p-2"><p className="text-[10px] uppercase text-muted-foreground">Weight</p><p className="text-sm font-bold">{a.weight}%</p></div>
+   486→                <div className="rounded-lg border p-2"><p className="text-[10px] uppercase text-muted-foreground">Duration</p><p className="text-sm font-bold">{a.duration || '—'}{a.duration ? 'm' : ''}</p></div>
+   487→                <div className="rounded-lg border p-2"><p className="text-[10px] uppercase text-muted-foreground">Date</p><p className="text-[10px] font-bold">{formatDate(a.startDate)}</p></div>
+   488→              </div>
+   489→              {a.instructions && (
+   490→                <div className="rounded-lg border-l-4 border-teal-400 bg-teal-50/50 p-3 dark:bg-teal-950/20">
+   491→                  <p className="text-[10px] font-semibold uppercase text-teal-700 dark:text-teal-400">Instructions</p>
+   492→                  <p className="mt-0.5 text-sm">{a.instructions}</p>
+   493→                </div>
+   494→              )}
+   495→              {a.rubric && (
+   496→                <div className="rounded-lg border-l-4 border-amber-400 bg-amber-50/50 p-3 dark:bg-amber-950/20">
+   497→                  <p className="text-[10px] font-semibold uppercase text-amber-700 dark:text-amber-400">Grading Rubric</p>
+   498→                  <p className="mt-0.5 text-sm">{a.rubric}</p>
+   499→                </div>
+   500→              )}
+   501→
+   502→              {/* Action buttons: Record Grades + Add External Marks */}
+   503→              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+   504→                <Button
+   505→                  variant="outline"
+   506→                  onClick={() => setShowGradeEntry(true)}
+   507→                  className="gap-1.5 border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400 dark:hover:bg-teal-950"
+   508→                >
+   509→                  <ClipboardEdit className="h-4 w-4" /> Record / Edit Grades
+   510→                </Button>
+   511→                <Button
+   512→                  variant="outline"
+   513→                  onClick={() => setShowExternalMarks(true)}
+   514→                  className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950"
+   515→                >
+   516→                  <FilePlus className="h-4 w-4" /> Add External Marks
+   517→                </Button>
+   518→              </div>
+   519→            </div>
+   520→          </>
+   521→        )}
+   522→      </DialogContent>
+   523→
+   524→      {/* Grade entry dialog */}
+   525→      {a && showGradeEntry && (
+   526→        <GradeEntryDialog
+   527→          assessment={a}
+   528→          onClose={() => setShowGradeEntry(false)}
+   529→        />
+   530→      )}
+   531→      {/* External marks dialog */}
+   532→      {a && showExternalMarks && (
+   533→        <ExternalMarksDialog
+   534→          assessment={a}
+   535→          onClose={() => setShowExternalMarks(false)}
+   536→        />
+   537→      )}
+   538→      {/* Change subject dialog */}
+   539→      {a && showChangeSubject && (
+   540→        <ChangeSubjectDialog
+   541→          assessment={a}
+   542→          onClose={() => setShowChangeSubject(false)}
+   543→        />
+   544→      )}
+   545→    </Dialog>
+   546→  )
+   547→}
+   548→
+   549→function AddQuestionDialog({ onClose, subjects }: { onClose: () => void; subjects: Array<{ id: string; name: string }> }) {
+   550→  const [form, setForm] = useState({
+   551→    subjectId: '', question: '', questionType: 'Multiple Choice', correctAnswer: '', marks: '1',
+   552→    difficulty: 'Medium', topic: '', bloomLevel: 'Knowledge', optA: '', optB: '', optC: '', optD: '',
+   553→  })
+   554→  const [saving, setSaving] = useState(false)
+   555→  const handleSubmit = async () => {
+   556→    if (!form.question) { toast.error('Question is required'); return }
+   557→    setSaving(true)
+   558→    try {
+   559→      const options = form.questionType === 'Multiple Choice' ? [form.optA, form.optB, form.optC, form.optD].filter(Boolean) : undefined
+   560→      await apiPost('/api/exams', { ...form, entityType: 'question', options, marks: Number(form.marks) })
+   561→      toast.success('Question added')
+   562→      onClose()
+   563→    } catch (e: any) { toast.error(e?.message || 'Failed') }
+   564→    finally { setSaving(false) }
+   565→  }
+   566→  return (
+   567→    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+   568→      <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto scrollbar-thin">
+   569→        <DialogHeader>
+   570→          <DialogTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-emerald-500" /> Add Question</DialogTitle>
+   571→        </DialogHeader>
+   572→        <div className="space-y-3">
+   573→          <div><Label className="text-xs">Subject</Label><Select value={form.subjectId} onValueChange={v => setForm({ ...form, subjectId: v })}><SelectTrigger className="mt-1"><SelectValue placeholder="Select subject" /></SelectTrigger><SelectContent>{subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></div>
+   574→          <div><Label className="text-xs">Question *</Label><Textarea value={form.question} onChange={e => setForm({ ...form, question: e.target.value })} className="mt-1" rows={2} /></div>
+   575→          <div className="grid grid-cols-2 gap-3">
+   576→            <div><Label className="text-xs">Type</Label><Select value={form.questionType} onValueChange={v => setForm({ ...form, questionType: v })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Multiple Choice">Multiple Choice</SelectItem><SelectItem value="True/False">True/False</SelectItem><SelectItem value="Short Answer">Short Answer</SelectItem><SelectItem value="Essay">Essay</SelectItem></SelectContent></Select></div>
+   577→            <div><Label className="text-xs">Difficulty</Label><Select value={form.difficulty} onValueChange={v => setForm({ ...form, difficulty: v })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Easy">Easy</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Hard">Hard</SelectItem></SelectContent></Select></div>
+   578→          </div>
+   579→          {form.questionType === 'Multiple Choice' && (
+   580→            <div className="grid grid-cols-2 gap-2">
+   581→              {['A', 'B', 'C', 'D'].map(l => (
+   582→                <div key={l}><Label className="text-xs">Option {l}</Label><Input value={(form as any)[`opt${l}`]} onChange={e => setForm({ ...form, [`opt${l}`]: e.target.value })} className="mt-1" /></div>
+   583→              ))}
+   584→            </div>
+   585→          )}
+   586→          <div className="grid grid-cols-3 gap-3">
+   587→            <div><Label className="text-xs">Marks</Label><Input type="number" value={form.marks} onChange={e => setForm({ ...form, marks: e.target.value })} className="mt-1" /></div>
+   588→            <div><Label className="text-xs">Topic</Label><Input value={form.topic} onChange={e => setForm({ ...form, topic: e.target.value })} className="mt-1" /></div>
+   589→            <div><Label className="text-xs">Bloom Level</Label><Select value={form.bloomLevel} onValueChange={v => setForm({ ...form, bloomLevel: v })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Knowledge">Knowledge</SelectItem><SelectItem value="Comprehension">Comprehension</SelectItem><SelectItem value="Application">Application</SelectItem><SelectItem value="Analysis">Analysis</SelectItem><SelectItem value="Synthesis">Synthesis</SelectItem></SelectContent></Select></div>
+   590→          </div>
+   591→          <div><Label className="text-xs">Correct Answer</Label><Input value={form.correctAnswer} onChange={e => setForm({ ...form, correctAnswer: e.target.value })} className="mt-1" /></div>
+   592→          <div className="flex justify-end gap-2 pt-2">
+   593→            <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+   594→            <Button size="sm" onClick={handleSubmit} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">{saving ? 'Saving...' : 'Add Question'}</Button>
+   595→          </div>
+   596→        </div>
+   597→      </DialogContent>
+   598→    </Dialog>
+   599→  )
+   600→}
+   601→
+   602→function AddAssessmentDialog({ onClose, subjects }: { onClose: () => void; subjects: Array<{ id: string; name: string }> }) {
+   603→  const [form, setForm] = useState({
+   604→    title: '', subjectId: '', assessmentType: 'CAT', totalMarks: '40', weight: '15', duration: '60', startDate: '', status: 'Draft', instructions: '', rubric: '',
+   605→  })
+   606→  const [saving, setSaving] = useState(false)
+   607→  const handleSubmit = async () => {
+   608→    if (!form.title || !form.startDate) { toast.error('Title and start date are required'); return }
+   609→    setSaving(true)
+   610→    try {
+   611→      await apiPost('/api/exams', { ...form, entityType: 'assessment', totalMarks: Number(form.totalMarks), weight: Number(form.weight), duration: Number(form.duration) })
+   612→      toast.success('Assessment created')
+   613→      onClose()
+   614→    } catch (e: any) { toast.error(e?.message || 'Failed') }
+   615→    finally { setSaving(false) }
+   616→  }
+   617→  return (
+   618→    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+   619→      <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto scrollbar-thin">
+   620→        <DialogHeader>
+   621→          <DialogTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-teal-500" /> Create Assessment</DialogTitle>
+   622→        </DialogHeader>
+   623→        <div className="space-y-3">
+   624→          <div><Label className="text-xs">Title *</Label><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="mt-1" /></div>
+   625→          <div><Label className="text-xs">Subject</Label><Select value={form.subjectId} onValueChange={v => setForm({ ...form, subjectId: v })}><SelectTrigger className="mt-1"><SelectValue placeholder="Select subject" /></SelectTrigger><SelectContent>{subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></div>
+   626→          <div className="grid grid-cols-3 gap-3">
+   627→            <div><Label className="text-xs">Type</Label><Select value={form.assessmentType} onValueChange={v => setForm({ ...form, assessmentType: v })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CAT">CAT</SelectItem><SelectItem value="Quiz">Quiz</SelectItem><SelectItem value="Assignment">Assignment</SelectItem><SelectItem value="Project">Project</SelectItem><SelectItem value="Mock">Mock</SelectItem><SelectItem value="Practical">Practical</SelectItem></SelectContent></Select></div>
+   628→            <div><Label className="text-xs">Marks</Label><Input type="number" value={form.totalMarks} onChange={e => setForm({ ...form, totalMarks: e.target.value })} className="mt-1" /></div>
+   629→            <div><Label className="text-xs">Weight %</Label><Input type="number" value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })} className="mt-1" /></div>
+   630→          </div>
+   631→          <div className="grid grid-cols-2 gap-3">
+   632→            <div><Label className="text-xs">Duration (min)</Label><Input type="number" value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} className="mt-1" /></div>
+   633→            <div><Label className="text-xs">Start Date *</Label><Input type="datetime-local" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="mt-1" /></div>
+   634→          </div>
+   635→          <div><Label className="text-xs">Instructions</Label><Textarea value={form.instructions} onChange={e => setForm({ ...form, instructions: e.target.value })} className="mt-1" rows={2} /></div>
+   636→          <div><Label className="text-xs">Grading Rubric</Label><Textarea value={form.rubric} onChange={e => setForm({ ...form, rubric: e.target.value })} className="mt-1" rows={2} /></div>
+   637→          <div className="flex justify-end gap-2 pt-2">
+   638→            <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+   639→            <Button size="sm" onClick={handleSubmit} disabled={saving} className="bg-teal-600 hover:bg-teal-700">{saving ? 'Creating...' : 'Create'}</Button>
+   640→          </div>
+   641→        </div>
+   642→      </DialogContent>
+   643→    </Dialog>
+   644→  )
+   645→}
+   646→
+   647→// ---------------------------------------------------------------------------
+   648→// GradeEntryDialog — record/edit marks for each student in a class
+   649→// ---------------------------------------------------------------------------
+   650→function GradeEntryDialog({ assessment, onClose }: { assessment: any; onClose: () => void }) {
+   651→  // Fetch students enrolled in this assessment's class level
+   652→  const { data: studentsData, loading } = useFetch<any>(
+   653→    `/api/students?classLevel=${assessment.classLevelId || ''}&pageSize=200`
+   654→  )
+   655→  const [grades, setGrades] = useState<Record<string, string>>({})
+   656→  const [comments, setComments] = useState<Record<string, string>>({})
+   657→  const [selectedStudent, setSelectedStudent] = useState<string | null>(null)
+   658→  const [saving, setSaving] = useState(false)
+   659→
+   660→  const students = studentsData?.students || []
+   661→
+   662→  const handleSave = async () => {
+   663→    const entries = Object.entries(grades).filter(([, m]) => m !== '' && m != null)
+   664→    if (entries.length === 0) {
+   665→      toast.error('Enter at least one mark')
+   666→      return
+   667→    }
+   668→    setSaving(true)
+   669→    try {
+   670→      let saved = 0
+   671→      for (const [studentId, marks] of entries) {
+   672→        const numMarks = Number(marks)
+   673→        if (!Number.isFinite(numMarks) || numMarks < 0 || numMarks > assessment.totalMarks) continue
+   674→        try {
+   675→          await apiPost('/api/grades', {
+   676→            studentId,
+   677→            subjectId: assessment.subjectId,
+   678→            examId: assessment.id,
+   679→            marks: numMarks,
+   680→            totalMarks: assessment.totalMarks,
+   681→            source: 'internal',
+   682→            teacherComment: comments[studentId]?.trim() || null,
+   683→            remarks: comments[studentId]?.trim() || null,
+   684→          })
+   685→          saved++
+   686→        } catch { /* skip individual errors */ }
+   687→      }
+   688→      toast.success(`${saved} grade${saved !== 1 ? 's' : ''} saved`, {
+   689→        description: `${assessment.title} · ${assessment.subject?.name}`,
+   690→      })
+   691→      onClose()
+   692→    } catch (e: any) {
+   693→      toast.error(e?.message || 'Failed to save grades')
+   694→    } finally {
+   695→      setSaving(false)
+   696→    }
+   697→  }
+   698→
+   699→  return (
+   700→    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+   701→      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin">
+   702→        <DialogHeader>
+   703→          <DialogTitle className="flex items-center gap-2">
+   704→            <ClipboardEdit className="h-5 w-5 text-teal-500" /> Record Grades & Remarks
+   705→          </DialogTitle>
+   706→          <DialogDescription>
+   707→            {assessment.title} · {assessment.subject?.name} · Max {assessment.totalMarks} marks
+   708→          </DialogDescription>
+   709→        </DialogHeader>
+   710→        {loading ? (
+   711→          <Skeleton className="h-48 w-full" />
+   712→        ) : students.length === 0 ? (
+   713→          <div className="py-8 text-center text-sm text-muted-foreground">
+   714→            No students found in this class level.
+   715→          </div>
+   716→        ) : (
+   717→          <div className="space-y-2">
+   718→            <Table>
+   719→              <TableHeader>
+   720→                <TableRow>
+   721→                  <TableHead className="text-xs">Adm No</TableHead>
+   722→                  <TableHead className="text-xs">Student Name</TableHead>
+   723→                  <TableHead className="text-xs text-right">Marks / {assessment.totalMarks}</TableHead>
+   724→                  <TableHead className="text-xs">CBE AL</TableHead>
+   725→                  <TableHead className="text-xs">Descriptor</TableHead>
+   726→                  <TableHead className="text-xs">Teacher Comment</TableHead>
+   727→                </TableRow>
+   728→              </TableHeader>
+   729→              <TableBody>
+   730→                {students.map((s: any) => {
+   731→                  const marks = grades[s.id]
+   732→                  const pct = marks ? (Number(marks) / assessment.totalMarks) * 100 : 0
+   733→                  // Official CBE 8-Level Achievement Level scale
+   734→                  let alLevel = '—'
+   735→                  let descriptor = '—'
+   736→                  let badgeColor = 'border-slate-300 text-slate-600'
+   737→                  if (marks) {
+   738→                    if (pct >= 90) { alLevel = 'AL 8'; descriptor = 'EE1'; badgeColor = 'border-emerald-400 text-emerald-700 bg-emerald-50' }
+   739→                    else if (pct >= 75) { alLevel = 'AL 7'; descriptor = 'EE2'; badgeColor = 'border-emerald-300 text-emerald-700 bg-emerald-50' }
+   740→                    else if (pct >= 58) { alLevel = 'AL 6'; descriptor = 'ME1'; badgeColor = 'border-teal-300 text-teal-700 bg-teal-50' }
+   741→                    else if (pct >= 41) { alLevel = 'AL 5'; descriptor = 'ME2'; badgeColor = 'border-cyan-300 text-cyan-700 bg-cyan-50' }
+   742→                    else if (pct >= 31) { alLevel = 'AL 4'; descriptor = 'AE1'; badgeColor = 'border-amber-300 text-amber-700 bg-amber-50' }
+   743→                    else if (pct >= 21) { alLevel = 'AL 3'; descriptor = 'AE2'; badgeColor = 'border-orange-300 text-orange-700 bg-orange-50' }
+   744→                    else if (pct >= 11) { alLevel = 'AL 2'; descriptor = 'BE1'; badgeColor = 'border-rose-300 text-rose-700 bg-rose-50' }
+   745→                    else { alLevel = 'AL 1'; descriptor = 'BE2'; badgeColor = 'border-rose-500 text-rose-800 bg-rose-100' }
+   746→                  }
+   747→                  return (
+   748→                    <TableRow key={s.id}>
+   749→                      <TableCell className="text-xs font-mono">{s.admissionNo}</TableCell>
+   750→                      <TableCell className="text-xs">{s.firstName} {s.lastName}</TableCell>
+   751→                      <TableCell className="text-right">
+   752→                        <Input
+   753→                          type="number"
+   754→                          min="0"
+   755→                          max={assessment.totalMarks}
+   756→                          step="0.5"
+   757→                          value={grades[s.id] || ''}
+   758→                          onChange={(e) => setGrades({ ...grades, [s.id]: e.target.value })}
+   759→                          className="ml-auto h-8 w-24 text-xs"
+   760→                          placeholder="—"
+   761→                        />
+   762→                      </TableCell>
+   763→                      <TableCell className="text-xs">
+   764→                        <Badge variant="outline" className={`text-[9px] font-bold ${badgeColor}`}>
+   765→                          {alLevel}
+   766→                        </Badge>
+   767→                      </TableCell>
+   768→                      <TableCell className="text-xs font-semibold">
+   769→                        {descriptor}
+   770→                      </TableCell>
+   771→                      <TableCell className="text-xs">
+   772→                        <Input
+   773→                          value={comments[s.id] || ''}
+   774→                          onChange={(e) => setComments({ ...comments, [s.id]: e.target.value })}
+   775→                          placeholder="e.g. Good work, needs improvement in..."
+   776→                          className="h-8 text-xs"
+   777→                        />
+   778→                      </TableCell>
+   779→                    </TableRow>
+   780→                  )
+   781→                })}
+   782→              </TableBody>
+   783→            </Table>
+   784→            <div className="rounded-lg border border-teal-200 bg-teal-50/50 p-3 dark:border-teal-800 dark:bg-teal-950/20">
+   785→              <p className="text-[10px] font-semibold text-teal-700 dark:text-teal-400">
+   786→                CBE Official 8-Level Achievement Scale (Kenya 2025+):
+   787→              </p>
+   788→              <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-teal-700 dark:text-teal-400 sm:grid-cols-4">
+   789→                <span><strong>AL 8</strong> (90-100%): EE1 — Exceeding Expectations</span>
+   790→                <span><strong>AL 7</strong> (75-89%): EE2 — Exceeding Expectations</span>
+   791→                <span><strong>AL 6</strong> (58-74%): ME1 — Meeting Expectations</span>
+   792→                <span><strong>AL 5</strong> (41-57%): ME2 — Meeting Expectations</span>
+   793→                <span><strong>AL 4</strong> (31-40%): AE1 — Approaching Expectations</span>
+   794→                <span><strong>AL 3</strong> (21-30%): AE2 — Approaching Expectations</span>
+   795→                <span><strong>AL 2</strong> (11-20%): BE1 — Below Expectations</span>
+   796→                <span><strong>AL 1</strong> (1-10%): BE2 — Below Expectations</span>
+   797→              </div>
+   798→              <p className="mt-2 text-[10px] text-teal-700 dark:text-teal-400">
+   799→                <strong>KJSEA Placement:</strong> Final score = KJSEA (60%) + School-Based Assessment (20%) + KPSEA (20%)
+   800→              </p>
+   801→              <p className="mt-1 text-[10px] text-teal-700 dark:text-teal-400">
+   802→                Teacher comments will appear on the student's report card and parent portal.
+   803→              </p>
+   804→            </div>
+   805→            <div className="flex justify-end gap-2 pt-2">
+   806→              <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+   807→              <Button size="sm" onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
+   808→                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+   809→                Save Grades & Remarks
+   810→              </Button>
+   811→            </div>
+   812→          </div>
+   813→        )}
+   814→      </DialogContent>
+   815→    </Dialog>
+   816→  )
+   817→}
+   818→
+   819→// ---------------------------------------------------------------------------
+   820→// ExternalMarksDialog — add marks from external exams (KCPE, KCSE, mock, etc.)
+   821→// Allows choosing which subject the external marks belong to.
+   822→// ---------------------------------------------------------------------------
+   823→function ExternalMarksDialog({ assessment, onClose }: { assessment: any; onClose: () => void }) {
+   824→  const [externalSource, setExternalSource] = useState('KCSE Mock')
+   825→  const [subjectId, setSubjectId] = useState(assessment.subjectId || '')
+   826→  const [classLevelId, setClassLevelId] = useState(assessment.classLevelId || '')
+   827→  const [examName, setExamName] = useState('')
+   828→  const [totalMarks, setTotalMarks] = useState('100')
+   829→  const [marksText, setMarksText] = useState('')
+   830→  const [saving, setSaving] = useState(false)
+   831→
+   832→  const { data: studentsData, loading } = useFetch<any>(
+   833→    classLevelId ? `/api/students?classLevel=${classLevelId}&pageSize=200` : null
+   834→  )
+   835→  const { data: subjectsData } = useFetch<any>('/api/academics/subjects')
+   836→  const { data: classLevelsData } = useFetch<any>('/api/academics/class-levels')
+   837→  const students = studentsData?.students || []
+   838→
+   839→  // Parse the pasted text (format: "admNo,marks" per line, or "name,marks")
+   840→  const parsedRows = marksText
+   841→    .split('\n')
+   842→    .map(line => line.trim())
+   843→    .filter(Boolean)
+   844→    .map(line => {
+   845→      const parts = line.split(/[,\t]/).map(p => p.trim())
+   846→      return { admNoOrName: parts[0], marks: parts[1] || '' }
+   847→    })
+   848→
+   849→  const handleSave = async () => {
+   850→    if (parsedRows.length === 0) {
+   851→      toast.error('Paste at least one row of marks (format: AdmissionNo,Marks)')
+   852→      return
+   853→    }
+   854→    if (!subjectId) {
+   855→      toast.error('Select the subject these marks belong to')
+   856→      return
+   857→    }
+   858→    setSaving(true)
+   859→    try {
+   860→      let saved = 0
+   861→      let skipped = 0
+   862→      for (const row of parsedRows) {
+   863→        // Match by admission number or name
+   864→        const student = students.find((s: any) =>
+   865→          s.admissionNo?.toLowerCase() === row.admNoOrName.toLowerCase() ||
+   866→          `${s.firstName} ${s.lastName}`.toLowerCase().includes(row.admNoOrName.toLowerCase())
+   867→        )
+   868→        if (!student) { skipped++; continue }
+   869→        const numMarks = Number(row.marks)
+   870→        if (!Number.isFinite(numMarks) || numMarks < 0) { skipped++; continue }
+   871→        try {
+   872→          await apiPost('/api/grades', {
+   873→            studentId: student.id,
+   874→            subjectId,
+   875→            examId: assessment.id,
+   876→            marks: numMarks,
+   877→            totalMarks: Number(totalMarks),
+   878→            source: 'external',
+   879→            externalSource,
+   880→            remarks: `External: ${externalSource}`,
+   881→          })
+   882→          saved++
+   883→        } catch { skipped++ }
+   884→      }
+   885→      toast.success(`${saved} external marks imported`, {
+   886→        description: skipped > 0 ? `${skipped} row(s) skipped (student not found or invalid marks)` : undefined,
+   887→      })
+   888→      if (saved > 0) onClose()
+   889→    } catch (e: any) {
+   890→      toast.error(e?.message || 'Failed to import external marks')
+   891→    } finally {
+   892→      setSaving(false)
+   893→    }
+   894→  }
+   895→
+   896→  return (
+   897→    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+   898→      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto scrollbar-thin">
+   899→        <DialogHeader>
+   900→          <DialogTitle className="flex items-center gap-2">
+   901→            <FilePlus className="h-5 w-5 text-amber-500" /> Add External Marks
+   902→          </DialogTitle>
+   903→          <DialogDescription>
+   904→            Import marks from external exams (KCPE, KCSE, Mock, etc.) not assessed in the system.
+   905→          </DialogDescription>
+   906→        </DialogHeader>
+   907→        <div className="space-y-3">
+   908→          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+   909→            <p className="text-xs text-amber-800 dark:text-amber-300">
+   910→              <strong>How it works:</strong> Choose the subject and class level these marks belong to,
+   911→              then paste a list of <code className="rounded bg-amber-100 px-1">AdmissionNumber,Marks</code>
+   912→              (one per line). The system matches each row to a student and saves the grade.
+   913→            </p>
+   914→          </div>
+   915→
+   916→          {/* Subject selector — lets you choose which subject to add marks to */}
+   917→          <div>
+   918→            <Label className="text-xs">Subject for these marks *</Label>
+   919→            <Select value={subjectId} onValueChange={setSubjectId}>
+   920→              <SelectTrigger className="mt-1"><SelectValue placeholder="Select subject" /></SelectTrigger>
+   921→              <SelectContent>
+   922→                {(subjectsData?.subjects || subjectsData || []).map((s: any) => (
+   923→                  <SelectItem key={s.id} value={s.id}>{s.name} ({s.code})</SelectItem>
+   924→                ))}
+   925→              </SelectContent>
+   926→            </Select>
+   927→            <p className="mt-1 text-[10px] text-muted-foreground">
+   928→              You can choose a different subject than the assessment's default subject.
+   929→            </p>
+   930→          </div>
+   931→
+   932→          <div className="grid grid-cols-2 gap-3">
+   933→            <div>
+   934→              <Label className="text-xs">Class Level</Label>
+   935→              <Select value={classLevelId} onValueChange={setClassLevelId}>
+   936→                <SelectTrigger className="mt-1"><SelectValue placeholder="Select class" /></SelectTrigger>
+   937→                <SelectContent>
+   938→                  {(classLevelsData?.classLevels || classLevelsData || []).map((c: any) => (
+   939→                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+   940→                  ))}
+   941→                </SelectContent>
+   942→              </Select>
+   943→            </div>
+   944→            <div>
+   945→              <Label className="text-xs">External Source</Label>
+   946→              <Select value={externalSource} onValueChange={setExternalSource}>
+   947→                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+   948→                <SelectContent>
+   949→                  <SelectItem value="KCSE Mock">KCSE Mock</SelectItem>
+   950→                  <SelectItem value="KCSE">KCSE (National)</SelectItem>
+   951→                  <SelectItem value="KCPE">KCPE (National)</SelectItem>
+   952→                  <SelectItem value="Joint Mock">Joint Mock (Multiple Schools)</SelectItem>
+   953→                  <SelectItem value="Opener Exam">Opener Exam (External)</SelectItem>
+   954→                  <SelectItem value="Other">Other</SelectItem>
+   955→                </SelectContent>
+   956→              </Select>
+   957→            </div>
+   958→          </div>
+   959→
+   960→          <div className="grid grid-cols-2 gap-3">
+   961→            <div>
+   962→              <Label className="text-xs">Exam Name (optional)</Label>
+   963→              <Input value={examName} onChange={e => setExamName(e.target.value)} placeholder="e.g. Term 2 Joint Mock" className="mt-1" />
+   964→            </div>
+   965→            <div>
+   966→              <Label className="text-xs">Total Marks</Label>
+   967→              <Input type="number" value={totalMarks} onChange={e => setTotalMarks(e.target.value)} className="mt-1" />
+   968→            </div>
+   969→          </div>
+   970→
+   971→          <div>
+   972→            <Label className="text-xs">Paste marks (one per line: AdmissionNo,Marks)</Label>
+   973→            <Textarea
+   974→              value={marksText}
+   975→              onChange={e => setMarksText(e.target.value)}
+   976→              placeholder={'ADM/001,85\nADM/002,72\nADM/003,91'}
+   977→              className="mt-1 font-mono text-xs"
+   978→              rows={6}
+   979→            />
+   980→            <p className="mt-1 text-[10px] text-muted-foreground">
+   981→              {parsedRows.length} row(s) detected · {students.length} students in class
+   982→            </p>
+   983→          </div>
+   984→
+   985→          <div className="flex justify-end gap-2 pt-2">
+   986→            <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+   987→            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-amber-600 hover:bg-amber-700">
+   988→              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+   989→              Import {parsedRows.length > 0 ? `(${parsedRows.length})` : ''}
+   990→            </Button>
+   991→          </div>
+   992→        </div>
+   993→      </DialogContent>
+   994→    </Dialog>
+   995→  )
+   996→}
+   997→
+   998→// ---------------------------------------------------------------------------
+   999→// ChangeSubjectDialog — change the subject assigned to an assessment
+  1000→// (in case it was wrongly chosen when creating)
+  1001→// ---------------------------------------------------------------------------
+  1002→function ChangeSubjectDialog({ assessment, onClose }: { assessment: any; onClose: () => void }) {
+  1003→  const [subjectId, setSubjectId] = useState(assessment.subjectId || '')
+  1004→  const [saving, setSaving] = useState(false)
+  1005→  const { data: subjectsData } = useFetch<any>('/api/academics/subjects')
+  1006→  const subjects = subjectsData?.subjects || subjectsData || []
+  1007→
+  1008→  const handleSave = async () => {
+  1009→    if (!subjectId) { toast.error('Select a subject'); return }
+  1010→    if (subjectId === assessment.subjectId) {
+  1011→      toast.info('Subject unchanged')
+  1012→      onClose()
+  1013→      return
+  1014→    }
+  1015→    setSaving(true)
+  1016→    try {
+  1017→      await apiPut(`/api/exams/${assessment.id}`, { subjectId, entityType: 'assessment' })
+  1018→      toast.success('Subject updated', {
+  1019→        description: `Changed from ${assessment.subject?.name} to ${subjects.find((s: any) => s.id === subjectId)?.name}`,
+  1020→      })
+  1021→      onClose()
+  1022→      // Trigger a refetch of the assessment
+  1023→      setTimeout(() => window.location.reload(), 500)
+  1024→    } catch (e: any) {
+  1025→      toast.error(e?.message || 'Failed to change subject')
+  1026→    } finally {
+  1027→      setSaving(false)
+  1028→    }
+  1029→  }
+  1030→
+  1031→  return (
+  1032→    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+  1033→      <DialogContent className="max-w-md">
+  1034→        <DialogHeader>
+  1035→          <DialogTitle className="flex items-center gap-2">
+  1036→            <Edit3 className="h-5 w-5 text-teal-500" /> Change Subject
+  1037→          </DialogTitle>
+  1038→          <DialogDescription>
+  1039→            Current: {assessment.subject?.name} — select a new subject for this assessment.
+  1040→          </DialogDescription>
+  1041→        </DialogHeader>
+  1042→        <div className="space-y-3">
+  1043→          <div>
+  1044→            <Label className="text-xs">New Subject</Label>
+  1045→            <Select value={subjectId} onValueChange={setSubjectId}>
+  1046→              <SelectTrigger className="mt-1"><SelectValue placeholder="Select new subject" /></SelectTrigger>
+  1047→              <SelectContent>
+  1048→                {subjects.map((s: any) => (
+  1049→                  <SelectItem key={s.id} value={s.id}>
+  1050→                    {s.name} ({s.code})
+  1051→                    {s.id === assessment.subjectId && ' (current)'}
+  1052→                  </SelectItem>
+  1053→                ))}
+  1054→              </SelectContent>
+  1055→            </Select>
+  1056→          </div>
+  1057→          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+  1058→            <p className="text-[10px] text-amber-800 dark:text-amber-300">
+  1059→              <strong>Note:</strong> Changing the subject will move all grades recorded for this
+  1060→              assessment to the new subject. This cannot be undone.
+  1061→            </p>
+  1062→          </div>
+  1063→          <div className="flex justify-end gap-2 pt-2">
+  1064→            <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+  1065→            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
+  1066→              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+  1067→              Change Subject
+  1068→            </Button>
+  1069→          </div>
+  1070→        </div>
+  1071→      </DialogContent>
+  1072→    </Dialog>
+  1073→  )
+  1074→}
+  1075→

@@ -49,10 +49,11 @@ export async function POST(req: NextRequest) {
     const deviceId = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     const secret = `sec_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`
 
-    // Use raw SQL — Prisma client on Vercel doesn't know about BiometricDevice table
+    // SQLite-compatible: omit createdAt (has @default(now())); set updatedAt = datetime('now') explicitly
+    // (PostgreSQL NOW() fails on SQLite — would silently break inside the .catch)
     await db.$executeRawUnsafe(`
-      INSERT INTO "BiometricDevice" (id, "schoolId", name, "deviceType", location, "vehicleId", status, secret, "createdAt", "updatedAt")
-      VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, NOW(), NOW())
+      INSERT INTO "BiometricDevice" (id, "schoolId", name, "deviceType", location, "vehicleId", status, secret, "updatedAt")
+      VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, datetime('now'))
       ON CONFLICT (id) DO NOTHING
     `, deviceId, schoolId, body.name, body.deviceType || 'fingerprint', body.location || null, body.vehicleId || null, secret).catch((e) => {
       throw new Error('Failed to register device: ' + e.message)
@@ -100,14 +101,14 @@ export async function PATCH(req: NextRequest) {
       name?: string
       location?: string
     }
-    // Use raw SQL for update
-    const sets: string[] = ['"updatedAt" = NOW()']
+    // SQLite-compatible: datetime('now') instead of PostgreSQL NOW()
+    const sets: string[] = ["\"updatedAt\" = datetime('now')"]
     const params: any[] = []
     let paramIdx = 1
     if (body.status) { sets.push(`status = $${paramIdx++}`); params.push(body.status) }
     if (body.name) { sets.push(`name = $${paramIdx++}`); params.push(body.name) }
     if (body.location) { sets.push(`location = $${paramIdx++}`); params.push(body.location) }
-    sets.push(`"lastSeen" = NOW()`)
+    sets.push("\"lastSeen\" = datetime('now')")
     params.push(id)
     await db.$executeRawUnsafe(
       `UPDATE "BiometricDevice" SET ${sets.join(', ')} WHERE id = $${paramIdx}`,

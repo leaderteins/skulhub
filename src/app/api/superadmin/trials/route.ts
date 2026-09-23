@@ -17,8 +17,8 @@ export async function GET() {
     const trials = await db.$queryRawUnsafe<any[]>(`
       SELECT s.id, s.name, s.slug, s.plan, s.status, s."trialEndsAt", s."createdAt",
              s."maxStudents",
-             (SELECT COUNT(*)::int FROM "UserAccount" u WHERE u."schoolId" = s.id) as user_count,
-             (SELECT COUNT(*)::int FROM "Student" st WHERE st."schoolId" = s.id) as student_count
+             (SELECT COUNT(*) FROM "UserAccount" u WHERE u."schoolId" = s.id) as user_count,
+             (SELECT COUNT(*) FROM "Student" st WHERE st."schoolId" = s.id) as student_count
       FROM "School" s
       WHERE s.slug != 'platform'
       ORDER BY s."trialEndsAt" ASC
@@ -42,6 +42,9 @@ export async function GET() {
           if (daysLeft <= 7) expiringSoon++
           trialDetails.push({
             ...t,
+            // SQLite returns bigint for COUNT(*) — override with Number to keep JSON-serializable
+            user_count: Number(t.user_count) || 0,
+            student_count: Number(t.student_count) || 0,
             daysLeft,
             urgency: daysLeft <= 3 ? 'critical' : daysLeft <= 7 ? 'urgent' : 'ok',
             userCount: Number(t.user_count) || 0,
@@ -51,6 +54,9 @@ export async function GET() {
           expired++
           trialDetails.push({
             ...t,
+            // SQLite returns bigint for COUNT(*) — override with Number to keep JSON-serializable
+            user_count: Number(t.user_count) || 0,
+            student_count: Number(t.student_count) || 0,
             daysLeft: 0,
             urgency: 'expired',
             userCount: Number(t.user_count) || 0,

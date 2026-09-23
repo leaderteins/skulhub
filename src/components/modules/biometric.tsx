@@ -447,18 +447,27 @@ export function BiometricModule() {
               </div>
               <div className="space-y-1.5">
                 <Label>Device</Label>
-                <Select value={simTap.deviceId} onValueChange={(v) => setSimTap({ ...simTap, deviceId: v })}>
+                <Select
+                  value={simTap.deviceId}
+                  onValueChange={(v) => {
+                    const dev = devices.find(d => d.id === v)
+                    const loc = dev?.location || dev?.name || 'Main Gate'
+                    setSimTap({ ...simTap, deviceId: v, location: loc })
+                  }}
+                >
                   <SelectTrigger><SelectValue placeholder="Any device" /></SelectTrigger>
                   <SelectContent>
                     {devices.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name} · {d.location || 'No location'}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="sim-loc">Location</Label>
+              <Label htmlFor="sim-loc">Location (auto-filled from device)</Label>
               <Input id="sim-loc" value={simTap.location} onChange={(e) => setSimTap({ ...simTap, location: e.target.value })} />
             </div>
           </div>

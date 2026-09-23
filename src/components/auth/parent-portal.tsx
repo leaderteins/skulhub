@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -34,6 +34,8 @@ import {
   FileText,
   Send,
   Loader2,
+  CheckCircle2,
+  PenLine,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth-store'
@@ -576,7 +578,12 @@ export function ParentPortal() {
                 </Card>
 
                 {/* Homework + Comments Diary */}
-                <ParentHomeworkSection admissionNo={lookup?.student.admissionNo || ''} />
+                <ParentHomeworkSection
+                  admissionNo={lookup?.student.admissionNo || ''}
+                  studentId={lookup?.student.id || ''}
+                  parentPhone={phone || dashboard?.guardian?.phone || ''}
+                  parentName={dashboard?.guardian?.name || ''}
+                />
 
 
                 {/* Timetable */}
@@ -925,12 +932,39 @@ export function ParentPortal() {
 // ---------------------------------------------------------------------------
 // ParentHomeworkSection — shows homework assignments + comment diary
 // ---------------------------------------------------------------------------
-function ParentHomeworkSection({ admissionNo }: { admissionNo: string }) {
+function ParentHomeworkSection({
+  admissionNo,
+  studentId,
+  parentPhone,
+  parentName,
+}: {
+  admissionNo: string
+  studentId: string
+  parentPhone: string
+  parentName: string
+}) {
   const [data, setData] = useState<{ homework: any[]; grades: any[] } | null>(null)
   const [loading, setLoading] = useState(true)
   const [expandedHw, setExpandedHw] = useState<string | null>(null)
   const [commentText, setCommentText] = useState('')
   const [posting, setPosting] = useState(false)
+  // Sign dialog state
+  const [signDialog, setSignDialog] = useState<{ hwId: string; hwTitle: string } | null>(null)
+  const [signName, setSignName] = useState('')
+  const [signing, setSigning] = useState(false)
+
+  // Keep the sign-name input pre-filled with the guardian name
+  useEffect(() => {
+    if (parentName) setSignName(parentName)
+  }, [parentName])
+
+  const refresh = useCallback(() => {
+    if (!admissionNo) return
+    fetch(`/api/parent/homework?admissionNo=${encodeURIComponent(admissionNo)}`)
+      .then(r => r.json())
+      .then(d => setData(d))
+      .catch(() => setData({ homework: [], grades: [] }))
+  }, [admissionNo])
 
   useEffect(() => {
     let cancelled = false
@@ -958,13 +992,41 @@ function ParentHomeworkSection({ admissionNo }: { admissionNo: string }) {
       })
       if (res.ok) {
         setCommentText('')
-        // Refresh data
-        fetch(`/api/parent/homework?admissionNo=${encodeURIComponent(admissionNo)}`)
-          .then(r => r.json())
-          .then(d => setData(d))
+        refresh()
       }
     } catch {}
     setPosting(false)
+  }
+
+  const handleSignHomework = async () => {
+    if (!signDialog) return
+    if (!signName.trim()) { toast.error('Please enter your name'); return }
+    if (!studentId) { toast.error('Student ID missing — please re-verify your account'); return }
+    if (!parentPhone) { toast.error('Guardian phone missing — please re-verify your account'); return }
+    setSigning(true)
+    try {
+      const res = await fetch(`/api/homework/${signDialog.hwId}/sign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Parent-Phone': parentPhone,
+        },
+        body: JSON.stringify({ studentId, parentName: signName.trim() }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(data?.error || `Failed (${res.status})`)
+      }
+      toast.success('Homework signed', {
+        description: `Signed by ${signName.trim()} on ${new Date().toLocaleDateString()}`,
+      })
+      setSignDialog(null)
+      refresh()
+    } catch (e: any) {
+      toast.error('Sign failed', { description: e?.message || 'Please try again' })
+    } finally {
+      setSigning(false)
+    }
   }
 
   if (loading) {
@@ -1009,10 +1071,50 @@ function ParentHomeworkSection({ admissionNo }: { admissionNo: string }) {
                       {hw.subject?.name || 'General'} · Due {new Date(hw.dueDate).toLocaleDateString()}
                     </p>
                   </div>
-                  <Badge variant="outline" className={`shrink-0 text-[9px] ${hw.status === 'Active' ? 'border-emerald-300 text-emerald-700' : 'text-muted-foreground'}`}>
-                    {hw.status}
-                  </Badge>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {hw.parentSigned ? (
+                      <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-[9px] text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400">
+                        <CheckCircle2 className="mr-1 h-2.5 w-2.5" />
+                        Signed by {hw.parentSignedBy || 'Guardian'} on{' '}
+                        {hw.parentSignedAt ? new Date(hw.parentSignedAt).toLocaleDateString() : ''}
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className={`text-[9px] ${hw.status === 'Active' ? 'border-amber-300 text-amber-700' : 'text-muted-foreground'}`}
+                      >
+                        {hw.status}
+                      </Badge>
+                    )}
+                  </div>
                 </button>
+
+                {/* Parent signature row */}
+                {hw.parentSigned ? (
+                  <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span>
+                      Digitally signed by <strong>{hw.parentSignedBy || 'Guardian'}</strong>
+                      {hw.parentSignedPhone && <> · phone verified</>}
+                      {hw.parentSignedAt && <> · {new Date(hw.parentSignedAt).toLocaleString()}</>}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-2 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSignName(parentName || '')
+                        setSignDialog({ hwId: hw.id, hwTitle: hw.title })
+                      }}
+                    >
+                      <PenLine className="mr-1 h-3 w-3" /> Sign Homework
+                    </Button>
+                  </div>
+                )}
 
                 {/* Expanded content */}
                 {expandedHw === hw.id && (
@@ -1031,7 +1133,7 @@ function ParentHomeworkSection({ admissionNo }: { admissionNo: string }) {
                       {hw.comments && hw.comments.length > 0 ? (
                         <div className="mt-1 space-y-2">
                           {hw.comments.map((c: any) => (
-                            <div key={c.id} className={`rounded-lg p-2 text-xs ${c.authorRole === 'teacher' ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'bg-blue-50 dark:bg-blue-950/20'}`}>
+                            <div key={c.id} className={`rounded-lg p-2 text-xs ${c.authorRole === 'teacher' ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'bg-amber-50 dark:bg-amber-950/20'}`}>
                               <div className="flex items-center justify-between">
                                 <span className="font-semibold">
                                   {c.authorRole === 'teacher' ? '👨‍🏫 ' : '👤 '}
@@ -1105,6 +1207,48 @@ function ParentHomeworkSection({ admissionNo }: { admissionNo: string }) {
           </div>
         )}
       </CardContent>
+
+      {/* Sign Homework Dialog */}
+      <Dialog open={!!signDialog} onOpenChange={(o) => { if (!o) setSignDialog(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PenLine className="h-5 w-5 text-emerald-600" /> Sign Homework
+            </DialogTitle>
+            <DialogDescription>
+              {signDialog?.hwTitle}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 text-xs text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300">
+              <p className="flex items-center gap-1.5 font-medium">
+                <CheckCircle2 className="h-3.5 w-3.5" /> I confirm I have reviewed this homework
+              </p>
+              <p className="mt-1 text-[10px] text-emerald-700 dark:text-emerald-400">
+                Your signature replaces the physical diary acknowledgment. We verify the
+                request against the guardian phone on file ({parentPhone || '—'}).
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sign-name">Your Name (Guardian)</Label>
+              <Input
+                id="sign-name"
+                value={signName}
+                onChange={e => setSignName(e.target.value)}
+                placeholder="Enter your full name"
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSignDialog(null)} disabled={signing}>Cancel</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={signing || !signName.trim()} onClick={handleSignHomework}>
+              {signing ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <PenLine className="mr-1.5 h-4 w-4" />}
+              {signing ? 'Signing...' : 'Sign Homework'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

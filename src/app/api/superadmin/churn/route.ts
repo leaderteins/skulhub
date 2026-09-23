@@ -7,7 +7,7 @@ export async function GET() {
     const churned = await db.$queryRawUnsafe<any[]>(`
       SELECT s.id, s.name, s.slug, s.plan, s.status, s."updatedAt",
              (SELECT COALESCE(SUM(p.amount), 0) FROM "Payment" p WHERE p."schoolId" = s.id) as "lostRevenue",
-             (SELECT COUNT(*)::int FROM "Student" st WHERE st."schoolId" = s.id) as "studentCount"
+             (SELECT COUNT(*) FROM "Student" st WHERE st."schoolId" = s.id) as "studentCount"
       FROM "School" s
       WHERE s.slug != 'platform' AND s.status IN ('Suspended', 'Expired')
       ORDER BY s."updatedAt" DESC

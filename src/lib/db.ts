@@ -7,7 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 
 // Re-instantiate the client if the Prisma generated version changed
 // (handles schema updates during development without a full restart).
-const PRISMA_VERSION = 'v5-2026-08-14-module-access-overrides'
+const PRISMA_VERSION = 'v7-2026-09-01-exam-papers-and-parent-signed-bumped'
 if (globalForPrisma.prismaVersion !== PRISMA_VERSION) {
   globalForPrisma.prisma = undefined
   globalForPrisma.prismaVersion = PRISMA_VERSION
@@ -35,3 +35,13 @@ export const db =
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+
+// Debug: surface which models the active client can see (helps catch stale
+// Prisma client caches when the schema is updated mid-dev-session).
+if (process.env.NODE_ENV !== 'production') {
+  const keys = Object.keys(db).filter(k => !k.startsWith('_') && !k.startsWith('$')).sort()
+   
+  console.log(`[db] PrismaClient ready — visible models: ${keys.join(', ')}`)
+   
+  console.log(`[db] examPaper available? ${typeof (db as any).examPaper}`)
+}
