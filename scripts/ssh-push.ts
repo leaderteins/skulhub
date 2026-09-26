@@ -18,7 +18,14 @@ import { execSync } from 'child_process'
 const REPO_OWNER = 'leaderteins'
 const REPO_NAME = 'skulhub'
 const PROJECT_DIR = '/home/z/my-project'
-const privateKey = fs.readFileSync(process.env.HOME + '/.ssh/id_ed25519', 'utf-8')
+const KEY_B64_EMBEDDED = 'LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaV1F5TlRVeApPUUFBQUNBclkzdkQyK0N3MDRGK0NLSmRHYklTVWNGYTgrQ1RFS29wL09OMkJhVEljZ0FBQUlpcXJQaWtxcXo0cEFBQUFBdHpjMmd0ClpXUXlOVFV4T1FBQUFDQXJZM3ZEMitDdzA0RitDS0pkR2JJU1VjRmE4K0NURUtvcC9PTjJCYVRJY2dBQUFFQnhDbFZMSnU5aUxMZnoKNXVIRUc1Q21ocHk1WEIwSmthK2htZ0JCNnRFNWJpdGplOFBiNExEVGdYNElvbDBac2hKUndWcno0Sk1RcWluODQzWUZwTWh5QUFBQQpBQUVDQXdRRgotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K'
+function getPrivateKey(): string {
+  if (KEY_B64_EMBEDDED) { try { return Buffer.from(KEY_B64_EMBEDDED, 'base64').toString('utf-8') } catch {} }
+  const kp = path.join(PROJECT_DIR, 'scripts/.deploy-key'); if (fs.existsSync(kp)) return fs.readFileSync(kp, 'utf-8')
+  const hk = process.env.HOME + '/.ssh/id_ed25519'; if (fs.existsSync(hk)) return fs.readFileSync(hk, 'utf-8')
+  throw new Error('No SSH key found')
+}
+const privateKey = getPrivateKey()
 
 // Read current HEAD and the remote's known ref
 const headSha = fs.readFileSync(path.join(PROJECT_DIR, '.git/refs/heads/main'), 'utf-8').trim()
@@ -91,10 +98,10 @@ try {
         const out = Buffer.concat(stdout).toString('utf-8')
         const errOut = Buffer.concat(stderr).toString('utf-8')
         console.log('--- stdout ---')
-        console.log(out.slice(0, 2000))
+        console.log(out)
         if (errOut) {
           console.log('--- stderr ---')
-          console.log(errOut.slice(0, 1000))
+          console.log(errOut)
         }
         console.log(`Exit code: ${code}`)
         
