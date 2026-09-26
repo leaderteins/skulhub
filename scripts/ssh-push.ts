@@ -155,6 +155,8 @@ try {
     port: 22,
     username: 'git',
     privateKey,
+    agent: false,
+    readyTimeout: 30000,
     algorithms: {
       serverHostKey: ['ssh-ed25519', 'ssh-rsa'],
     },
