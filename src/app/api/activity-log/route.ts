@@ -32,10 +32,11 @@ export async function GET(req: NextRequest) {
     const rawLimit = Number(url.searchParams.get('limit') || '20')
     const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, Math.floor(rawLimit))) : 20
 
+    // Ensure the schoolId column exists (production DB may not have it yet)
+    await db.$executeRawUnsafe(`ALTER TABLE "ActivityLog" ADD COLUMN IF NOT EXISTS "schoolId" TEXT`).catch(() => {})
+
     // Raw SQL so we control exactly which columns are projected and the
-    // ORDER BY / LIMIT shape. We alias the column names to camelCase in JS
-    // (SQLite preserves the double-quoted column names; Prisma returns the
-    // rows as plain objects keyed by those aliases).
+    // ORDER BY / LIMIT shape.
     const rows = await db.$queryRawUnsafe<any[]>(
       `SELECT id, "schoolId", action, entity, "entityId", details, "user", "createdAt"
        FROM "ActivityLog"
