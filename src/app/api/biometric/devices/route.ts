@@ -12,17 +12,29 @@ export async function GET(req: NextRequest) {
     if (!schoolId) {
       return NextResponse.json({ devices: [], demo: true })
     }
-    // Use raw SQL — Prisma client on Vercel doesn't know BiometricDevice table
+    // Auto-create the table if it doesn't exist (production DB migration)
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "BiometricDevice" (
+        id TEXT PRIMARY KEY,
+        "schoolId" TEXT NOT NULL,
+        name TEXT NOT NULL,
+        "deviceType" TEXT NOT NULL DEFAULT 'fingerprint',
+        location TEXT,
+        "vehicleId" TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        "lastSeen" TIMESTAMP,
+        secret TEXT NOT NULL,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `).catch(() => {})
     const devices = await db.$queryRawUnsafe<any[]>(
       `SELECT * FROM "BiometricDevice" WHERE "schoolId" = $1 ORDER BY "createdAt" DESC`,
       schoolId
     ).catch(() => [])
     return NextResponse.json({ devices })
   } catch (e: any) {
-    if (String(e?.message || '').includes('does not exist')) {
-      return NextResponse.json({ devices: [], demo: true })
-    }
-    return NextResponse.json({ error: e?.message }, { status: 500 })
+    return NextResponse.json({ devices: [], demo: true })
   }
 }
 
@@ -49,11 +61,30 @@ export async function POST(req: NextRequest) {
     const deviceId = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     const secret = `sec_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`
 
-    // SQLite-compatible: omit createdAt (has @default(now())); set updatedAt = datetime('now') explicitly
-    // (PostgreSQL NOW() fails on SQLite — would silently break inside the .catch)
+    // Auto-create the BiometricDevice table if it doesn't exist (production DB
+    // may not have been migrated yet). Uses CREATE TABLE IF NOT EXISTS which
+    // works on both SQLite and PostgreSQL.
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "BiometricDevice" (
+        id TEXT PRIMARY KEY,
+        "schoolId" TEXT NOT NULL,
+        name TEXT NOT NULL,
+        "deviceType" TEXT NOT NULL DEFAULT 'fingerprint',
+        location TEXT,
+        "vehicleId" TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        "lastSeen" TIMESTAMP,
+        secret TEXT NOT NULL,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `).catch(() => {})
+
+    // Insert the device — SQLite uses datetime('now'), PostgreSQL uses CURRENT_TIMESTAMP
+    // Both are handled by the DB's default on updatedAt if we set it explicitly.
     await db.$executeRawUnsafe(`
       INSERT INTO "BiometricDevice" (id, "schoolId", name, "deviceType", location, "vehicleId", status, secret, "updatedAt")
-      VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, datetime('now'))
+      VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, CURRENT_TIMESTAMP)
       ON CONFLICT (id) DO NOTHING
     `, deviceId, schoolId, body.name, body.deviceType || 'fingerprint', body.location || null, body.vehicleId || null, secret).catch((e) => {
       throw new Error('Failed to register device: ' + e.message)

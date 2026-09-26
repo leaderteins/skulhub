@@ -234,7 +234,7 @@ export function TimetableModule() {
   )
 }
 
-function AddLessonDialog({ open, onOpenChange, streams, subjects, teachers, defaultDay, defaultStart, onAdd }: {
+function AddLessonDialog({ open, onOpenChange, streams, subjects: fallbackSubjects, teachers, defaultDay, defaultStart, onAdd }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   streams: any[]
@@ -246,6 +246,7 @@ function AddLessonDialog({ open, onOpenChange, streams, subjects, teachers, defa
 }) {
   const [streamId, setStreamId] = useState<string>('')
   const [subjectId, setSubjectId] = useState<string>('')
+  const [subjectName, setSubjectName] = useState<string>('')
   const [teacherId, setTeacherId] = useState<string>('')
   const [day, setDay] = useState<string>(defaultDay || 'Monday')
   const [startTime, setStartTime] = useState<string>(defaultStart || '07:30')
@@ -253,11 +254,29 @@ function AddLessonDialog({ open, onOpenChange, streams, subjects, teachers, defa
   const [room, setRoom] = useState<string>('')
   const [saving, setSaving] = useState(false)
 
+  // Fetch the canonical subject list from /api/subjects. If the request
+  // fails or returns an empty list, fall back to the parent-provided
+  // `subjects` prop (which the timetable endpoint bundles). If BOTH are
+  // empty, we render a text input below so the user can still type a
+  // subject name (e.g. on a fresh install before subjects are seeded).
+  const { data: subjectData } = useFetch<{ subjects: any[] } | null>('/api/subjects')
+  const subjects = subjectData?.subjects?.length ? subjectData.subjects : (fallbackSubjects || [])
+  const usingFallbackInput = subjects.length === 0
+
   const handleSubmit = async () => {
-    if (!streamId || !subjectId) { toast.error('Please select a class and subject'); return }
+    if (!streamId) { toast.error('Please select a class'); return }
+    if (!subjectId && !subjectName.trim()) {
+      toast.error('Please select or enter a subject')
+      return
+    }
     setSaving(true)
     await onAdd({
-      streamId, subjectId, teacherId: teacherId || null,
+      streamId,
+      // Prefer the dropdown's subjectId; when the fallback text input
+      // is used, send subjectName so the backend can look-up / create it.
+      subjectId: subjectId || null,
+      subjectName: !subjectId ? subjectName.trim() : null,
+      teacherId: teacherId || null,
       dayOfWeek: day, startTime, endTime, room: room || null,
     })
     setSaving(false)
@@ -291,12 +310,30 @@ function AddLessonDialog({ open, onOpenChange, streams, subjects, teachers, defa
           </div>
           <div>
             <Label className="text-xs">Subject *</Label>
-            <Select value={subjectId} onValueChange={setSubjectId}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Select subject" /></SelectTrigger>
-              <SelectContent>
-                {subjects.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name} ({s.code})</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {usingFallbackInput ? (
+              <>
+                <Input
+                  value={subjectName}
+                  onChange={e => { setSubjectName(e.target.value); setSubjectId('') }}
+                  placeholder="Type subject name (no subjects seeded yet)"
+                  className="mt-1"
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  No subjects found — type the name and a new subject record will be created.
+                </p>
+              </>
+            ) : (
+              <Select value={subjectId} onValueChange={(v) => { setSubjectId(v); setSubjectName('') }}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select subject" /></SelectTrigger>
+                <SelectContent>
+                  {subjects.map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} ({s.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           <div>
             <Label className="text-xs">Teacher</Label>

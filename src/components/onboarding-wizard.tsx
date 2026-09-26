@@ -130,18 +130,19 @@ export function OnboardingWizard({ onComplete }: { onComplete?: () => void }) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-emerald-50 via-white to-teal-50 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950">
+      <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       {/* Progress */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-1">
         {STEPS.map((label, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
+          <div key={i} className="flex flex-1 items-center gap-1">
+            <div className={`flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${
               i < step ? 'bg-emerald-600 text-white' : i === step ? 'bg-emerald-100 text-emerald-600 ring-2 ring-emerald-400' : 'bg-muted text-muted-foreground'
             }`}>
-              {i < step ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
+              {i < step ? <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : i + 1}
             </div>
-            <span className={`text-xs ${i === step ? 'font-semibold' : 'text-muted-foreground'}`}>{label}</span>
-            {i < STEPS.length - 1 && <div className={`h-0.5 w-8 ${i < step ? 'bg-emerald-600' : 'bg-muted'}`} />}
+            <span className={`hidden sm:inline text-xs ${i === step ? 'font-semibold' : 'text-muted-foreground'}`}>{label}</span>
+            {i < STEPS.length - 1 && <div className={`h-0.5 flex-1 ${i < step ? 'bg-emerald-600' : 'bg-muted'}`} />}
           </div>
         ))}
       </div>
@@ -251,19 +252,20 @@ export function OnboardingWizard({ onComplete }: { onComplete?: () => void }) {
       )}
 
       {/* Navigation */}
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={back} disabled={step === 0 || loading}>
+      <div className="sticky bottom-0 flex justify-between gap-3 bg-gradient-to-t from-white via-white/95 to-transparent pb-4 pt-3 dark:from-slate-950 dark:via-slate-950/95">
+        <Button variant="outline" onClick={back} disabled={step === 0 || loading} className="min-w-[100px]">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
         {step < STEPS.length - 1 ? (
-          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={next}>
+          <Button className="bg-emerald-600 hover:bg-emerald-700 min-w-[120px]" onClick={next}>
             Next <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         ) : (
-          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={submit} disabled={loading}>
+          <Button className="bg-emerald-600 hover:bg-emerald-700 min-w-[160px]" onClick={submit} disabled={loading}>
             {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Setting up...</> : <><Sparkles className="mr-2 h-4 w-4" /> Complete Setup</>}
           </Button>
         )}
+      </div>
       </div>
     </div>
   )

@@ -1,0 +1,495 @@
+     1→'use client'
+     2→import { useFetch } from '@/lib/api'
+     3→import { StatCard, SectionHeader } from '@/components/shared'
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     5→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Skeleton } from '@/components/ui/skeleton'
+     8→import { Button } from '@/components/ui/button'
+     9→import { formatKES, formatNumber, timeAgo, fullName, initials, avatarColor, statusColor, priorityColor } from '@/lib/format'
+    10→import { useAppStore } from '@/lib/store'
+    11→import { useAuthStore } from '@/lib/auth-store'
+    12→import {
+    13→  Users, GraduationCap, Wallet, CalendarCheck, BookOpen, TrendingDown,
+    14→  BookMarked, Megaphone, Activity, ArrowRight, Banknote, AlertCircle,
+    15→  CheckCircle2, Clock, Layers, CalendarDays, Trophy, FileText, Bus,
+    16→  Sparkles, ChevronRight,
+    17→} from 'lucide-react'
+    18→import {
+    19→  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
+    20→  CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+    21→} from 'recharts'
+    22→
+    23→const GENDER_COLORS: Record<string, string> = { Male: '#0d9488', Female: '#d97706' }
+    24→const GRADE_COLORS = ['#059669', '#10b981', '#14b8a6', '#0d9488', '#0ea5e9', '#f59e0b', '#f97316', '#ef4444', '#dc2626', '#e11d48', '#be185d', '#9333ea']
+    25→
+    26→interface DashboardData {
+    27→  stats: {
+    28→    totalStudents: number
+    29→    totalStaff: number
+    30→    totalClasses: number
+    31→    activeStreams: number
+    32→    totalBooks: number
+    33→    availableBooks: number
+    34→    activeLoans: number
+    35→  }
+    36→  finance: {
+    37→    totalBilled: number
+    38→    totalCollected: number
+    39→    totalOutstanding: number
+    40→    collectionRate: number
+    41→    todayCollection: number
+    42→    totalExpenses: number
+    43→    feeStats: { status: string; amount: number; balance: number; count: number }[]
+    44→  }
+    45→  studentsByLevel: { name: string; count: number }[]
+    46→  studentsByGender: { gender: string; count: number }[]
+    47→  attendanceTrend: { date: string; rate: number }[]
+    48→  gradeDistribution: { grade: string; count: number }[]
+    49→  announcements: any[]
+    50→  activities: any[]
+    51→}
+    52→
+    53→const ACTION_ICON: Record<string, any> = {
+    54→  CREATE: CheckCircle2, UPDATE: Activity, PAYMENT: Banknote, MARK: CalendarCheck, GRADE: GraduationCap, ISSUE: BookMarked,
+    55→}
+    56→
+    57→export function DashboardModule() {
+    58→  const { data, loading } = useFetch<DashboardData>('/api/dashboard')
+    59→  const { setActiveModule, setCommandPaletteOpen, academic } = useAppStore()
+    60→  const { user, canViewFinance } = useAuthStore()
+    61→  const showFinance = canViewFinance()
+    62→
+    63→  if (loading || !data) {
+    64→    return (
+    65→      <div className="space-y-6">
+    66→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    67→          {Array.from({ length: 4 }).map((_, i) => (
+    68→            <Skeleton key={i} className="h-32 w-full rounded-xl" />
+    69→          ))}
+    70→        </div>
+    71→        <div className="grid gap-4 lg:grid-cols-3">
+    72→          <Skeleton className="h-80 rounded-xl lg:col-span-2" />
+    73→          <Skeleton className="h-80 rounded-xl" />
+    74→        </div>
+    75→      </div>
+    76→    )
+    77→  }
+    78→
+    79→  const { stats, finance, studentsByLevel, studentsByGender, attendanceTrend, gradeDistribution, announcements, activities } = data
+    80→
+    81→  return (
+    82→    <div className="space-y-6">
+    83→      {/* Welcome banner */}
+    84→      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 p-6 text-white shadow-xl">
+    85→        <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+    86→        <div className="absolute -bottom-12 right-24 h-40 w-40 rounded-full bg-amber-300/20 blur-3xl" />
+    87→        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    88→          <div className="max-w-xl">
+    89→            <div className="mb-1 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+    90→              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-300" /> {academic.currentTerm}, {academic.academicYear} · In Session
+    91→            </div>
+    92→            <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Karibu, {user?.name?.split(' ')[0] || 'there'} 👋</h2>
+    93→            <p className="mt-1 text-sm text-white/80">
+    94→              {showFinance ? (
+    95→                <>You have <span className="font-semibold text-white">{finance.feeStats.find(f => f.status === 'Unpaid')?.count || 0}</span> unpaid invoices and{' '}
+    96→              <span className="font-semibold text-white">{stats.activeLoans}</span> active library loans to track today.</>
+    97→              ) : (
+    98→                <>You have <span className="font-semibold text-white">{stats.activeLoans}</span> active library loans and {stats.totalClasses} classes to monitor today.</>
+    99→              )}
+   100→            </p>
+   101→          </div>
+   102→          <div className="flex gap-2">
+   103→            {showFinance && (
+   104→              <Button variant="secondary" size="sm" className="bg-white/15 text-white backdrop-blur hover:bg-white/25" onClick={() => setActiveModule('finance')}>
+   105→                <Wallet className="mr-1.5 h-4 w-4" /> View Fees
+   106→              </Button>
+   107→            )}
+   108→            <Button variant="secondary" size="sm" className="bg-white text-emerald-700 hover:bg-white/90" onClick={() => setActiveModule('students')}>
+   109→              <Users className="mr-1.5 h-4 w-4" /> Students
+   110→            </Button>
+   111→          </div>
+   112→        </div>
+   113→      </div>
+   114→
+   115→      {/* Stat cards */}
+   116→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   117→        <StatCard label="Total Students" value={formatNumber(stats.totalStudents)} icon={Users} accent="emerald" trend={4.2} trendLabel="vs last term" />
+   118→        <StatCard label="Teaching & Support Staff" value={formatNumber(stats.totalStaff)} icon={GraduationCap} accent="teal" trend={1.8} trendLabel="this year" />
+   119→        {showFinance ? (
+   120→          <StatCard label="Fee Collection Rate" value={`${finance.collectionRate}%`} icon={Wallet} accent="amber" trend={finance.collectionRate >= 70 ? 3.1 : -2.4} trendLabel="of billed" />
+   121→        ) : (
+   122→          <StatCard label="Classes & Streams" value={`${stats.totalClasses}/${stats.activeStreams}`} icon={Layers} accent="cyan" trendLabel="active streams" />
+   123→        )}
+   124→        {showFinance ? (
+   125→          <StatCard label="Outstanding Fees" value={formatKES(finance.totalOutstanding)} icon={TrendingDown} accent="rose" trendLabel={`${finance.feeStats.find(f => f.status === 'Unpaid')?.count || 0} unpaid`} />
+   126→        ) : (
+   127→          <StatCard label="Library Books" value={formatNumber(stats.totalBooks)} icon={BookOpen} accent="violet" trendLabel={`${stats.availableBooks} available`} />
+   128→        )}
+   129→      </div>
+   130→
+   131→      {/* Charts row */}
+   132→      <div className="grid gap-4 lg:grid-cols-3">
+   133→        {/* Attendance trend */}
+   134→        <Card className="lg:col-span-2">
+   135→          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+   136→            <div>
+   137→              <CardTitle className="text-base">Attendance Trend</CardTitle>
+   138→              <CardDescription className="text-xs">Daily attendance rate over last 14 days</CardDescription>
+   139→            </div>
+   140→            <Button variant="ghost" size="sm" className="text-xs" onClick={() => setActiveModule('attendance')}>
+   141→              Details <ArrowRight className="ml-1 h-3 w-3" />
+   142→            </Button>
+   143→          </CardHeader>
+   144→          <CardContent>
+   145→            <ResponsiveContainer width="100%" height={260}>
+   146→              <AreaChart data={attendanceTrend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+   147→                <defs>
+   148→                  <linearGradient id="attGrad" x1="0" y1="0" x2="0" y2="1">
+   149→                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+   150→                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+   151→                  </linearGradient>
+   152→                </defs>
+   153→                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.01 150)" vertical={false} />
+   154→                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })} stroke="oklch(0.5 0.02 160)" />
+   155→                <YAxis domain={[60, 100]} tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" unit="%" />
+   156→                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} formatter={(v: number) => [`${v}%`, 'Attendance']} labelFormatter={(d) => new Date(d).toLocaleDateString('en-KE', { weekday: 'short', day: 'numeric', month: 'short' })} />
+   157→                <Area type="monotone" dataKey="rate" stroke="#10b981" strokeWidth={2.5} fill="url(#attGrad)" dot={{ r: 3, fill: '#10b981' }} activeDot={{ r: 5 }} />
+   158→              </AreaChart>
+   159→            </ResponsiveContainer>
+   160→          </CardContent>
+   161→        </Card>
+   162→
+   163→        {/* Gender distribution */}
+   164→        <Card>
+   165→          <CardHeader className="pb-2">
+   166→            <CardTitle className="text-base">Gender Distribution</CardTitle>
+   167→            <CardDescription className="text-xs">Active students</CardDescription>
+   168→          </CardHeader>
+   169→          <CardContent>
+   170→            <ResponsiveContainer width="100%" height={200}>
+   171→              <PieChart>
+   172→                <Pie data={studentsByGender} dataKey="count" nameKey="gender" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
+   173→                  {studentsByGender.map((e) => <Cell key={e.gender} fill={GENDER_COLORS[e.gender] || '#94a3b8'} />)}
+   174→                </Pie>
+   175→                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} />
+   176→              </PieChart>
+   177→            </ResponsiveContainer>
+   178→            <div className="mt-2 flex justify-center gap-4 text-xs">
+   179→              {studentsByGender.map(g => (
+   180→                <div key={g.gender} className="flex items-center gap-1.5">
+   181→                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: GENDER_COLORS[g.gender] }} />
+   182→                  <span className="font-medium">{g.gender}</span>
+   183→                  <span className="text-muted-foreground">{g.count}</span>
+   184→                </div>
+   185→              ))}
+   186→            </div>
+   187→          </CardContent>
+   188→        </Card>
+   189→      </div>
+   190→
+   191→      {/* Second charts row */}
+   192→      <div className="grid gap-4 lg:grid-cols-3">
+   193→        {/* Students by class level */}
+   194→        <Card className="lg:col-span-2">
+   195→          <CardHeader className="pb-2">
+   196→            <CardTitle className="text-base">Enrollment by Class Level</CardTitle>
+   197→            <CardDescription className="text-xs">Active students per form</CardDescription>
+   198→          </CardHeader>
+   199→          <CardContent>
+   200→            <ResponsiveContainer width="100%" height={240}>
+   201→              <BarChart data={studentsByLevel} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+   202→                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.01 150)" vertical={false} />
+   203→                <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" />
+   204→                <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.5 0.02 160)" />
+   205→                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid oklch(0.91 0.01 150)', fontSize: 12 }} cursor={{ fill: 'oklch(0.96 0.01 150)' }} />
+   206→                <Bar dataKey="count" radius={[8, 8, 0, 0]} maxBarSize={56}>
+   207→                  {studentsByLevel.map((_, i) => <Cell key={i} fill={['#10b981', '#14b8a6', '#0d9488', '#059669'][i % 4]} />)}
+   208→                </Bar>
+   209→              </BarChart>
+   210→            </ResponsiveContainer>
+   211→          </CardContent>
+   212→        </Card>
+   213→
+   214→        {/* Fee collection status — finance roles only */}
+   215→        {showFinance && (
+   216→        <Card>
+   217→          <CardHeader className="pb-2">
+   218→            <CardTitle className="text-base">Fee Collection Status</CardTitle>
+   219→            <CardDescription className="text-xs">{academic.currentTerm}, {academic.academicYear}</CardDescription>
+   220→          </CardHeader>
+   221→          <CardContent className="space-y-4">
+   222→            {finance.feeStats.map(f => {
+   223→              const pct = finance.totalBilled > 0 ? Math.round((f.amount / finance.totalBilled) * 100) : 0
+   224→              const colorClass = f.status === 'Paid' ? 'bg-emerald-500' : f.status === 'Partially Paid' ? 'bg-amber-500' : f.status === 'Unpaid' ? 'bg-rose-500' : 'bg-slate-400'
+   225→              return (
+   226→                <div key={f.status} className="space-y-1.5">
+   227→                  <div className="flex items-center justify-between text-xs">
+   228→                    <span className="flex items-center gap-1.5 font-medium">
+   229→                      <span className={`h-2 w-2 rounded-full ${colorClass}`} />
+   230→                      {f.status}
+   231→                    </span>
+   232→                    <span className="tabular-nums text-muted-foreground">{f.count} · {formatKES(f.amount)}</span>
+   233→                  </div>
+   234→                  <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+   235→                    <div
+   236→                      className={`h-full rounded-full transition-all duration-500 ${colorClass}`}
+   237→                      style={{ width: `${pct}%` }}
+   238→                    />
+   239→                  </div>
+   240→                </div>
+   241→              )
+   242→            })}
+   243→            <div className="mt-2 flex items-center justify-between rounded-xl border border-emerald-200/50 bg-gradient-to-r from-emerald-50 to-teal-50 p-3.5 dark:border-emerald-900/50 dark:from-emerald-950/40 dark:to-teal-950/40">
+   244→              <div className="flex items-center gap-2">
+   245→                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600">
+   246→                  <Banknote className="h-4 w-4" />
+   247→                </div>
+   248→                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Collected Today</span>
+   249→              </div>
+   250→              <span className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{formatKES(finance.todayCollection)}</span>
+   251→            </div>
+   252→          </CardContent>
+   253→        </Card>
+   254→        )}
+   255→      </div>
+   256→
+   257→      {/* Bottom row: announcements + activity */}
+   258→      <div className="grid gap-4 lg:grid-cols-3">
+   259→        {/* Announcements */}
+   260→        <Card className="lg:col-span-2">
+   261→          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+   262→            <div className="flex items-center gap-2">
+   263→              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+   264→                <Megaphone className="h-4 w-4" />
+   265→              </div>
+   266→              <div>
+   267→                <CardTitle className="text-base">Recent Announcements</CardTitle>
+   268→                <CardDescription className="text-xs">Latest school communications</CardDescription>
+   269→              </div>
+   270→            </div>
+   271→            <Button variant="ghost" size="sm" className="text-xs" onClick={() => setActiveModule('communications')}>
+   272→              View all <ArrowRight className="ml-1 h-3 w-3" />
+   273→            </Button>
+   274→          </CardHeader>
+   275→          <CardContent className="space-y-2">
+   276→            {announcements.slice(0, 4).map(a => (
+   277→              <div key={a.id} className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50">
+   278→                <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${priorityColor(a.priority)}`} />
+   279→                <div className="min-w-0 flex-1">
+   280→                  <div className="flex items-center gap-2">
+   281→                    <p className="truncate text-sm font-medium">{a.title}</p>
+   282→                    {a.pinned && <Badge variant="outline" className="shrink-0 text-[10px]">📌 Pinned</Badge>}
+   283→                  </div>
+   284→                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{a.body}</p>
+   285→                  <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+   286→                    <Badge variant="secondary" className="text-[10px]">{a.audience}</Badge>
+   287→                    <span>·</span>
+   288→                    <span>{timeAgo(a.publishedAt)}</span>
+   289→                    <span>·</span>
+   290→                    <span>{a.authorName}</span>
+   291→                  </div>
+   292→                </div>
+   293→              </div>
+   294→            ))}
+   295→          </CardContent>
+   296→        </Card>
+   297→
+   298→        {/* Recent activity */}
+   299→        <Card>
+   300→          <CardHeader className="pb-3">
+   301→            <div className="flex items-center gap-2">
+   302→              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
+   303→                <Activity className="h-4 w-4" />
+   304→              </div>
+   305→              <div>
+   306→                <CardTitle className="text-base">Recent Activity</CardTitle>
+   307→                <CardDescription className="text-xs">System audit log</CardDescription>
+   308→              </div>
+   309→            </div>
+   310→          </CardHeader>
+   311→          <CardContent>
+   312→            <div className="space-y-3">
+   313→              {activities.slice(0, 7).map(a => {
+   314→                const Icon = ACTION_ICON[a.action] || Activity
+   315→                return (
+   316→                  <div key={a.id} className="flex items-start gap-2.5">
+   317→                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+   318→                      <Icon className="h-3.5 w-3.5" />
+   319→                    </div>
+   320→                    <div className="min-w-0 flex-1">
+   321→                      <p className="text-xs">
+   322→                        <span className="font-semibold">{a.user}</span>{' '}
+   323→                        <span className="text-muted-foreground">{a.details}</span>
+   324→                      </p>
+   325→                      <p className="text-[10px] text-muted-foreground">{timeAgo(a.createdAt)}</p>
+   326→                    </div>
+   327→                  </div>
+   328→                )
+   329→              })}
+   330→            </div>
+   331→          </CardContent>
+   332→        </Card>
+   333→      </div>
+   334→
+   335→      {/* Upcoming events + Quick actions */}
+   336→      <div className="grid gap-4 lg:grid-cols-3">
+   337→        {/* Term calendar / upcoming events */}
+   338→        <Card className="lg:col-span-2">
+   339→          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+   340→            <div className="flex items-center gap-2">
+   341→              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+   342→                <CalendarDays className="h-4 w-4" />
+   343→              </div>
+   344→              <div>
+   345→                <CardTitle className="text-base">Term Calendar & Upcoming Events</CardTitle>
+   346→                <CardDescription className="text-xs">{academic.currentTerm}, {academic.academicYear} — key dates & deadlines</CardDescription>
+   347→              </div>
+   348→            </div>
+   349→            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+   350→              <Sparkles className="mr-1 h-3 w-3" /> In Session
+   351→            </Badge>
+   352→          </CardHeader>
+   353→          <CardContent className="space-y-2">
+   354→            {[
+   355→              { date: 'Feb 15', day: 'Sat', title: 'Parent-Teacher Conference', time: '9:00 AM — 1:00 PM', icon: Users, color: 'emerald' },
+   356→              { date: 'Feb 24', day: 'Mon', title: 'Mid-Term Break Begins', time: 'All day · resumes Feb 28', icon: CalendarCheck, color: 'amber' },
+   357→              { date: 'Mar 01', day: 'Sat', title: 'Staff CBE Workshop', time: '8:00 AM — Teaching staff', icon: GraduationCap, color: 'teal' },
+   358→              { date: 'Mar 08', day: 'Sat', title: 'Kenya Science & Engineering Fair', time: 'Regional competitions', icon: Trophy, color: 'violet' },
+   359→              { date: 'Mar 14', day: 'Fri', title: 'Annual Sports Day', time: 'Inter-stream athletics', icon: Activity, color: 'cyan' },
+   360→              { date: 'Apr 07', day: 'Mon', title: 'End Term 1 Examinations', time: 'Begins — all forms', icon: FileText, color: 'rose' },
+   361→            ].map((e, i) => {
+   362→              const Icon = e.icon
+   363→              const colorMap: Record<string, string> = {
+   364→                emerald: 'bg-emerald-500/10 text-emerald-600 border-emerald-200/50',
+   365→                teal: 'bg-teal-500/10 text-teal-600 border-teal-200/50',
+   366→                amber: 'bg-amber-500/10 text-amber-600 border-amber-200/50',
+   367→                rose: 'bg-rose-500/10 text-rose-600 border-rose-200/50',
+   368→                violet: 'bg-violet-500/10 text-violet-600 border-violet-200/50',
+   369→                cyan: 'bg-cyan-500/10 text-cyan-600 border-cyan-200/50',
+   370→              }
+   371→              return (
+   372→                <div key={i} className="group flex items-center gap-3 rounded-lg border p-3 transition-all hover:border-emerald-200 hover:bg-muted/40">
+   373→                  <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border bg-muted/40">
+   374→                    <span className="text-[9px] font-semibold uppercase text-muted-foreground">{e.day}</span>
+   375→                    <span className="text-sm font-bold leading-none">{e.date.split(' ')[1]}</span>
+   376→                  </div>
+   377→                  <div className="min-w-0 flex-1">
+   378→                    <p className="truncate text-sm font-medium">{e.title}</p>
+   379→                    <p className="truncate text-xs text-muted-foreground">{e.time}</p>
+   380→                  </div>
+   381→                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${colorMap[e.color]}`}>
+   382→                    <Icon className="h-4 w-4" />
+   383→                  </div>
+   384→                </div>
+   385→              )
+   386→            })}
+   387→          </CardContent>
+   388→        </Card>
+   389→
+   390→        {/* Quick actions */}
+   391→        <Card>
+   392→          <CardHeader className="pb-3">
+   393→            <div className="flex items-center gap-2">
+   394→              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600">
+   395→                <Sparkles className="h-4 w-4" />
+   396→              </div>
+   397→              <div>
+   398→                <CardTitle className="text-base">Quick Actions</CardTitle>
+   399→                <CardDescription className="text-xs">Common tasks</CardDescription>
+   400→              </div>
+   401→            </div>
+   402→          </CardHeader>
+   403→          <CardContent className="grid grid-cols-2 gap-2">
+   404→            {[
+   405→              { label: 'Admit Student', icon: Users, module: 'students' as const, accent: 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20' },
+   406→              { label: 'Mark Attendance', icon: CalendarCheck, module: 'attendance' as const, accent: 'bg-teal-500/10 text-teal-600 hover:bg-teal-500/20' },
+   407→              ...(showFinance ? [{ label: 'Record Payment', icon: Wallet, module: 'finance' as const, accent: 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20' }] : []),
+   408→              { label: 'Generate Report', icon: FileText, module: 'reportcards' as const, accent: 'bg-rose-500/10 text-rose-600 hover:bg-rose-500/20' },
+   409→              { label: 'New Announcement', icon: Megaphone, module: 'communications' as const, accent: 'bg-violet-500/10 text-violet-600 hover:bg-violet-500/20' },
+   410→              { label: 'Issue Book', icon: BookOpen, module: 'library' as const, accent: 'bg-cyan-500/10 text-cyan-600 hover:bg-cyan-500/20' },
+   411→            ].map(a => {
+   412→              const Icon = a.icon
+   413→              return (
+   414→                <button
+   415→                  key={a.label}
+   416→                  onClick={() => setActiveModule(a.module)}
+   417→                  className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all ${a.accent}`}
+   418→                >
+   419→                  <Icon className="h-5 w-5" />
+   420→                  <span className="text-xs font-medium leading-tight">{a.label}</span>
+   421→                </button>
+   422→              )
+   423→            })}
+   424→            <button
+   425→              onClick={() => setCommandPaletteOpen(true)}
+   426→              className="group col-span-2 flex items-center justify-between overflow-hidden rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 p-3.5 text-left text-white shadow-md shadow-emerald-500/20 transition-all hover:shadow-lg hover:shadow-emerald-500/30"
+   427→            >
+   428→              <div className="flex items-center gap-2.5">
+   429→                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20 backdrop-blur transition-transform group-hover:scale-110">
+   430→                  <Sparkles className="h-3.5 w-3.5" />
+   431→                </div>
+   432→                <div>
+   433→                  <span className="block text-xs font-semibold">Search anything</span>
+   434→                  <span className="block text-[10px] text-white/70">Students, staff, books & more</span>
+   435→                </div>
+   436→              </div>
+   437→              <kbd className="flex items-center gap-0.5 rounded-md border border-white/30 bg-white/15 px-2 py-1 text-[10px] font-semibold backdrop-blur">⌘K</kbd>
+   438→            </button>
+   439→          </CardContent>
+   440→        </Card>
+   441→      </div>
+   442→
+   443→      {/* Quick stats footer */}
+   444→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   445→        <Card>
+   446→          <CardContent className="flex items-center gap-3 p-4">
+   447→            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+   448→              <Layers className="h-5 w-5" />
+   449→            </div>
+   450→            <div>
+   451→              <p className="text-xs text-muted-foreground">Classes & Streams</p>
+   452→              <p className="text-sm font-semibold">{stats.totalClasses} classes · {stats.activeStreams} streams</p>
+   453→            </div>
+   454→          </CardContent>
+   455→        </Card>
+   456→        <Card>
+   457→          <CardContent className="flex items-center gap-3 p-4">
+   458→            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600">
+   459→              <BookOpen className="h-5 w-5" />
+   460→            </div>
+   461→            <div>
+   462→              <p className="text-xs text-muted-foreground">Library Books</p>
+   463→              <p className="text-sm font-semibold">{formatNumber(stats.totalBooks)} total · {stats.availableBooks} available</p>
+   464→            </div>
+   465→          </CardContent>
+   466→        </Card>
+   467→        {showFinance && (
+   468→        <Card>
+   469→          <CardContent className="flex items-center gap-3 p-4">
+   470→            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+   471→              <Banknote className="h-5 w-5" />
+   472→            </div>
+   473→            <div>
+   474→              <p className="text-xs text-muted-foreground">Total Expenses (Term)</p>
+   475→              <p className="text-sm font-semibold">{formatKES(finance.totalExpenses)}</p>
+   476→            </div>
+   477→          </CardContent>
+   478→        </Card>
+   479→        )}
+   480→        <Card>
+   481→          <CardContent className="flex items-center gap-3 p-4">
+   482→            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/10 text-rose-600">
+   483→              <AlertCircle className="h-5 w-5" />
+   484→            </div>
+   485→            <div>
+   486→              <p className="text-xs text-muted-foreground">Overdue Library Loans</p>
+   487→              <p className="text-sm font-semibold">{stats.activeLoans} active loans</p>
+   488→            </div>
+   489→          </CardContent>
+   490→        </Card>
+   491→      </div>
+   492→    </div>
+   493→  )
+   494→}
+   495→

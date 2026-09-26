@@ -2,10 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 export async function GET(_req: NextRequest) {
+  // The activity log query is fetched separately from the main Promise.all
+  // so that a transient DB error (e.g. the ActivityLog table being temporarily
+  // unavailable, or a stale Prisma client during dev) doesn't take the whole
+  // dashboard down with a 500. We surface an empty list instead.
+  const activities = await db.activityLog
+    .findMany({ orderBy: { createdAt: 'desc' }, take: 8 })
+    .catch((err) => {
+      console.warn('[dashboard] activityLog.findMany failed — returning empty list:', err?.message ?? err)
+      return []
+    })
+
   const [
     totalStudents, totalStaff, totalClasses, activeStreams,
     invoices, paymentsToday, expenses, totalBooks, activeLoans,
-    announcements, activities, studentsByGender, studentsByLevel,
+    announcements, studentsByGender, studentsByLevel,
     attendanceRecent, feeStats, gradeDistribution
   ] = await Promise.all([
     db.student.count({ where: { status: 'Active' } }),
@@ -18,7 +29,6 @@ export async function GET(_req: NextRequest) {
     db.libraryBook.aggregate({ _sum: { copiesTotal: true, copiesAvailable: true }, _count: true }),
     db.bookLoan.count({ where: { status: { in: ['Borrowed', 'Overdue'] } } }),
     db.announcement.findMany({ orderBy: { publishedAt: 'desc' }, take: 6, include: {} }),
-    db.activityLog.findMany({ orderBy: { createdAt: 'desc' }, take: 8 }),
     db.student.groupBy({ by: ['gender'], where: { status: 'Active' }, _count: true }),
     db.student.findMany({
       where: { status: 'Active' },

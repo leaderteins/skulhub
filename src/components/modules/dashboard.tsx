@@ -13,7 +13,7 @@ import {
   Users, GraduationCap, Wallet, CalendarCheck, BookOpen, TrendingDown,
   BookMarked, Megaphone, Activity, ArrowRight, Banknote, AlertCircle,
   CheckCircle2, Clock, Layers, CalendarDays, Trophy, FileText, Bus,
-  Sparkles, ChevronRight,
+  Sparkles, ChevronRight, Trash2, Mail, UserPlus, Send,
 } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
@@ -51,7 +51,17 @@ interface DashboardData {
 }
 
 const ACTION_ICON: Record<string, any> = {
-  CREATE: CheckCircle2, UPDATE: Activity, PAYMENT: Banknote, MARK: CalendarCheck, GRADE: GraduationCap, ISSUE: BookMarked,
+  CREATE: CheckCircle2,
+  UPDATE: Activity,
+  DELETE: Trash2,
+  PAYMENT: Banknote,
+  MARK: CalendarCheck,
+  GRADE: GraduationCap,
+  ISSUE: BookMarked,
+  EMAIL: Mail,
+  SMS: Send,
+  STAFF_SIGNUP: UserPlus,
+  LOGIN: Users,
 }
 
 export function DashboardModule() {
@@ -310,6 +320,12 @@ export function DashboardModule() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
+              {activities.length === 0 && (
+                <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                  No recent activity yet. Actions like creating a lesson, recording a payment, or
+                  publishing an announcement will appear here.
+                </div>
+              )}
               {activities.slice(0, 7).map(a => {
                 const Icon = ACTION_ICON[a.action] || Activity
                 return (
@@ -318,9 +334,19 @@ export function DashboardModule() {
                       <Icon className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs">
-                        <span className="font-semibold">{a.user}</span>{' '}
-                        <span className="text-muted-foreground">{a.details}</span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge variant="secondary" className="text-[9px] uppercase tracking-wide">
+                          {a.action || 'ACT'}
+                        </Badge>
+                        {a.entity && (
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            {a.entity}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs">
+                        <span className="font-semibold">{a.user || 'System'}</span>{' '}
+                        <span className="text-muted-foreground">{a.details || '—'}</span>
                       </p>
                       <p className="text-[10px] text-muted-foreground">{timeAgo(a.createdAt)}</p>
                     </div>

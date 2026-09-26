@@ -7,7 +7,7 @@ const globalForPrisma = globalThis as unknown as {
 
 // Re-instantiate the client if the Prisma generated version changed
 // (handles schema updates during development without a full restart).
-const PRISMA_VERSION = 'v7-2026-09-01-exam-papers-and-parent-signed-bumped'
+const PRISMA_VERSION = 'v8-2026-09-26-activity-log-school-id'
 if (globalForPrisma.prismaVersion !== PRISMA_VERSION) {
   globalForPrisma.prisma = undefined
   globalForPrisma.prismaVersion = PRISMA_VERSION

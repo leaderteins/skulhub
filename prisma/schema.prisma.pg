@@ -1260,6 +1260,7 @@ model InventoryRequest {
 
 model ActivityLog {
   id        String   @id @default(cuid())
+  schoolId  String?  // optional — set when an action is taken in a school context
   action    String
   entity    String
   entityId  String?

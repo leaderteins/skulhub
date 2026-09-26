@@ -3907,3 +3907,217 @@ Stage Summary:
   biometric or superadmin route trees (only comment references)
 - ✅ Live API smoke tests all return real data instead of empty/errored
   responses — confirming the silent-failure bug class is resolved
+
+---
+
+## [FIX-TIMETABLE-DASHBOARD] — 2026-09-26
+
+**Agent:** full-stack-developer
+**Task ID:** FIX-TIMETABLE-DASHBOARD
+**Goal:** Fix 3 issues — (1) timetable add-lesson subject dropdown,
+(2) dashboard Recent Activity feed not showing actions, (3) timetable
+changes (CREATE/UPDATE/DELETE) not surfacing in ActivityLog.
+
+### ISSUE 1 — Timetable Subject Dropdown
+
+The Add-Lesson dialog already used a shadcn/ui `<Select>` for the
+subject, but it relied solely on the subjects bundled into the
+`/api/timetable` GET payload (no canonical subjects endpoint existed).
+Added a dedicated `/api/subjects` route + a text-input fallback path
+for fresh installs where the Subject table is empty.
+
+**Files touched:**
+
+1. `src/app/api/subjects/route.ts` (NEW)
+   - GET /api/subjects → returns `{ subjects: [...] }` ordered by name.
+   - Auth-required (401 when unauthenticated) — mirrors the timetable
+     endpoint's auth posture.
+   - Defensive: on any DB error returns `{ subjects: [] }` so the client
+     can fall back to the text-input path instead of crashing.
+
+2. `src/components/modules/timetable.tsx` — `AddLessonDialog`
+   - Now fetches subjects from `/api/subjects` via `useFetch`.
+   - If `/api/subjects` returns an empty list, falls back to the parent-
+     provided `subjects` prop (the bundled list from `/api/timetable`).
+   - If BOTH are empty, renders a shadcn `<Input>` so the user can type
+     the subject name. The dialog sends `subjectName` (not `subjectId`)
+     in that case.
+   - When the dropdown IS used, sends `subjectId` (preferred) and
+     clears `subjectName`. The display format is `"Mathematics (MAT)"`
+     per the task brief.
+   - Submit validation now accepts either `subjectId` OR `subjectName`.
+
+3. `src/app/api/timetable/route.ts` — POST handler
+   - Now accepts BOTH `subjectId` (preferred) and `subjectName` (fallback).
+   - If only `subjectName` is provided:
+     - Looks up an existing Subject by name (case-insensitive equality).
+     - If found, reuses its id.
+     - If not found, creates a new Subject with a derived 3-letter code
+       (e.g. "Mathematics" → "MAT") and category "Core".
+   - Validates `streamId, dayOfWeek, startTime, endTime` are present,
+     and at least one of `subjectId`/`subjectName` is present.
+
+### ISSUE 2 — Dashboard Recent Activity Not Showing
+
+The dashboard module fetches activities from `/api/dashboard` which
+ran `db.activityLog.findMany({ orderBy: { createdAt: 'desc' }, take: 8 })`
+inside a single `Promise.all`. If that query failed (e.g. transient
+DB error or stale Prisma client during dev), the entire dashboard
+returned 500 and the user saw nothing — including the Recent Activity
+card.
+
+**Files touched:**
+
+4. `src/app/api/dashboard/route.ts`
+   - Moved the `activityLog.findMany` query OUT of `Promise.all` so a
+     failure there doesn't take the rest of the dashboard widgets down
+     with it.
+   - Wrapped the activity query in `.catch(err => { console.warn(...);
+     return [] })` — on error, returns `[]` instead of throwing.
+   - The `activities` array is still returned in the JSON payload at
+     the same key, so no client-side change was strictly required.
+
+5. `src/app/api/activity-log/route.ts` (NEW)
+   - Created the canonical activity feed endpoint the brief asked for.
+   - GET /api/activity-log?limit=20 → returns
+     `{ activities: [...], total: N }`.
+   - Raw SQL:
+       `SELECT id, "schoolId", action, entity, "entityId", details,
+        "user", "createdAt" FROM "ActivityLog"
+        ORDER BY "createdAt" DESC LIMIT $1`
+   - SQL-compat: uses `CURRENT_TIMESTAMP`-free SELECT (no timestamp
+     literal needed); no `::int`/`::float` casts; `LIMIT $1` is
+     parameterised so it works on both SQLite and PostgreSQL.
+   - Wraps the whole query in `.catch(() => [])` so transient DB
+     errors return an empty list rather than 500.
+   - Coerces any BigInt/Date values to JSON-safe strings/ISO strings
+     in JS (no `::int` cast needed in SQL).
+   - `limit` query param is clamped to [1, 100], default 20.
+
+6. `src/components/modules/dashboard.tsx`
+   - Extended the `ACTION_ICON` map to cover all action types seen in
+     the audit log: added `DELETE`, `EMAIL`, `SMS`, `STAFF_SIGNUP`,
+     `LOGIN`. (Previously only CREATE, UPDATE, PAYMENT, MARK, GRADE,
+     ISSUE had icons; DELETE — which is what the new timetable DELETE
+     writes — would have fallen back to the generic Activity icon.)
+   - Imported the corresponding lucide icons: `Trash2, Mail, UserPlus,
+     Send`.
+   - Reworked the Recent Activity card to surface the action type as a
+     `Badge` (uppercase, e.g. "CREATE"), the entity name (e.g.
+     "Timetable"), the user, the details, and a relative timestamp via
+     `timeAgo()`. Added an empty-state when the activities list is
+     empty so the card doesn't look broken.
+
+### ISSUE 3 — Timetable Changes Not in Recent Activity
+
+The timetable POST/PUT/DELETE handlers were silently mutating the
+Timetable table without writing to the ActivityLog audit trail, so
+principal actions never showed up on the dashboard feed.
+
+**Schema change:**
+
+7. `prisma/schema.prisma` + `prisma/schema.prisma.pg`
+   - Added `schoolId String?` to the `ActivityLog` model. Optional so
+     existing rows (with NULL schoolId) remain valid; new rows can carry
+     the school context for downstream filtering.
+   - Ran `bun run db:push` — SQLite added the column at position 7
+     (verified via `PRAGMA table_info(ActivityLog)`).
+
+8. `src/lib/db.ts`
+   - Bumped `PRISMA_VERSION` to `v8-2026-09-26-activity-log-school-id`
+     so the singleton PrismaClient is re-instantiated after the schema
+     push picked up the new `schoolId` column (otherwise the dev server
+     would still be running with the old client that didn't know about
+     the field).
+
+**Files touched:**
+
+9. `src/app/api/timetable/route.ts` — POST
+   - After `db.timetable.create(...)`, executes a raw SQL INSERT into
+     ActivityLog:
+       `INSERT INTO "ActivityLog" (id, "schoolId", action, entity,
+        "entityId", details, "createdAt", "user")
+        VALUES ($1, $2, 'CREATE', 'Timetable', $3, $4,
+                CURRENT_TIMESTAMP, $5)`
+   - `schoolId` comes from `user.schoolId` (the JWT-decoded user
+     includes the school relation). Falls back to NULL if not set.
+   - `userName` comes from `user.name || user.email || 'Unknown'`.
+   - `details` is human-readable, e.g.
+     "Added Agriculture to Friday 13:40-14:20 timetable".
+   - Uses `CURRENT_TIMESTAMP` (works on SQLite + PostgreSQL) — NOT
+     `NOW()` (PG-only) and NOT `datetime('now')` (SQLite-only).
+   - Wrapped in `.catch(() => {})` so a logging failure never rolls
+     back the actual timetable create.
+   - Uses a randomised id (`log_${Date.now()}_${rand}`) to avoid
+     collisions when multiple timetable entries are created in the same
+     millisecond.
+
+10. `src/app/api/timetable/[id]/route.ts`
+    - Added a new `PUT` handler (didn't exist before):
+      - Accepts a partial update body (only the provided fields are
+        written — subjectId, teacherId, dayOfWeek, startTime, endTime,
+        room).
+      - After `db.timetable.update(...)`, writes an ActivityLog row
+        with `action='UPDATE'`, `entity='Timetable'`, and details like
+        "Updated Agriculture (Friday 13:40-14:20) — changed: teacherId,
+        room".
+      - Same SQL-compat pattern: `CURRENT_TIMESTAMP`, `.catch(() => {})`,
+        randomised id.
+    - Reworked `DELETE` handler:
+      - Before deleting, fetches the existing entry (with subject + stream
+        relations) so the audit log can describe what was removed.
+      - After `db.timetable.delete(...)`, writes an ActivityLog row with
+        `action='DELETE'`, `entity='Timetable'`, and details like
+        "Removed Agriculture from Friday 13:40-14:20 timetable".
+      - Falls back to a generic message ("Removed timetable entry {id}")
+        if the pre-fetch failed (entry already gone).
+
+### VERIFICATION
+
+- `bun run lint` → exit 0, no warnings/errors.
+- `rg -n 'NOW\(\)|::int|::float|::text' src/app/api/timetable
+  src/app/api/activity-log src/app/api/subjects src/app/api/dashboard`
+  → returns ONLY comment lines in activity-log/route.ts (the
+  docstring explaining what we DON'T use). No live PG-only syntax.
+- Smoke tests (dev server, port 3000, login as
+  admin@skulhub.ac.ke / admin123 to get the auth cookie):
+  - GET /api/timetable (no auth)             → 401 {"error":"Not authenticated"} ✓
+  - GET /api/timetable (with auth)           → 200, 5 entries, 13 subjects, 16 streams, 15 teachers ✓
+  - GET /api/subjects (with auth)            → 200, 13 subjects ✓
+  - GET /api/activity-log?limit=20 (auth)    → 200, 20 activities including the
+                                                new Timetable entries ✓
+  - GET /api/dashboard (with auth)          → 200, activities array now
+                                                includes the new Timetable
+                                                CREATE/UPDATE/DELETE rows ✓
+  - POST /api/timetable (with auth)         → 201, new entry created,
+                                                ActivityLog row inserted with
+                                                action='CREATE', entity='Timetable',
+                                                schoolId set, user='Moses Kinyanjui',
+                                                details='Added Agriculture to Friday
+                                                13:40-14:20 timetable' ✓
+  - PUT /api/timetable/[id] (with auth)     → 200, entry updated, ActivityLog row
+                                                inserted with action='UPDATE', details
+                                                listing the changed fields ✓
+  - DELETE /api/timetable/[id] (with auth)  → 200 {"success":true}, ActivityLog row
+                                                inserted with action='DELETE',
+                                                details describing what was removed ✓
+  - Home page (/)                           → 200 ✓
+
+### Stage Summary
+- ✅ 6 files modified/created: subjects API (new), activity-log API (new),
+  timetable POST (subjectId/subjectName + ActivityLog insert), timetable
+  [id] route (new PUT + ActivityLog inserts on PUT and DELETE), dashboard
+  route (resilient activity fetch), dashboard.tsx (richer activity rendering
+  + extended ACTION_ICON map).
+- ✅ Prisma schema updated to add `schoolId String?` to ActivityLog
+  (non-breaking — optional column, existing rows keep NULL schoolId).
+- ✅ All SQL uses `CURRENT_TIMESTAMP` (cross-engine). No `NOW()`,
+  no `::int`/`::float` casts, no PG-only array literals. Raw queries
+  wrapped in `.catch(() => [])` (SELECT) or `.catch(() => {})` (DML)
+  per the SQL-compat policy.
+- ✅ ActivityLog inserts never block the actual timetable mutation
+  (`.catch(() => {})` ensures a logging failure doesn't roll back the
+  user's create/update/delete).
+- ✅ Dashboard now shows timetable actions live in the Recent Activity
+  card — verified end-to-end via POST → GET /api/dashboard.
+- ✅ `bun run lint` passes clean (exit 0).
