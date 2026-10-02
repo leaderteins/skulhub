@@ -118,20 +118,20 @@ export function IdCardsModule() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
         <div>
           <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <IdCard className="h-6 w-6 text-emerald-600" /> ID Card Management
           </h2>
           <p className="text-sm text-muted-foreground">Generate printable ID cards with QR codes &amp; photos</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={openBatch}>
+        <Button className="bg-emerald-600 hover:bg-emerald-700 print:hidden" onClick={openBatch}>
           <Printer className="mr-1.5 h-4 w-4" /> Print All ({filtered.length})
         </Button>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3 print:hidden">
         <Card><CardContent className="p-4 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30"><Users className="h-5 w-5" /></div>
           <div><p className="text-xs text-muted-foreground">Total Students</p><p className="text-xl font-bold">{students.length}</p></div>
@@ -147,7 +147,7 @@ export function IdCardsModule() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 print:hidden">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search student..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
@@ -170,16 +170,21 @@ export function IdCardsModule() {
         )}
       </div>
 
-      {/* Student list */}
-      <Card>
-        <CardHeader className="pb-3">
+      {/* Student list — wrapped in print-container so the list prints cleanly via Ctrl+P */}
+      <Card className="print-container">
+        <CardHeader className="pb-3 print:hidden">
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-4 w-4 text-emerald-600" /> Students ({filtered.length})
           </CardTitle>
           <CardDescription className="text-xs">Click "Generate" to view/print ID card, or "Photo" to upload a photo</CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[500px] pr-4">
+          {/* Print-only header */}
+          <div className="mb-3 hidden print:block border-b pb-2">
+            <h2 className="text-base font-bold text-emerald-700">SkulHub Academy — Student List</h2>
+            <p className="text-xs text-slate-600">{filtered.length} students · Printed {new Date().toLocaleString('en-KE')}</p>
+          </div>
+          <ScrollArea className="h-[500px] pr-4 print:h-auto print:overflow-visible">
             <div className="grid gap-2 sm:grid-cols-2">
               {filtered.slice(0, 100).map(s => (
                 <div key={s.id} className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50">
@@ -196,7 +201,7 @@ export function IdCardsModule() {
                     <p className="truncate text-sm font-medium">{s.firstName} {s.lastName}</p>
                     <p className="text-xs text-muted-foreground">{s.admissionNo} · {s.class_name || '—'}</p>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 print:hidden">
                     <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setUploadTarget(s); setPhotoPreview(s.photoUrl || '') }} aria-label="Upload photo">
                       <Camera className="h-3.5 w-3.5" />
                     </Button>
@@ -248,7 +253,7 @@ export function IdCardsModule() {
       </Dialog>
 
       {/* Info banner */}
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900 dark:bg-emerald-950/20 print:hidden">
         <p className="text-xs text-emerald-700 dark:text-emerald-400">
           <strong>ID Card Features:</strong> Each card includes the school logo, student photo, admission number, class, stream,
           boarding/day status, and a QR code. The QR code encodes the student's ID and can be scanned at the biometric gate for check-in.

@@ -9,7 +9,7 @@ export function Footer() {
   const schoolName = user?.schoolName || 'SkulHub'
 
   return (
-    <footer className="mt-auto border-t border-border bg-background/60 px-4 py-3 backdrop-blur md:px-6">
+    <footer className="mt-auto border-t border-border bg-background/60 px-4 py-3 backdrop-blur md:px-6 print:hidden">
       <div className="flex flex-col items-center justify-between gap-2 text-xs text-muted-foreground sm:flex-row">
         <div className="flex items-center gap-2">
           <School className="h-3.5 w-3.5 text-emerald-600" />

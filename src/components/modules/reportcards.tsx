@@ -129,7 +129,7 @@ export function ReportCardsModule() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm" className="bg-white/15 text-white backdrop-blur hover:bg-white/25" onClick={() => window.print()}>
+            <Button variant="secondary" size="sm" className="bg-white/15 text-white backdrop-blur hover:bg-white/25 print:hidden" onClick={() => window.print()}>
               <Printer className="mr-1.5 h-4 w-4" /> Print Merit List
             </Button>
           </div>
@@ -346,9 +346,10 @@ export function ReportCardsModule() {
         </Card>
       </div>
 
-      {/* Merit list table */}
-      <Card>
-        <CardHeader className="pb-3">
+      {/* Merit list table — wrapped in print-container so the merit list
+          prints cleanly via Ctrl+P / "Print Merit List" button. */}
+      <Card className="print-container">
+        <CardHeader className="pb-3 print:hidden">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Merit List</CardTitle>
@@ -357,6 +358,13 @@ export function ReportCardsModule() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          {/* Print-only header */}
+          <div className="hidden print:block px-4 py-2 border-b">
+            <h2 className="text-base font-bold">{data?.exam?.name || 'Merit List'}</h2>
+            <p className="text-xs text-slate-600">
+              {data?.exam?.term || ''}, {data?.exam?.academicYear || ''} · {filtered.length} students · Printed {new Date().toLocaleString('en-KE')}
+            </p>
+          </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -437,7 +445,7 @@ function ReportCardDialog({ studentId, examId, onClose }: { studentId: string; e
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin p-0">
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto scrollbar-thin p-0 print:max-h-none print:overflow-visible print:w-full print:max-w-full">
         {loading || !data ? (
           <div className="p-8">
             <Skeleton className="h-12 w-full" />

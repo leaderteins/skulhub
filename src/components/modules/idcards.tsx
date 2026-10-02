@@ -129,16 +129,16 @@ export function IdCardsModule() {
         </Card>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => { setTab(v as any); setSelectedId(null) }} className="print:hidden">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+      <Tabs value={tab} onValueChange={(v) => { setTab(v as any); setSelectedId(null) }}>
+        <TabsList className="grid w-full max-w-md grid-cols-2 print:hidden">
           <TabsTrigger value="students" className="gap-1.5"><GraduationCap className="h-4 w-4" /> Students</TabsTrigger>
           <TabsTrigger value="staff" className="gap-1.5"><Users className="h-4 w-4" /> Staff</TabsTrigger>
         </TabsList>
 
         <TabsContent value={tab} className="mt-4">
           <div className="grid gap-4 lg:grid-cols-5">
-            {/* People list */}
-            <div className="lg:col-span-2">
+            {/* People list — hidden during print */}
+            <div className="lg:col-span-2 print:hidden">
               <Card className="overflow-hidden">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between gap-2">
@@ -205,8 +205,8 @@ export function IdCardsModule() {
 
             {/* ID card preview */}
             <div className="lg:col-span-3">
-              <Card className="overflow-hidden">
-                <CardHeader className="pb-3">
+              <Card className="overflow-hidden print:border-0 print:shadow-none">
+                <CardHeader className="pb-3 print:hidden">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <CardTitle className="text-base">ID Card Preview</CardTitle>
@@ -217,7 +217,7 @@ export function IdCardsModule() {
                     {effectiveSelected && (
                       <Button
                         size="sm"
-                        className="bg-cyan-600 hover:bg-cyan-700"
+                        className="bg-cyan-600 hover:bg-cyan-700 print:hidden"
                         onClick={() => {
                           toast.success('Opening print dialog...')
                           setTimeout(() => window.print(), 300)
@@ -228,7 +228,7 @@ export function IdCardsModule() {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="flex justify-center bg-muted/30 p-6 print:p-0 print:bg-white">
+                <CardContent className="flex justify-center bg-muted/30 p-6 print:flex print:items-start print:justify-start print:bg-white print:p-0">
                   {effectiveSelected ? (
                     <IdCardPreview person={effectiveSelected} />
                   ) : (

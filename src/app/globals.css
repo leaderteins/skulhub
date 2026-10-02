@@ -195,27 +195,111 @@
   scrollbar-width: none;
 }
 
-/* Print styles for report cards */
+/* ============================================================================
+   Print styles — clean A4 printouts for report cards, invoices, receipts,
+   ID cards, and merit lists.
+
+   Key approach:
+   - Use `display: none` (NOT `visibility: hidden`) to fully remove unwanted
+     elements from layout. `visibility: hidden` keeps elements in the layout
+     (they take up space) → blank pages on long printouts.
+   - Only `.print-container` and its descendants are visible.
+   - Radix Dialog portals (`[data-radix-portal]`) that contain a
+     `.print-container` are kept; the overlay (dark backdrop) is removed.
+   - Dialog content positioning is reset so the print-container sits at
+     top-left of the page, full width, no translate transforms.
+   ========================================================================== */
 @media print {
-  body * {
-    visibility: hidden;
+  /* === Step 1: Hide EVERYTHING at body root level by default === */
+  body > * {
+    display: none !important;
   }
-  .print-container, .print-container * {
-    visibility: visible;
+
+  /* === Step 2: Reveal only what should print === */
+  /* (a) explicitly tagged .print-portal or .print-container at body root */
+  body > .print-portal,
+  body > .print-container,
+  /* (b) Radix Dialog portals that contain a print-container */
+  body > [data-radix-portal]:has(.print-container) {
+    display: block !important;
   }
+
+  /* === Step 3: Make print-container and its descendants visible === */
+  .print-container,
+  .print-container * {
+    visibility: visible !important;
+  }
+
+  /* === Step 4: Position the print container at the top of the page === */
   .print-container {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 0;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    background: white !important;
+    color: black !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
+
+  /* === Step 5: Hide elements marked print:hidden (buttons, nav, etc.) === */
   .print\:hidden {
     display: none !important;
   }
+
+  /* === Step 6: Hide Radix dialog overlay (the dark backdrop) === */
+  [data-radix-overlay],
+  [data-slot="dialog-overlay"] {
+    display: none !important;
+  }
+
+  /* === Step 7: Reset Radix Dialog Content positioning for print === */
+  /* The dialog content is normally centered with translate(-50%, -50%),
+     fixed at top/left 50%. For print, we want it static, top-left, full
+     width, no transforms, no max-height, no scroll. */
+  [data-radix-content],
+  [data-slot="dialog-content"] {
+    position: static !important;
+    inset: auto !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    translate: 0 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* === Step 8: A4 page size with margins === */
   @page {
+    size: A4 portrait;
     margin: 1.5cm;
+  }
+
+  /* === Step 9: Tables: full width with borders for clean printing === */
+  .print-container table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 10pt !important;
+  }
+  .print-container th,
+  .print-container td {
+    border: 1px solid #999 !important;
+    padding: 4px 6px !important;
+    font-size: 10pt !important;
+  }
+
+  /* === Step 10: Avoid breaking table rows across pages === */
+  .print-container tr {
+    page-break-inside: avoid !important;
   }
 }
 

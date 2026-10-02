@@ -172,7 +172,7 @@ export default function Home() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 print:p-0 print:overflow-visible">
           {!canAccess ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">

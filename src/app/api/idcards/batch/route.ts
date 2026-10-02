@@ -74,7 +74,6 @@ export async function GET(req: NextRequest) {
       .title h1 { font-size: 20px; color: ${color}; }
       .title p { font-size: 12px; color: #666; }
       .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 800px; margin: 0 auto; }
-      @media print { body { background: white; padding: 10px; } .no-print { display: none; } .grid { gap: 6px; } }
       .card { width: 100%; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); background: white; page-break-inside: avoid; }
       .header { padding: 8px 10px; display: flex; align-items: center; gap: 6px; }
       .header .logo { width: 24px; height: 24px; background: white; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: ${color}; font-size: 12px; font-weight: bold; }
@@ -87,12 +86,19 @@ export async function GET(req: NextRequest) {
       .details .row span:first-child { color: #666; }
       .details .row span:last-child { font-weight: 600; }
       .qr { width: 40px; height: 40px; flex-shrink: 0; }
+      /* Print mode: clean A4 output */
+      @media print {
+        @page { size: A4 portrait; margin: 1.5cm; }
+        body { background: white; padding: 0; }
+        .no-print { display: none !important; }
+        .grid { gap: 6px; max-width: none; }
+      }
     </style></head><body>
-      <div class="title">
+      <div class="title no-print">
         <h1>${schoolName} — Student ID Cards</h1>
         <p>${students.length} cards · ${today} · ${classLevelId ? 'Class: ' + (students[0].class_name || '—') : 'All Classes'}</p>
       </div>
-      <div class="grid">${cards}</div>
+      <div class="grid print-container">${cards}</div>
       <div class="no-print" style="text-align:center;margin-top:20px;">
         <button onclick="window.print()" style="padding:10px 24px;background:${color};color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Print All ID Cards (${students.length})</button>
       </div>

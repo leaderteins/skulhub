@@ -1742,7 +1742,7 @@ function ViewInvoiceDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
-        <DialogHeader>
+        <DialogHeader className="print:hidden">
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             Invoice <span className="font-mono">{invoice.invoiceNo}</span>
@@ -1752,7 +1752,21 @@ function ViewInvoiceDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="print-container space-y-4 py-2">
+          {/* School header (visible only when printing) */}
+          <div className="hidden print:block border-b border-emerald-600 pb-2 mb-2">
+            <h1 className="text-lg font-bold text-emerald-700">SkulHub Academy</h1>
+            <p className="text-[10px] text-slate-600">P.O. Box 12345-00100, Nairobi · +254 700 000 000 · info@skulhub.ac.ke</p>
+          </div>
+
+          {/* Invoice meta line (visible only when printing) */}
+          <div className="hidden print:flex flex-wrap justify-between text-[10px] text-slate-700 border-b pb-2 mb-2">
+            <span><strong>Invoice No:</strong> {invoice.invoiceNo}</span>
+            <span><strong>Issue Date:</strong> {formatDate(invoice.issueDate)}</span>
+            <span><strong>Due Date:</strong> {formatDate(invoice.dueDate)}</span>
+            <span><strong>Status:</strong> {invoice.status}</span>
+          </div>
+
           {/* Student */}
           <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
             <Avatar className="h-10 w-10">
@@ -1807,9 +1821,14 @@ function ViewInvoiceDialog({
             <span>{invoice.academicYear} · {invoice.term}</span>
             <span>Payments recorded: <span className="font-semibold text-foreground">{invoice.paymentsCount}</span></span>
           </div>
+
+          {/* Printed-on footer (visible only when printing) */}
+          <div className="hidden print:block mt-4 border-t pt-2 text-[10px] text-slate-500 text-center">
+            Printed on {new Date().toLocaleString('en-KE')} · SkulHub Academy Finance Office
+          </div>
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end print:hidden">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
           <Button
             variant="outline"
@@ -2060,7 +2079,7 @@ function InvoicesTab() {
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleView(inv)} title="View invoice">
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-violet-600 hover:text-violet-700" onClick={() => handlePrint(inv)} title="Print invoice">
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-violet-600 hover:text-violet-700 print:hidden" onClick={() => handlePrint(inv)} title="Print invoice">
                             <Printer className="h-3.5 w-3.5" />
                           </Button>
                         </div>

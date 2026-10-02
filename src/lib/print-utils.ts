@@ -163,49 +163,77 @@ export function printWithLetterhead({ title, subtitle, school, bodyHtml, extraCs
       cursor: pointer; font-weight: 600;
     }
     .print-btn:hover { opacity: 0.9; }
+
+    /* === Print-mode: clean A4 output that fits on one page === */
     @media print {
-      .print-actions { display: none; }
-      body { padding: 0; max-width: none; }
+      /* Hide the print-actions button row */
+      .print-actions, .print\:hidden {
+        display: none !important;
+      }
+      /* Reset body — no padding/max-width, full bleed (page margins come from @page) */
+      body {
+        padding: 0 !important;
+        max-width: none !important;
+        margin: 0 !important;
+        background: white !important;
+      }
+      /* A4 portrait with sensible margins */
+      @page {
+        size: A4 portrait;
+        margin: 1.5cm;
+      }
+      /* Keep table rows intact across pages */
+      table, tr {
+        page-break-inside: avoid !important;
+      }
+      /* Letterhead border should not push content over the page edge */
+      .letterhead, .doc-footer, .info-card, table {
+        page-break-inside: avoid !important;
+      }
     }
 
     ${extraCss}
   </style>
 </head>
 <body>
-  <div class="print-actions">
+  <div class="print-actions print:hidden">
     <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
   </div>
 
-  <!-- School Letterhead -->
-  <div class="letterhead">
-    <div class="letterhead-left">
-      <div class="logo-box">${schoolName.charAt(0).toUpperCase()}</div>
-      <div class="school-info">
-        <h1>${schoolName}</h1>
-        ${schoolAddress ? `<p>${schoolAddress}</p>` : ''}
-        ${schoolPhone || schoolEmail ? `<p>${[schoolPhone, schoolEmail].filter(Boolean).join(' · ')}</p>` : ''}
-        ${schoolMotto ? `<p class="motto">"${schoolMotto}"</p>` : ''}
+  <!-- Printable document body — wrapped in print-container for consistency
+       with the main app's print CSS conventions. -->
+  <div class="print-container">
+    <!-- School Letterhead -->
+    <div class="letterhead">
+      <div class="letterhead-left">
+        <div class="logo-box">${schoolName.charAt(0).toUpperCase()}</div>
+        <div class="school-info">
+          <h1>${schoolName}</h1>
+          ${schoolAddress ? `<p>${schoolAddress}</p>` : ''}
+          ${schoolPhone || schoolEmail ? `<p>${[schoolPhone, schoolEmail].filter(Boolean).join(' · ')}</p>` : ''}
+          ${schoolMotto ? `<p class="motto">"${schoolMotto}"</p>` : ''}
+        </div>
+      </div>
+      <div class="letterhead-right">
+        <div class="doc-type">${title}</div>
+        ${subtitle ? `<div class="doc-title">${subtitle}</div>` : ''}
       </div>
     </div>
-    <div class="letterhead-right">
-      <div class="doc-type">${title}</div>
-      ${subtitle ? `<div class="doc-title">${subtitle}</div>` : ''}
-    </div>
-  </div>
 
-  <!-- Document Body -->
-  <div class="doc-body">
-    ${bodyHtml}
-  </div>
-
-  <!-- Footer -->
-  <div class="doc-footer">
-    <div class="signature">
-      Authorized Signature
+    <!-- Document Body -->
+    <div class="doc-body">
+      ${bodyHtml}
     </div>
-    <div class="meta">
-      Generated on ${new Date().toLocaleString()}<br>
-      Powered by SkulHub
+
+    <!-- Footer -->
+    <div class="doc-footer">
+      <div class="signature">
+        Authorized Signature
+      </div>
+      <div class="meta">
+        Generated on ${new Date().toLocaleString()}<br>
+        Powered by SkulHub
+      </div>
     </div>
   </div>
 

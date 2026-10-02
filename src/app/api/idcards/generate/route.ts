@@ -69,9 +69,14 @@ export async function GET(req: NextRequest) {
       .footer { background: ${color}; height: 6px; }
       .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 8px; font-weight: 600; }
       .badge.active { background: #dcfce7; color: #16a34a; }
-      @media print { body { background: white; } .no-print { display: none; } }
+      /* Print mode: clean A4 output, hide the print button, no background */
+      @media print {
+        @page { size: A4 portrait; margin: 1.5cm; }
+        body { background: white; padding: 0; min-height: auto; }
+        .no-print { display: none !important; }
+      }
     </style></head><body>
-      <div class="card">
+      <div class="card print-container">
         <div class="header">
           <div class="logo">${(s.school_name || 'S')[0]}</div>
           <div class="info">
@@ -100,7 +105,7 @@ export async function GET(req: NextRequest) {
         </div>
         <div class="footer"></div>
       </div>
-      <div class="no-print" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);">
+      <div class="no-print print:hidden" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);">
         <button onclick="window.print()" style="padding:10px 24px;background:${color};color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Print ID Card</button>
       </div>
     </body></html>`
