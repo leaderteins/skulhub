@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     const user = await getUserFromRequest(req)
     if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
+    await db.$executeRawUnsafe('CREATE TABLE IF NOT EXISTS "Settings" (id TEXT PRIMARY KEY, key TEXT UNIQUE, value TEXT, "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP)').catch(() => {})
     const settings = await db.$queryRawUnsafe<any[]>(
       `SELECT key, value FROM "Settings" WHERE key LIKE 'mpesa_%'`
     ).catch(() => [])
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
       ['mpesa_callback_url', callbackUrl || 'https://www.skulhub.co.ke/api/mpesa/callback'],
     ]
 
+    await db.$executeRawUnsafe('CREATE TABLE IF NOT EXISTS "Settings" (id TEXT PRIMARY KEY, key TEXT UNIQUE, value TEXT, "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP)').catch(() => {})
     for (const [key, value] of entries) {
       await db.$executeRawUnsafe(`
         INSERT INTO "Settings" (id, key, value, "createdAt", "updatedAt")
