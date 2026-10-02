@@ -18,7 +18,13 @@ import { execSync } from 'child_process'
 const REPO_OWNER = 'leaderteins'
 const REPO_NAME = 'skulhub'
 const PROJECT_DIR = '/home/z/my-project'
-const privateKey = fs.readFileSync(process.env.HOME + '/.ssh/id_ed25519', 'utf-8')
+import { DEPLOY_KEY_B64 } from './deploy-key'
+function getPrivateKey(): string {
+  try { return Buffer.from(DEPLOY_KEY_B64, 'base64').toString('utf-8') } catch {}
+  const hk = process.env.HOME + '/.ssh/id_ed25519'; if (fs.existsSync(hk)) return fs.readFileSync(hk, 'utf-8')
+  throw new Error('No SSH key found')
+}
+const privateKey = getPrivateKey()
 
 // Read current HEAD and the remote's known ref
 const headSha = fs.readFileSync(path.join(PROJECT_DIR, '.git/refs/heads/main'), 'utf-8').trim()
@@ -91,10 +97,10 @@ try {
         const out = Buffer.concat(stdout).toString('utf-8')
         const errOut = Buffer.concat(stderr).toString('utf-8')
         console.log('--- stdout ---')
-        console.log(out.slice(0, 2000))
+        console.log(out)
         if (errOut) {
           console.log('--- stderr ---')
-          console.log(errOut.slice(0, 1000))
+          console.log(errOut)
         }
         console.log(`Exit code: ${code}`)
         
@@ -148,6 +154,8 @@ try {
     port: 22,
     username: 'git',
     privateKey,
+    agent: false,
+    readyTimeout: 30000,
     algorithms: {
       serverHostKey: ['ssh-ed25519', 'ssh-rsa'],
     },
