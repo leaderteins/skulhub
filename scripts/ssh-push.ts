@@ -55,7 +55,7 @@ try {
   // Use --revs mode: feed commit SHAs only (rev-list without --objects),
   // and pack-objects --revs will walk trees/blobs automatically.
   const packResult = execSync(
-    `cd ${PROJECT_DIR} && git rev-list ${oldSha}..${headSha} | git pack-objects --stdout --revs --thin`,
+    `cd ${PROJECT_DIR} && git rev-list --all --objects | git pack-objects --stdout --thin`,
     { maxBuffer: 100 * 1024 * 1024 }
   )
   console.log(`Pack file size: ${(packResult.length / 1024).toFixed(1)} KB`)
