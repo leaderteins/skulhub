@@ -579,8 +579,8 @@ export function ParentPortal() {
 
                 {/* Homework + Comments Diary */}
                 <ParentHomeworkSection
-                  admissionNo={lookup?.student.admissionNo || ''}
-                  studentId={lookup?.student.id || ''}
+                  admissionNo={dashboard?.student?.admissionNo || admissionNo || ''}
+                  studentId={studentId || ''}
                   parentPhone={phone || dashboard?.guardian?.phone || ''}
                   parentName={dashboard?.guardian?.name || ''}
                 />
