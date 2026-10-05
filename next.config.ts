@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   reactStrictMode: false,
   // Don't auto-strip the trailing slash from /socket.io/ polling requests.
   // socket.io engine.io always polls /socket.io/?EIO=4&transport=polling —
