@@ -1,0 +1,6 @@
+import Link from 'next/link'
+import { Home, Search } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+export default function NotFound() {
+  return (<div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-4 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950"><div className="max-w-md space-y-6 text-center"><h1 className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-8xl font-bold tracking-tight text-transparent">404</h1><h2 className="text-2xl font-bold tracking-tight">Page Not Found</h2><p className="text-sm text-muted-foreground">The page you're looking for doesn't exist or has been moved.</p><div className="flex flex-col gap-2 sm:flex-row sm:justify-center"><Button asChild className="bg-emerald-600 hover:bg-emerald-700"><Link href="/"><Home className="mr-2 h-4 w-4" /> Back to Home</Link></Button><Button variant="outline" asChild><Link href="/#features"><Search className="mr-2 h-4 w-4" /> Browse Features</Link></Button></div><div className="flex flex-wrap justify-center gap-2"><Button variant="ghost" size="sm" asChild><Link href="/privacy">Privacy Policy</Link></Button><Button variant="ghost" size="sm" asChild><Link href="/terms">Terms of Service</Link></Button></div></div></div>)
+}
