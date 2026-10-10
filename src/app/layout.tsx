@@ -4,6 +4,8 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { GoogleAnalytics } from "@/components/google-analytics";
+import { StructuredData } from "@/components/structured-data";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,7 +20,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SkulHub — School Management System",
   description: "Professional school, college & university management system. Built for Kenyan institutions, scalable worldwide.",
-  keywords: ["school management", "Kenya education", "CBE", "university management", "fee management", "attendance"],
+  keywords: ["school management system Kenya", "school management software", "CBE Kenya", "Competency Based Education", "M-Pesa school fees", "parent portal Kenya", "school report cards", "attendance tracking", "fee management system", "biometric attendance", "school SMS Kenya", "JESMA exam papers", "KNEC past papers", "CBC Kenya", "school administration software", "education management system", "Kenya school software", "school ERP Kenya", "student information system", "school management ERP"],
   authors: [{ name: "SkulHub" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
@@ -42,7 +44,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <StructuredData />
           {children}
+          <GoogleAnalytics />
           <Toaster />
           <SonnerToaster richColors position="top-right" />
         </ThemeProvider>
