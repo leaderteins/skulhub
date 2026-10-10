@@ -8,6 +8,8 @@ import {
   animate,
 } from 'framer-motion'
 import { useAuthStore } from '@/lib/auth-store'
+import { ConversionOptimizer } from '@/components/conversion-optimizer'
+import { getVariant, trackConversion } from '@/lib/ab-testing'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -621,10 +623,10 @@ export function LandingPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <Navbar onCta={() => setAuthView('register')} onSignIn={() => setAuthView('login')} />
+      <Navbar onCta={() => { trackConversion('nav_cta', heroVariant); setAuthView('register') }} onSignIn={() => setAuthView('login')} />
 
       <main className="flex-1">
-        <Hero onCta={() => setAuthView('register')} onSignIn={() => setAuthView('login')} />
+        <Hero onCta={() => { trackConversion('hero_cta', heroVariant); setAuthView('register') }} onSignIn={() => setAuthView('login')} />
         <FeaturesSection />
         <ModuleShowcase />
         <MpesaDemo />
@@ -632,9 +634,9 @@ export function LandingPage() {
         <Testimonials />
         <AiDemo />
         <FaqSection />
-        <PricingSection onCta={() => setAuthView('register')} />
+        <PricingSection onCta={() => { trackConversion('pricing_cta', 'A'); setAuthView('register') }} />
         <DemoVideoSection onPlay={() => setShowVideo(true)} />
-        <FinalCta onCta={() => setAuthView('register')} onSignIn={() => setAuthView('login')} />
+        <FinalCta onCta={() => { trackConversion('final_cta', 'A'); setAuthView('register') }} onSignIn={() => setAuthView('login')} />
       </main>
 
       <Footer
