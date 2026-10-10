@@ -7,7 +7,7 @@ import Script from 'next/script'
  * If not set, the component renders nothing (no error).
  */
 export function GoogleAnalytics() {
-  const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || process.env.GA_MEASUREMENT_ID
+  const measurementId = 'G-04CCWDP7G5'
   if (!measurementId) return null
   
   return (
