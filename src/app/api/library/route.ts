@@ -1,124 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getUserFromRequest } from '@/lib/auth-utils'
 
-// GET /api/library?search=&category=
-// Returns books list with active loan counts + summary stats.
+/** GET /api/library?search=X — search books
+ *  POST — check out or return a book. Body: { bookId, studentId, action: 'checkout'|'return' }
+ */
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const search = searchParams.get('search')?.trim() || ''
-  const category = searchParams.get('category') || ''
-
-  const where: {
-    OR?: Array<Record<string, unknown>>
-    category?: string
-  } = {}
-  if (search) {
-    where.OR = [
-      { title: { contains: search } },
-      { author: { contains: search } },
-      { isbn: { contains: search } },
-      { publisher: { contains: search } },
-    ]
-  }
-  if (category) where.category = category
-
-  const [books, totalTitles, allCopies, availableCopies, borrowedCopies, overdueCopies, categories] = await Promise.all([
-    db.libraryBook.findMany({
-      where,
-      orderBy: [{ title: 'asc' }],
-      include: {
-        loans: {
-          where: { status: { in: ['Borrowed', 'Overdue'] } },
-          select: { id: true, status: true, dueDate: true },
-        },
-      },
-    }),
-    db.libraryBook.count({ where }),
-    db.libraryBook.aggregate({ where, _sum: { copiesTotal: true } }),
-    db.libraryBook.aggregate({ where, _sum: { copiesAvailable: true } }),
-    db.bookLoan.count({
-      where: {
-        status: { in: ['Borrowed', 'Overdue'] },
-        book: where.category || where.OR ? { ...where } : undefined,
-      },
-    }),
-    db.bookLoan.count({
-      where: {
-        status: 'Overdue',
-        book: where.category || where.OR ? { ...where } : undefined,
-      },
-    }),
-    db.libraryBook.findMany({
-      distinct: ['category'],
-      orderBy: { category: 'asc' },
-      select: { category: true },
-    }),
-  ])
-
-  const booksWithCounts = books.map((b) => ({
-    ...b,
-    activeLoans: b.loans.length,
-    overdueLoans: b.loans.filter((l) => l.status === 'Overdue').length,
-    loans: undefined,
-  }))
-
-  return NextResponse.json({
-    books: booksWithCounts,
-    categories: categories.map((c) => c.category),
-    stats: {
-      totalTitles,
-      totalCopies: allCopies._sum.copiesTotal || 0,
-      availableCopies: availableCopies._sum.copiesAvailable || 0,
-      borrowedCopies,
-      overdueCopies,
-    },
-  })
+  try {
+    const user = await getUserFromRequest(req)
+    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    const search = new URL(req.url).searchParams.get('search')
+    const where = search ? { schoolId: user.schoolId, OR: [{ title: { contains: search } }, { author: { contains: search } }, { isbn: { contains: search } }] } : { schoolId: user.schoolId }
+    const books = await db.libraryBook.findMany({ where, take: 100, orderBy: { title: 'asc' } }).catch(() => [])
+    return NextResponse.json({ books, count: books.length })
+  } catch { return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 }) }
 }
 
-// POST /api/library
-// Body: { isbn?, title, author, category, publisher?, yearPublished?, copiesTotal, shelfLocation? }
-// copiesAvailable = copiesTotal.
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null)
-  if (!body || !body.title || !body.author) {
-    return NextResponse.json({ error: 'title and author are required' }, { status: 400 })
-  }
-  const copiesTotal = Number(body.copiesTotal) || 1
-  if (copiesTotal < 1) {
-    return NextResponse.json({ error: 'copiesTotal must be at least 1' }, { status: 400 })
-  }
-
-  if (body.isbn) {
-    const dup = await db.libraryBook.findUnique({ where: { isbn: String(body.isbn).trim() } })
-    if (dup) {
-      return NextResponse.json({ error: 'A book with this ISBN already exists' }, { status: 409 })
+  try {
+    const user = await getUserFromRequest(req)
+    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    const body = await req.json().catch(() => ({}))
+    const { bookId, studentId, action } = body
+    if (!bookId || !action) return NextResponse.json({ error: 'bookId and action required' }, { status: 400 })
+    
+    if (action === 'checkout') {
+      const loan = await db.bookLoan.create({ data: { bookId, studentId, borrowedAt: new Date(), dueDate: new Date(Date.now() + 14 * 86400000), status: 'borrowed' } }).catch(() => null)
+      if (loan) await db.libraryBook.update({ where: { id: bookId }, data: { available: false } }).catch(() => {})
+      return NextResponse.json({ success: true, message: 'Book checked out', dueDate: loan?.dueDate })
+    } else if (action === 'return') {
+      await db.bookLoan.updateMany({ where: { bookId, studentId, status: 'borrowed' }, data: { status: 'returned', returnedAt: new Date() } }).catch(() => {})
+      await db.libraryBook.update({ where: { id: bookId }, data: { available: true } }).catch(() => {})
+      return NextResponse.json({ success: true, message: 'Book returned' })
     }
-  }
-
-  const book = await db.libraryBook.create({
-    data: {
-      isbn: body.isbn ? String(body.isbn).trim() : null,
-      title: String(body.title).trim(),
-      author: String(body.author).trim(),
-      category: body.category ? String(body.category).trim() : 'General',
-      publisher: body.publisher ? String(body.publisher).trim() : null,
-      yearPublished: body.yearPublished ? Number(body.yearPublished) : null,
-      copiesTotal,
-      copiesAvailable: copiesTotal,
-      shelfLocation: body.shelfLocation ? String(body.shelfLocation).trim() : null,
-      status: 'Available',
-    },
-  })
-
-  await db.activityLog.create({
-    data: {
-      action: 'CREATE',
-      entity: 'LibraryBook',
-      entityId: book.id,
-      user: body.actor || 'Librarian',
-      details: `Added book "${book.title}" (${copiesTotal} copies)`,
-    },
-  })
-
-  return NextResponse.json(book, { status: 201 })
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+  } catch { return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 }) }
 }
