@@ -3,17 +3,14 @@ import { useAppStore, type ModuleKey } from '@/lib/store'
 import { useAuthStore, ROLE_INFO } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import {
-  LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
+  import, LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
   Wallet, Megaphone, Library, Bus, BarChart3, Settings,
-  AlertTriangle, BookOpen, Package, CalendarClock, MessageSquare, X,
-  School, ChevronRight, FileText, HeartPulse, UsersRound, ClipboardList, CalendarDays, Scale, Home, Package, UtensilsCrossed, ClipboardCheck,
-  ShoppingCart, Building2, Banknote, Award,
-  NotebookPen, PencilRuler,
-  MessageSquare, IdCard,
-  LogOut, Upload, PackagePlus,
-  Shield, UserCheck, CalendarClock,
-  Fingerprint, Navigation,
-  Sparkles, CreditCard, Bell, TrendingUp,
+  AlertTriangle, Package, CalendarClock, MessageSquare, X, School,
+  ChevronRight, FileText, HeartPulse, UsersRound, ClipboardList, CalendarDays,
+  Scale, Home, UtensilsCrossed, ClipboardCheck, ShoppingCart, Building2,
+  Banknote, Award, NotebookPen, PencilRuler, IdCard, LogOut,
+  Upload, PackagePlus, Shield, UserCheck, Fingerprint, Navigation,
+  Sparkles, CreditCard, Bell, TrendingUp
 } from 'lucide-react'
 
 interface NavItem {
