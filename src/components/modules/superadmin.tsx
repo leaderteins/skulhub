@@ -1380,8 +1380,8 @@ function SchoolDetailDialog({ school, onOpenChange, onMutated }: {
                   <CardHeader className="pb-2"><CardTitle className="text-sm">User Accounts ({data.users.length})</CardTitle></CardHeader>
                   <CardContent>
                     <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                      {data.users.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No user accounts.</p>}
-                      {data.users.map(u => (
+                      {(!data?.school?.users || data.school.users.length === 0) && <p className="py-6 text-center text-sm text-muted-foreground">No user accounts.</p>}
+                      {(data?.school?.users || []).map(u => (
                         <div key={u.id} className="flex items-center gap-3 rounded-lg border p-2">
                           <Avatar className="h-8 w-8">
                             <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-[10px] font-semibold text-white">
