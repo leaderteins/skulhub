@@ -325,7 +325,7 @@ export const useAuthStore = create<AuthState>()(
         if (!user) return false
         // Super admin: platform modules + subscriptions billing
         if (user.isSuperAdmin) {
-          return ['dashboard', 'superadmin', 'settings', 'subscriptions'].includes(module)
+          return ['dashboard', 'superadmin', 'settings', 'subscriptions', 'feedefaulters', 'calendar', 'library', 'inventory', 'reportscheduler'].includes(module)
         }
         // If the admin has set per-user module overrides, use ONLY those.
         // An empty array means "only dashboard". null/undefined means "use role defaults".

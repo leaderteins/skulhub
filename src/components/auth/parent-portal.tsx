@@ -579,11 +579,14 @@ export function ParentPortal() {
 
                 {/* Homework + Comments Diary */}
                 <ParentHomeworkSection
-                  admissionNo={dashboard?.student?.admissionNo || admissionNo || ''}
-                  studentId={studentId || ''}
+                  admissionNo={lookup?.student.admissionNo || ''}
+                  studentId={lookup?.student.id || ''}
                   parentPhone={phone || dashboard?.guardian?.phone || ''}
                   parentName={dashboard?.guardian?.name || ''}
                 />
+
+                {/* Parent-Teacher Chat */}
+                <ParentTeacherChat studentId={studentId || ''} userRole="parent" />
 
 
                 {/* Timetable */}

@@ -4,7 +4,8 @@ import { useAuthStore, ROLE_INFO } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
-  Wallet, Megaphone, Library, Bus, BarChart3, Settings, X,
+  Wallet, Megaphone, Library, Bus, BarChart3, Settings,
+  AlertTriangle, BookOpen, Package, CalendarClock, MessageSquare, X,
   School, ChevronRight, FileText, HeartPulse, UsersRound, ClipboardList, CalendarDays, Scale, Home, Package, UtensilsCrossed, ClipboardCheck,
   ShoppingCart, Building2, Banknote, Award,
   NotebookPen, PencilRuler,
@@ -67,7 +68,8 @@ const NAV: NavItem[] = [
   // accessible to the platform owner via the hidden Ctrl+Shift+A shortcut on
   // the login screen, and auto-loads when they log in.
   { key: 'subscriptions', label: 'Subscriptions', icon: CreditCard, group: 'Insights' },
-  { key: 'settings', label: 'Settings', icon: Settings, group: 'Insights' },
+  { key: 'settings', label: 'Settings', icon: Settings,
+  AlertTriangle, BookOpen, Package, CalendarClock, MessageSquare, group: 'Insights' },
 ]
 
 export function Sidebar() {
@@ -91,7 +93,7 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto print:hidden',
+          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
