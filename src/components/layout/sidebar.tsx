@@ -3,7 +3,7 @@ import { useAppStore, type ModuleKey } from '@/lib/store'
 import { useAuthStore, ROLE_INFO } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import {
-  import, LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
+  LayoutDashboard, Users, GraduationCap, BookOpen, CalendarCheck,
   Wallet, Megaphone, Library, Bus, BarChart3, Settings,
   AlertTriangle, Package, CalendarClock, MessageSquare, X, School,
   ChevronRight, FileText, HeartPulse, UsersRound, ClipboardList, CalendarDays,
