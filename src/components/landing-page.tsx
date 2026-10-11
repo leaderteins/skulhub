@@ -91,6 +91,7 @@ import {
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
+import { ImageGallery } from '@/components/image-gallery'
 
 // ---------------------------------------------------------------------------
 // Static content constants
