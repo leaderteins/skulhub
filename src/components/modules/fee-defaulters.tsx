@@ -17,7 +17,7 @@ export function FeeDefaulterDashboard() {
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500/20 border-t-emerald-600" /></div>
 
-  const defaulters = (data?.defaulters || []).filter((d: any) => !search || d.lastName?.toLowerCase().includes(search.toLowerCase()) || d.admissionNo?.includes(search))
+  const defaulters = ((data?.defaulters || []) || []).filter((d: any) => !search || d.lastName?.toLowerCase().includes(search.toLowerCase()) || d.admissionNo?.includes(search))
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -37,7 +37,7 @@ export function FeeDefaulterDashboard() {
         <Card><CardContent className="flex flex-col items-center justify-center py-12 text-center"><CheckCircle className="h-12 w-12 text-emerald-500" /><p className="mt-2 font-semibold">No fee defaulters! 🎉</p><p className="text-sm text-muted-foreground">All students have cleared their fees.</p></CardContent></Card>
       ) : (
         <Card><CardContent className="p-0 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-muted/40"><th className="p-3 text-left text-xs font-medium">Student</th><th className="p-3 text-left text-xs font-medium">Class</th><th className="p-3 text-right text-xs font-medium">Balance</th><th className="p-3 text-left text-xs font-medium">Guardian</th><th className="p-3 text-center text-xs font-medium">Action</th></tr></thead>
-          <tbody>{defaulters.map((d: any, i: number) => (
+          <tbody>{(defaulters || []).map((d: any, i: number) => (
             <tr key={i} className="border-b hover:bg-muted/20">
               <td className="p-3"><p className="font-medium">{d.firstName} {d.lastName}</p><p className="text-xs text-muted-foreground">{d.admissionNo}</p></td>
               <td className="p-3 text-xs">{d.className || '-'}</td>

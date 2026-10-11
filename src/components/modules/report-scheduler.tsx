@@ -13,15 +13,15 @@ export function ReportScheduler() {
   const [date, setDate] = useState('')
 
   useEffect(() => {
-    fetch('/api/exams').then(r => r.json()).then(d => setExams(d.exams || d || [])).catch(() => {})
-    fetch('/api/report-schedule').then(r => r.json()).then(d => setSchedules(d.schedules || [])).catch(() => {})
+    fetch('/api/exams').then(r => r.json()).then(d => setExams((d?.exams || []) || d || [])).catch(() => {})
+    fetch('/api/report-schedule').then(r => r.json()).then(d => setSchedules((d?.schedules || []) || [])).catch(() => {})
   }, [])
 
   const schedule = async () => {
     if (!examId || !date) return
     await fetch('/api/report-schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ examId, scheduledDate: date }) })
     setExamId(''); setDate('')
-    fetch('/api/report-schedule').then(r => r.json()).then(d => setSchedules(d.schedules || []))
+    fetch('/api/report-schedule').then(r => r.json()).then(d => setSchedules((d?.schedules || []) || []))
   }
 
   return (
@@ -32,7 +32,7 @@ export function ReportScheduler() {
         <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
         <Button onClick={schedule} className="bg-emerald-600" disabled={!examId || !date}><CalendarClock className="mr-2 h-4 w-4" /> Schedule Generation</Button>
       </CardContent></Card>
-      <div className="space-y-2">{schedules.map((s, i) => <Card key={i}><CardContent className="flex items-center gap-3 p-3"><CheckCircle className="h-5 w-5 text-emerald-600" /><div className="flex-1"><p className="text-sm font-medium">{s.details}</p><p className="text-xs text-muted-foreground">{new Date(s.createdAt).toLocaleDateString('en-KE')}</p></div></CardContent></Card>)}</div>
+      <div className="space-y-2">{(schedules || []).map((s, i) => <Card key={i}><CardContent className="flex items-center gap-3 p-3"><CheckCircle className="h-5 w-5 text-emerald-600" /><div className="flex-1"><p className="text-sm font-medium">{s.details}</p><p className="text-xs text-muted-foreground">{new Date(s.createdAt).toLocaleDateString('en-KE')}</p></div></CardContent></Card>)}</div>
     </div>
   )
 }

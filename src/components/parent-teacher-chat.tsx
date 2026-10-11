@@ -11,9 +11,9 @@ export function ParentTeacherChat({ studentId, userRole }: { studentId: string; 
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch(`/api/parent-chat?studentId=${studentId}`).then(r => r.json()).then(d => { setMessages(d.messages || []); setLoading(false) }).catch(() => setLoading(false))
+    fetch(`/api/parent-chat?studentId=${studentId}`).then(r => r.json()).then(d => { setMessages((d?.messages || []) || []); setLoading(false) }).catch(() => setLoading(false))
     const interval = setInterval(() => {
-      fetch(`/api/parent-chat?studentId=${studentId}`).then(r => r.json()).then(d => setMessages(d.messages || [])).catch(() => {})
+      fetch(`/api/parent-chat?studentId=${studentId}`).then(r => r.json()).then(d => setMessages((d?.messages || []) || [])).catch(() => {})
     }, 5000)
     return () => clearInterval(interval)
   }, [studentId])
@@ -34,7 +34,7 @@ export function ParentTeacherChat({ studentId, userRole }: { studentId: string; 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {loading ? <p className="text-center text-sm text-muted-foreground">Loading messages...</p> :
         messages.length === 0 ? <p className="text-center text-sm text-muted-foreground py-8">No messages yet. Start the conversation!</p> :
-        messages.map((m, i) => {
+        (messages || []).map((m, i) => {
           const isTeacher = m.action === 'TEACHER_CHAT'
           const isMine = (userRole === 'parent' && !isTeacher) || (userRole !== 'parent' && isTeacher)
           return (

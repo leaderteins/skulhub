@@ -14,14 +14,14 @@ export function LibraryManagement() {
   const [studentAdm, setStudentAdm] = useState('')
 
   useEffect(() => {
-    fetch(`/api/library${search ? `?search=${encodeURIComponent(search)}` : ''}`).then(r => r.json()).then(d => { setBooks(d.books || []); setLoading(false) }).catch(() => setLoading(false))
+    fetch(`/api/library${search ? `?search=${encodeURIComponent(search)}` : ''}`).then(r => r.json()).then(d => { setBooks((d?.books || []) || []); setLoading(false) }).catch(() => setLoading(false))
   }, [search])
 
   const handleAction = async (bookId: string, action: 'checkout' | 'return') => {
     if (action === 'checkout' && !studentAdm) { setCheckoutBook(bookId); return }
     await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookId, studentId: studentAdm, action }) })
     setCheckoutBook(null); setStudentAdm('')
-    fetch(`/api/library${search ? `?search=${encodeURIComponent(search)}` : ''}`).then(r => r.json()).then(d => setBooks(d.books || []))
+    fetch(`/api/library${search ? `?search=${encodeURIComponent(search)}` : ''}`).then(r => r.json()).then(d => setBooks((d?.books || []) || []))
   }
 
   return (
@@ -35,7 +35,7 @@ export function LibraryManagement() {
         </CardContent></Card>
       )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {books.map(b => (
+        {(books || []).map(b => (
           <Card key={b.id}><CardContent className="p-4">
             <div className="flex items-start justify-between"><div><h3 className="font-semibold text-sm">{b.title}</h3><p className="text-xs text-muted-foreground">{b.author}</p></div><Badge variant={b.available ? 'default' : 'secondary'} className={b.available ? 'bg-emerald-600' : 'bg-rose-500'}>{b.available ? 'Available' : 'Out'}</Badge></div>
             <p className="mt-2 text-xs text-muted-foreground">ISBN: {b.isbn || 'N/A'}</p>

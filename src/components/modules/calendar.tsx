@@ -20,7 +20,7 @@ export function SchoolCalendar() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/calendar-events').then(r => r.json()).then(d => { setEvents(d.events || []); setLoading(false) }).catch(() => setLoading(false))
+    fetch('/api/calendar-events').then(r => r.json()).then(d => { setEvents((d?.events || []) || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const year = currentMonth.getFullYear()
