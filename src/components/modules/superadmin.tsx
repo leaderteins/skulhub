@@ -1244,33 +1244,33 @@ function SchoolDetailDialog({ school, onOpenChange, onMutated }: {
               <div className="relative z-10 flex items-start gap-4">
                 <Avatar className="h-14 w-14 ring-2 ring-white/20">
                   <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-lg font-bold text-white">
-                    {data.school.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+                    {(data?.school?.name || "Unknown").split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <DialogTitle className="text-xl font-bold text-white">{data.school.name}</DialogTitle>
                   <DialogDescription className="mt-0.5 text-sm text-slate-300">
-                    {data.school.slug} · {data.school.county || 'No county'}
+                    {(data?.school?.slug || "")} · {(data?.school?.county || "") || 'No county'}
                   </DialogDescription>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <PlanBadge plan={data.school.plan} />
-                    <StatusBadge status={data.school.status} />
-                    {data.school.trialEndsAt && (
+                    <PlanBadge plan={(data?.school?.plan || "Starter")} />
+                    <StatusBadge status={(data?.school?.status || "Active")} />
+                    {data?.school?.trialEndsAt && (
                       <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs text-amber-200 ring-1 ring-white/10">
-                        Trial ends {formatDate(data.school.trialEndsAt)}
+                        Trial ends {formatDate(data?.school?.trialEndsAt)}
                       </span>
                     )}
                   </div>
                 </div>
               </div>
               <div className="relative z-10 mt-4 flex flex-wrap gap-2">
-                {data.school.status !== 'Active' && (
+                {(data?.school?.status || "Active") !== 'Active' && (
                   <Button size="sm" disabled={busy} onClick={() => update({ status: 'Active' }, 'School activated')}
                     className="bg-emerald-600 hover:bg-emerald-700">
                     <PlayCircle className="mr-1.5 h-3.5 w-3.5" /> Activate
                   </Button>
                 )}
-                {data.school.status !== 'Suspended' && (
+                {(data?.school?.status || "Active") !== 'Suspended' && (
                   <Button size="sm" variant="secondary" disabled={busy} onClick={() => update({ status: 'Suspended' }, 'School suspended')}>
                     <PauseCircle className="mr-1.5 h-3.5 w-3.5" /> Suspend
                   </Button>
@@ -1282,7 +1282,7 @@ function SchoolDetailDialog({ school, onOpenChange, onMutated }: {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    {['Starter', 'Standard', 'Premium', 'Enterprise'].filter(p => p !== data.school.plan).map(p => (
+                    {['Starter', 'Standard', 'Premium', 'Enterprise'].filter(p => p !== (data?.school?.plan || "Starter")).map(p => (
                       <DropdownMenuItem key={p} onClick={() => update({ plan: p }, `Plan changed to ${p}`)}>
                         {p === 'Enterprise' ? <Crown className="mr-2 h-4 w-4 text-amber-600" /> : p === 'Premium' ? <Sparkles className="mr-2 h-4 w-4 text-emerald-600" /> : <ArrowUpCircle className="mr-2 h-4 w-4" />}
                         {p}
@@ -1297,14 +1297,14 @@ function SchoolDetailDialog({ school, onOpenChange, onMutated }: {
             <div className="space-y-4 p-6">
               {/* Quick stats */}
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <MiniStat label="Users" value={data.stats.userCount} icon={Users} accent="emerald" />
-                <MiniStat label="Students" value={data.stats.studentCount} icon={GraduationCap} accent="teal" />
-                <MiniStat label="Staff" value={data.stats.staffCount} icon={UserCog} accent="amber" />
-                <MiniStat label="Invoices" value={data.stats.invoiceCount} icon={FileText} accent="violet" />
-                <MiniStat label="Payments" value={data.stats.paymentCount} icon={Banknote} accent="emerald" />
-                <MiniStat label="Billed" value={formatKES(data.stats.totalBilled)} icon={Wallet} accent="teal" />
-                <MiniStat label="Collected" value={formatKES(data.stats.totalCollected)} icon={CheckCircle2} accent="emerald" />
-                <MiniStat label="Outstanding" value={formatKES(data.stats.totalOutstanding)} icon={AlertTriangle} accent="rose" />
+                <MiniStat label="Users" value={(data?.stats?.userCount || 0)} icon={Users} accent="emerald" />
+                <MiniStat label="Students" value={(data?.stats?.studentCount || 0)} icon={GraduationCap} accent="teal" />
+                <MiniStat label="Staff" value={(data?.stats?.staffCount || 0)} icon={UserCog} accent="amber" />
+                <MiniStat label="Invoices" value={(data?.stats?.invoiceCount || 0)} icon={FileText} accent="violet" />
+                <MiniStat label="Payments" value={(data?.stats?.paymentCount || 0)} icon={Banknote} accent="emerald" />
+                <MiniStat label="Billed" value={formatKES((data?.stats?.totalBilled || 0))} icon={Wallet} accent="teal" />
+                <MiniStat label="Collected" value={formatKES((data?.stats?.totalCollected || 0))} icon={CheckCircle2} accent="emerald" />
+                <MiniStat label="Outstanding" value={formatKES((data?.stats?.totalOutstanding || 0))} icon={AlertTriangle} accent="rose" />
               </div>
 
               {/* Two columns */}
@@ -1316,7 +1316,7 @@ function SchoolDetailDialog({ school, onOpenChange, onMutated }: {
                     <InfoRow icon={Mail} label="Email" value={data.school.email || '—'} />
                     <InfoRow icon={Phone} label="Phone" value={data.school.phone || '—'} />
                     <InfoRow icon={MapPin} label="Address" value={data.school.address || '—'} />
-                    <InfoRow icon={MapPin} label="County" value={data.school.county || '—'} />
+                    <InfoRow icon={MapPin} label="County" value={(data?.school?.county || "") || '—'} />
                     <InfoRow icon={CalendarDays} label="Joined" value={`${formatDate(data.school.createdAt)} (${timeAgo(data.school.createdAt)})`} />
                     <InfoRow icon={Building2} label="Max Students" value={String(data.school.maxStudents)} />
                   </CardContent>
@@ -1326,12 +1326,12 @@ function SchoolDetailDialog({ school, onOpenChange, onMutated }: {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm">Revenue Trend (6 months)</CardTitle>
-                    <CardDescription>Total: {formatKES(data.stats.totalRevenue)}</CardDescription>
+                    <CardDescription>Total: {formatKES((data?.stats?.totalRevenue || 0))}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="h-40">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data.revenueTrend} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                        <BarChart data={(data?.revenueTrend || [])} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
                           <defs>
                             <linearGradient id="detailRevGrad" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#059669" stopOpacity={1} />
@@ -1358,8 +1358,8 @@ function SchoolDetailDialog({ school, onOpenChange, onMutated }: {
                   <CardHeader className="pb-2"><CardTitle className="text-sm">Recent Payments</CardTitle></CardHeader>
                   <CardContent>
                     <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                      {data.recentPayments.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No payments yet.</p>}
-                      {data.recentPayments.map(p => (
+                      {(!data?.recentPayments || data.recentPayments.length === 0) && <p className="py-6 text-center text-sm text-muted-foreground">No payments yet.</p>}
+                      {(data?.recentPayments || []).map(p => (
                         <div key={p.id} className="flex items-center gap-3 rounded-lg border p-2">
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
                             <Banknote className="h-4 w-4" />
