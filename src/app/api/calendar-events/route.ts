@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       where: { schoolId: user.schoolId },
       orderBy: { startDate: 'asc' },
       take: 100,
-    ) } catch {}
+    }) } catch {}
     return NextResponse.json({ events })
   } catch { return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 }) }
 }

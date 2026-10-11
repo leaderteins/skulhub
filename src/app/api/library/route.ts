@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     const search = new URL(req.url).searchParams.get('search')
     const where = search ? { schoolId: user.schoolId, OR: [{ title: { contains: search } }, { author: { contains: search } }, { isbn: { contains: search } }] } : { schoolId: user.schoolId }
-    let books: any[] = []; try { books = await db.libraryBook.findMany({ where, take: 100, orderBy: { title: 'asc' } }) } catch {}
+    let books: any[] = []; try { books = await db.libraryBook.findMany({ where, take: 100, orderBy: { title: 'asc' } }}) } catch {}
     return NextResponse.json({ books, count: books.length })
   } catch { return NextResponse.json({ error: 'An unexpected error occurred.' }, { status: 500 }) }
 }
